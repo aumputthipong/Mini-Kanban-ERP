@@ -90,3 +90,20 @@ func (q *Queries) ListBoards(ctx context.Context) ([]Board, error) {
 	}
 	return items, nil
 }
+
+const updateCardColumn = `-- name: UpdateCardColumn :exec
+UPDATE cards
+SET column_id = $1, position = $2, updated_at = NOW()
+WHERE id = $3
+`
+
+type UpdateCardColumnParams struct {
+	ColumnID pgtype.UUID
+	Position float64
+	ID       pgtype.UUID
+}
+
+func (q *Queries) UpdateCardColumn(ctx context.Context, arg UpdateCardColumnParams) error {
+	_, err := q.db.Exec(ctx, updateCardColumn, arg.ColumnID, arg.Position, arg.ID)
+	return err
+}

@@ -1,30 +1,31 @@
 package websocket
 
-import "log"
+import (
+		"log"
+		"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+)
 
-// Hub จัดการรายชื่อ Client ทั้งหมดและรับส่งข้อความระหว่างกัน
 type Hub struct {
-	// เก็บรายชื่อ Client ที่ออนไลน์อยู่
-	// การใช้ map ช่วยให้ค้นหาและลบข้อมูลได้เร็ว (O(1) Time Complexity)
 	clients map[*Client]bool
 
-	// ท่อ (Channel) สำหรับรับข้อความที่ต้องการกระจายให้ทุกคน
+
 	broadcast chan []byte
 
-	// ท่อสำหรับลงทะเบียน Client เข้ามาใหม่
 	register chan *Client
 
-	// ท่อสำหรับถอด Client ออกเมื่อตัดการเชื่อมต่อ
 	unregister chan *Client
+
+	queries *db.Queries
 }
 
 // NewHub สร้าง instance ใหม่ของ Hub
-func NewHub() *Hub {
+func NewHub(queries *db.Queries) *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
+		queries:    queries,
 	}
 }
 

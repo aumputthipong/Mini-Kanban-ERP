@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 )
 func main() {
@@ -27,8 +28,9 @@ func main() {
 	}
 	fmt.Println("Successfully connected to PostgreSQL!")
 
+	queries := db.New(pool)
 	// 2. เริ่มต้นระบบ WebSocket Hub (เพิ่มส่วนนี้เข้ามา)
-	hub := websocket.NewHub()
+	hub := websocket.NewHub(queries)
 	go hub.Run() // ต้องใช้ go (Goroutine) เพื่อให้ Hub ทำงานเป็น Background รอรับข้อมูลตลอดเวลา
 
 	// 3. กำหนด Route สำหรับ WebSocket

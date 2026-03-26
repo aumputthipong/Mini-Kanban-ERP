@@ -2,14 +2,17 @@ version: '3.8'
 
 services:
   db:
-  image: postgres:15-alpine
-  container_name: mini-erp-kanban-db
-  environment:
-    POSTGRES_USER: erp_user
-    POSTGRES_PASSWORD: erp_password
-    POSTGRES_DB: erp_kanban
-  ports:
+    image: postgres:15-alpine
+    container_name: erp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_password
+      POSTGRES_DB: erp_kanban
+    ports:
       - "5432:5432"
-  volumes:
+    volumes:
       - pgdata:/var/lib/postgresql/data
+
+volumes:
   pgdata:

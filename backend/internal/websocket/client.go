@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -33,6 +34,11 @@ type Client struct {
 	send chan []byte
 }
 
+type WSMessage struct {
+	Type    string                 `json:"type"`
+	Payload map[string]interface{} `json:"payload"`
+}
+
 // ReadPump ดึงข้อความจาก WebSocket ส่งเข้า Hub
 func (c *Client) ReadPump() {
 	defer func() {
@@ -52,6 +58,37 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
+
+		// 1. สร้างตัวแปรมารองรับ
+		var wsMsg WSMessage
+
+		// 2. แกะกล่อง JSON (Unmarshal) ลงไปในตัวแปร wsMsg
+		err = json.Unmarshal(message, &wsMsg)
+		if err != nil {
+			log.Printf("Invalid JSON format: %v", err)
+			continue // ถ้าแกะไม่ได้ ให้ข้ามไปรอรับข้อความรอบถัดไป (อย่าเพิ่งปิดการเชื่อมต่อ)
+		}
+
+		// 3. เช็คว่าเป็นคำสั่งอะไร (Best Practice: ใช้ switch case จะอ่านง่ายกว่า if-else)
+		switch wsMsg.Type {
+		case "CARD_MOVED":
+			// Type Assertion: แปลง interface{} ให้กลายเป็น string
+			cardID, ok1 := wsMsg.Payload["card_id"].(string)
+			newColumnID, ok2 := wsMsg.Payload["new_column_id"].(string)
+
+			if ok1 && ok2 {
+				log.Printf("Action: Moved Card [%s] to Column [%s]\n", cardID, newColumnID)
+				
+				// TODO: ขั้นตอนต่อไปเราจะเอาตัวแปรนี้ไปสั่ง c.hub.queries.UpdateCardColumn(...)
+			} else {
+				log.Println("Invalid payload data for CARD_MOVED")
+			}
+
+		default:
+			log.Printf("Unknown message type: %s\n", wsMsg.Type)
+		}
+
+		// 4. กระจายข้อความให้ทุกคนในห้อง เพื่อให้หน้าจอคนอื่นอัปเดตตาม
 		c.hub.broadcast <- message
 	}
 }
