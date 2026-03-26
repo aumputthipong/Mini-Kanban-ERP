@@ -1,0 +1,7 @@
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+.env
