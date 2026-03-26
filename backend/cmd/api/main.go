@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"encoding/json"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
@@ -44,6 +46,41 @@ func main() {
 		fmt.Fprint(w, "API is running")
 	})
 
+	http.HandleFunc("/api/boards/", func(w http.ResponseWriter, r *http.Request) {
+		// CORS (Best Practice: อนุญาตให้ Frontend พอร์ต 3000 เรียกใช้ได้)
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// ใช้ตัวแปรที่ประกาศไว้
+		boardIDStr := "452ae618-9e69-49f5-88a9-47728a5f17ac" // ตรวจสอบให้ตรงกับ ID บอร์ดของคุณ
+
+		// แปลง String เป็น pgtype.UUID (เพื่อความปลอดภัยและป้องกัน SQL Injection)
+		var boardUUID pgtype.UUID
+		err := boardUUID.Scan(boardIDStr)
+		if err != nil {
+			http.Error(w, "Invalid board ID format", http.StatusBadRequest)
+			return
+		}
+
+		// ดึงข้อมูล Columns จาก Database โดยใช้ sqlc ที่เรา generate ไว้
+		columns, err := queries.GetColumnsByBoardID(r.Context(), boardUUID)
+		if err != nil {
+			log.Printf("Error fetching columns: %v", err)
+			http.Error(w, "Failed to fetch columns", http.StatusInternalServerError)
+			return
+		}
+
+		// แปลงข้อมูลที่ได้จาก Database เป็น JSON แล้วส่งกลับไปให้ผู้ใช้
+		// นี่คือการใช้งานตัวแปรทั้งหมดอย่างสมบูรณ์ Go จะไม่ฟ้อง Error แล้ว
+		if err := json.NewEncoder(w).Encode(columns); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+	})
 	// 4. เปิด Web Server
 	port := ":8080"
 	fmt.Printf("Server is running on http://localhost%s\n", port)

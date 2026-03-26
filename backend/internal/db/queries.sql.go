@@ -60,6 +60,76 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Col
 	return i, err
 }
 
+const getCardsByColumnIDs = `-- name: GetCardsByColumnIDs :many
+SELECT id, column_id, assignee_id, title, description, estimated_hours, position, created_at, updated_at 
+FROM cards 
+WHERE column_id = ANY($1::uuid[]) 
+ORDER BY position ASC
+`
+
+func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Card, error) {
+	rows, err := q.db.Query(ctx, getCardsByColumnIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Card
+	for rows.Next() {
+		var i Card
+		if err := rows.Scan(
+			&i.ID,
+			&i.ColumnID,
+			&i.AssigneeID,
+			&i.Title,
+			&i.Description,
+			&i.EstimatedHours,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getColumnsByBoardID = `-- name: GetColumnsByBoardID :many
+SELECT id, board_id, title, position, created_at
+FROM columns 
+WHERE board_id = $1 
+ORDER BY position ASC
+`
+
+func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) ([]Column, error) {
+	rows, err := q.db.Query(ctx, getColumnsByBoardID, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Column
+	for rows.Next() {
+		var i Column
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Title,
+			&i.Position,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBoards = `-- name: ListBoards :many
 SELECT id, title, budget, created_at, updated_at FROM boards
 ORDER BY created_at DESC

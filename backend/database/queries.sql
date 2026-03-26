@@ -16,3 +16,15 @@ RETURNING *;
 UPDATE cards
 SET column_id = $1, position = $2, updated_at = NOW()
 WHERE id = $3;
+
+-- name: GetColumnsByBoardID :many
+SELECT id, board_id, title, position, created_at
+FROM columns 
+WHERE board_id = $1 
+ORDER BY position ASC;
+
+-- name: GetCardsByColumnIDs :many
+SELECT id, column_id, assignee_id, title, description, estimated_hours, position, created_at, updated_at 
+FROM cards 
+WHERE column_id = ANY($1::uuid[]) 
+ORDER BY position ASC;
