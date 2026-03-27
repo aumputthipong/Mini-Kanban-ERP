@@ -20,14 +20,16 @@ interface BoardState {
   columns: Column[];
   setColumns: (columns: Column[]) => void;
   moveCard: (cardId: string, fromColumnId: string, toColumnId: string) => void;
+  addCardToStore: (newCard: any) => void;
+  removeCardFromStore: (cardId: string) => void;
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
 export const useBoardStore = create<BoardState>((set) => ({
-  columns: [], // เริ่มต้นด้วยหน้ากระดานเปล่าๆ
-  // ฟังก์ชันสำหรับเอาข้อมูลที่ได้จาก Go (หรือ Mock data) มายัดใส่ Store
+  columns: [], 
   setColumns: (columns) => set({ columns }),
- moveCard: (cardId, fromColumnId, toColumnId) => set((state) => {
+  
+  moveCard: (cardId, fromColumnId, toColumnId) => set((state) => {
     if (fromColumnId === toColumnId) return state; // ถ้าวางที่เดิม ไม่ต้องทำอะไร
 
     // สร้าง Copy ของ State เดิม เพื่อป้องกันการแก้ค่าตรงๆ (Immutability Best Practice)
@@ -55,4 +57,24 @@ export const useBoardStore = create<BoardState>((set) => ({
     // คืนค่า State ใหม่ให้ React เอาไปวาดหน้าจอใหม่
     return { columns: newColumns };
   }),
+
+  addCardToStore: (newCard) => set((state) => ({
+    columns: state.columns.map((col) => {
+      if (col.id === newCard.column_id) {
+        return {
+          ...col,
+          cards: [...col.cards, newCard], // เอาการ์ดใหม่ไปต่อท้าย list เดิม
+        };
+      }
+      return col;
+    }),
+  })),
+
+  removeCardFromStore: (cardId) => set((state) => ({
+    columns: state.columns.map((col) => ({
+      ...col,
+      // กรอง (filter) เอาเฉพาะการ์ดที่ ID ไม่ตรงกับตัวที่ถูกลบ ไว้ในคอลัมน์เดิม
+      cards: col.cards.filter((card) => card.id !== cardId),
+    })),
+  })),
 }));

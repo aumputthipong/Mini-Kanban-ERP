@@ -34,7 +34,8 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
-	send chan []byte
+	send    chan []byte
+	boardID string
 }
 
 type WSMessage struct {
@@ -108,12 +109,15 @@ func (c *Client) ReadPump() {
 					log.Printf("Success: Moved Card [%s] to Column [%s] at Pos [%f]\n", cardIDStr, newColumnIDStr, position)
 					// ส่งข้อความดิบ (JSON bytes) ที่รับมา โยนเข้า Channel broadcast ของ Hub
 					// เพื่อให้ Hub กระจายต่อไปยัง Client ทุกคนที่เชื่อมต่ออยู่
-					c.hub.broadcast <- message
+					c.hub.broadcast <- BroadcastMessage{
+						BoardID: c.boardID,
+						Message: message, // หรือ msgBytes สำหรับ CARD_CREATED
+					}
 				}
 			} else {
 				log.Println("Invalid payload data for CARD_MOVED")
 			}
-		
+
 		case "CARD_CREATED":
 			// 1. แกะ Payload ที่ส่งมาจาก Frontend
 			columnIDStr, ok1 := wsMsg.Payload["column_id"].(string)
@@ -136,19 +140,45 @@ func (c *Client) ReadPump() {
 					broadcastMsg := WSMessage{
 						Type: "CARD_CREATED",
 						Payload: map[string]interface{}{
-							"id":         newCard.ID.String(),
-							"column_id":  newCard.ColumnID.String(),
-							"title":      newCard.Title,
-							"position":   newCard.Position,
+							"id":        newCard.ID.String(),
+							"column_id": newCard.ColumnID.String(),
+							"title":     newCard.Title,
+							"position":  newCard.Position,
 						},
 					}
-					
+
 					// แปลงเป็น JSON แล้วกระจายข่าว!
 					msgBytes, _ := json.Marshal(broadcastMsg)
-					c.hub.broadcast <- msgBytes
+					c.hub.broadcast <- BroadcastMessage{
+                BoardID: c.boardID,  // ใช้ ID ของบอร์ดที่ Client คนนี้เชื่อมต่ออยู่
+                Message: msgBytes,   // ข้อมูล JSON ที่เราเพิ่ง Marshal มา
+            }
 				}
 			}
-			
+
+		case "CARD_DELETED":
+			// 1. ดึง ID การ์ดที่ต้องการลบ
+			cardIDStr, ok := wsMsg.Payload["card_id"].(string)
+			if ok {
+				var cardUUID pgtype.UUID
+				if err := cardUUID.Scan(cardIDStr); err == nil {
+					// 2. สั่งลบจาก Database
+					err := c.hub.queries.DeleteCard(context.Background(), cardUUID)
+
+					if err == nil {
+						log.Printf("Success: Deleted Card [%s]\n", cardIDStr)
+						// 3. บรอดแคสต์บอกทุกคนว่าการ์ดใบนี้ถูกลบแล้ว ให้เอาออกจากหน้าจอซะ
+						c.hub.broadcast <- BroadcastMessage{
+								BoardID: c.boardID,
+								Message: message, // หรือ msgBytes สำหรับ CARD_CREATED
+							}
+					} else {
+						log.Printf("Failed to delete card: %v\n", err)
+					}
+				}
+			} else {
+				log.Println("Invalid payload data for CARD_DELETED")
+			}
 		default:
 			log.Printf("Unknown message type: %s\n", wsMsg.Type)
 		}
@@ -194,14 +224,19 @@ func (c *Client) WritePump() {
 }
 
 // ServeWs เป็น Endpoint ที่ถูกเรียกเมื่อมีคนเชื่อมต่อเข้ามาที่ URL ของ WebSocket
-func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{
+		hub:     hub,
+		conn:    conn,
+		send:    make(chan []byte, 256),
+		boardID: boardID, // รับค่ามาเก็บไว้ตอนเชื่อมต่อ
+	}	
 	client.hub.register <- client
 
 	// อนุญาตให้ทำงานพร้อมกันโดยไม่บล็อกกันเอง

@@ -95,6 +95,15 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Col
 	return i, err
 }
 
+const deleteCard = `-- name: DeleteCard :exec
+DELETE FROM cards WHERE id = $1
+`
+
+func (q *Queries) DeleteCard(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteCard, id)
+	return err
+}
+
 const getCardsByColumnIDs = `-- name: GetCardsByColumnIDs :many
 SELECT id, column_id, assignee_id, title, description, estimated_hours, position, created_at, updated_at 
 FROM cards 

@@ -33,3 +33,6 @@ ORDER BY position ASC;
 INSERT INTO cards (id, column_id, title, position, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, column_id, title, position, created_at, updated_at;
+
+-- name: DeleteCard :exec
+DELETE FROM cards WHERE id = $1;

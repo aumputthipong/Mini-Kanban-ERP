@@ -6,12 +6,15 @@ interface ColumnProps {
   id: string;
   title: string;
   cards: Card[];
+  onDeleteCard: (cardId: string, cardTitle: string) => void; 
 }
 
-export function KanbanColumn({ id, title, cards }: ColumnProps) {
+export function KanbanColumn({ id, title, cards,onDeleteCard }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
+    
   });
+  
 
   return (
     <div 
@@ -28,7 +31,9 @@ export function KanbanColumn({ id, title, cards }: ColumnProps) {
       
       <div className="space-y-3 flex flex-col min-h-[100px]">
         {cards.map((card) => (
-          <KanbanCard key={card.id} card={card} />
+          <KanbanCard key={card.id} card={card} 
+          onDelete={() => onDeleteCard(card.id, card.title)}
+          />
         ))}
       </div>
     </div>

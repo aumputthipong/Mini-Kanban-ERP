@@ -50,7 +50,12 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	boardIDStr := "452ae618-9e69-49f5-88a9-47728a5f17ac"
+	boardIDStr := r.PathValue("boardID")
+
+	if boardIDStr == "" {
+		http.Error(w, "Board ID is required", http.StatusBadRequest)
+		return
+	}
 
 	var boardUUID pgtype.UUID
 	err := boardUUID.Scan(boardIDStr)
