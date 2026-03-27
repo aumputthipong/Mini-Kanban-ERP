@@ -1,60 +1,71 @@
 package websocket
 
-import (
-		"log"
-		"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
-)
+import "github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 
+// Hub ทำหน้าที่จัดการ Client และแยกห้องตาม Board ID
 type Hub struct {
-	clients map[*Client]bool
+	// เปลี่ยนจาก clients map[*Client]bool
+	// เป็น rooms โดยใช้ boardID (string) เป็น Key และ Value คือ map ของ Client
+	rooms map[string]map[*Client]bool
 
-
-	broadcast chan []byte
-
-	register chan *Client
-
+	broadcast  chan BroadcastMessage // สร้าง Struct ใหม่เพื่อระบุว่าข้อความนี้ของห้องไหน
+	register   chan *Client
 	unregister chan *Client
-
-	queries *db.Queries
+	queries    *db.Queries
 }
 
-// NewHub สร้าง instance ใหม่ของ Hub
+// สร้าง Struct สำหรับผูกข้อความเข้ากับ Board ID
+type BroadcastMessage struct {
+	BoardID string
+	Message []byte
+}
+
 func NewHub(queries *db.Queries) *Hub {
 	return &Hub{
-		broadcast:  make(chan []byte),
+		rooms:      make(map[string]map[*Client]bool), // ประกาศ Map เปล่า
+		broadcast:  make(chan BroadcastMessage),       // ใช้ Channel แบบใหม่
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
 		queries:    queries,
 	}
 }
 
-// Run เริ่มต้นการทำงานของ Hub (ควรเรียกใช้ผ่าน Goroutine)
 func (h *Hub) Run() {
 	for {
-		// select ใช้สำหรับรอรับข้อมูลจากหลายๆ Channel พร้อมกัน
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
-			log.Println("New client connected. Total clients:", len(h.clients))
+			// เช็คว่ามีห้องสำหรับ BoardID นี้หรือยัง ถ้ายังไม่มีให้สร้างใหม่
+			if _, ok := h.rooms[client.boardID]; !ok {
+				h.rooms[client.boardID] = make(map[*Client]bool)
+			}
+			// เอา Client เข้าห้องที่ถูกต้อง
+			h.rooms[client.boardID][client] = true
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-				log.Println("Client disconnected. Total clients:", len(h.clients))
+			// เอา Client ออกจากห้อง
+			if clients, ok := h.rooms[client.boardID]; ok {
+				if _, ok := clients[client]; ok {
+					delete(clients, client)
+					close(client.send)
+					
+					// ถ้าห้องว่างเปล่าแล้ว (ไม่มีคนดูบอร์ดนี้) ให้ลบห้องทิ้งเพื่อคืน Memory (Best Practice)
+					if len(clients) == 0 {
+						delete(h.rooms, client.boardID)
+					}
+				}
 			}
 
-		case message := <-h.broadcast:
-			// กระจายข้อความให้ทุก Client ที่ออนไลน์อยู่
-			for client := range h.clients {
-				select {
-				case client.send <- message:
-					// ส่งสำเร็จ
-				default:
-					// ถ้าส่งไม่ผ่าน (เช่น ท่อเต็ม หรือค้าง) ให้ตัดการเชื่อมต่อเพื่อรักษาทรัพยากร
-					close(client.send)
-					delete(h.clients, client)
+		case broadcastMsg := <-h.broadcast:
+			// ดึงรายชื่อ Client เฉพาะคนที่อยู่ใน BoardID นี้
+			if clients, ok := h.rooms[broadcastMsg.BoardID]; ok {
+				for client := range clients {
+					select {
+					case client.send <- broadcastMsg.Message:
+					default:
+						// ถ้าส่งไม่ได้ (เช่น เน็ตหลุด) ให้เตะออกจากห้อง
+						close(client.send)
+						delete(clients, client)
+					}
 				}
 			}
 		}

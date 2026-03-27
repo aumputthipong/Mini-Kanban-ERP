@@ -1,4 +1,5 @@
 "use client";
+import { useBoardStore } from '@/store/useBoardStore';
 import { useEffect, useRef, useCallback } from 'react';
 
 
@@ -19,16 +20,44 @@ export const useWebSocket = (url: string) => {
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log('Connected to Go WebSocket ✅');
+      console.log('Connected to Go WebSocket');
       isConnecting.current = false;
     };
 
     socket.onmessage = (event) => {
-      console.log('Message from server:', event.data);
+      // 2. ใช้ Try-Catch เสมอเมื่อจัดการกับ JSON เพื่อป้องกันแอปแครช
+      try {
+        const parsedData = JSON.parse(event.data);
+        console.log('Message from server:', parsedData);
+
+        // 3. ตรวจสอบประเภทของ Action
+        if (parsedData.type === 'CARD_MOVED') {
+          const { card_id, old_column_id, new_column_id } = parsedData.payload;
+          
+          // 4. เรียกใช้ moveCard จากนอก Component ผ่าน getState()
+          // นี่คือ Best Practice ของ Zustand ในการเข้าถึง State จากไฟล์ Hook ทั่วไป
+          useBoardStore.getState().moveCard(card_id, old_column_id, new_column_id);
+        }
+
+        if (parsedData.type === 'CARD_CREATED') {
+          const newCard = parsedData.payload;
+          
+          // เราต้องไปเพิ่มฟังก์ชัน addCard ให้กับ Zustand Store ของเราด้วย
+          useBoardStore.getState().addCardToStore(newCard);
+        }
+        
+
+        if (parsedData.type === 'CARD_DELETED') {
+          const { card_id } = parsedData.payload;
+          useBoardStore.getState().removeCardFromStore(card_id);
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
     };
 
     socket.onclose = () => {
-      console.log('Disconnected from WebSocket ❌');
+      console.log('Disconnected from WebSocket');
       socketRef.current = null;
       isConnecting.current = false;
     };

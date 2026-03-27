@@ -63,11 +63,16 @@ func main() {
 		fmt.Fprint(w, "API is running")
 	})
 
-	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		websocket.ServeWs(hub, w, r)
+	mux.HandleFunc("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+		boardID := r.PathValue("boardID") // ดึงค่าจาก URL
+		if boardID == "" {
+			http.Error(w, "Board ID is required", http.StatusBadRequest)
+			return
+		}
+		websocket.ServeWs(hub, w, r, boardID)
 	})
 
-	mux.HandleFunc("/api/boards/", boardHandler.GetBoardData)
+	mux.HandleFunc("/api/boards/{boardID}", boardHandler.GetBoardData)
 	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
 	// 5. เปิด Web Server โดยใช้พอร์ตจาก .env
 	fmt.Printf("Server is running on port %s\n", port)
