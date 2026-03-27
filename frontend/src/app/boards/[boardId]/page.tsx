@@ -1,11 +1,11 @@
 "use client";
 
-import { KanbanColumn } from "@/components/kanban/Column";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useBoardStore } from "@/store/useBoardStore";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { use, useEffect } from "react";
 import { Kanban, DollarSign } from "lucide-react";
+import { KanbanColumn } from "@/components/kanban/Column";
 
 interface PageProps {
 params: Promise<{
@@ -131,7 +131,7 @@ useEffect(() => {
       {/* DndContext เป็นตัวกลางตรวจจับการลากวางทั้งหมด */}
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-4">
-          {columns.map((col) => (
+          {(columns || []).map((col)=> (
             <div key={col.id} className="flex flex-col">
               <button
                 onClick={() => addCard(col.id)}

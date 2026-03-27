@@ -12,26 +12,20 @@ import (
 )
 
 const createBoard = `-- name: CreateBoard :one
-INSERT INTO boards (title, budget)
-VALUES ($1, $2)
-RETURNING id, title, budget, created_at, updated_at
+INSERT INTO boards (id, title, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, title
 `
 
-type CreateBoardParams struct {
-	Title  string
-	Budget pgtype.Numeric
+type CreateBoardRow struct {
+	ID    pgtype.UUID
+	Title string
 }
 
-func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error) {
-	row := q.db.QueryRow(ctx, createBoard, arg.Title, arg.Budget)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Budget,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow, error) {
+	row := q.db.QueryRow(ctx, createBoard, title)
+	var i CreateBoardRow
+	err := row.Scan(&i.ID, &i.Title)
 	return i, err
 }
 
@@ -71,9 +65,9 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 }
 
 const createColumn = `-- name: CreateColumn :one
-INSERT INTO columns (board_id, title, position)
-VALUES ($1, $2, $3)
-RETURNING id, board_id, title, position, created_at
+INSERT INTO columns (id, board_id, title, position, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, board_id, title, position
 `
 
 type CreateColumnParams struct {
@@ -82,15 +76,21 @@ type CreateColumnParams struct {
 	Position float64
 }
 
-func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Column, error) {
+type CreateColumnRow struct {
+	ID       pgtype.UUID
+	BoardID  pgtype.UUID
+	Title    string
+	Position float64
+}
+
+func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (CreateColumnRow, error) {
 	row := q.db.QueryRow(ctx, createColumn, arg.BoardID, arg.Title, arg.Position)
-	var i Column
+	var i CreateColumnRow
 	err := row.Scan(
 		&i.ID,
 		&i.BoardID,
 		&i.Title,
 		&i.Position,
-		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -102,6 +102,38 @@ DELETE FROM cards WHERE id = $1
 func (q *Queries) DeleteCard(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteCard, id)
 	return err
+}
+
+const getAllBoards = `-- name: GetAllBoards :many
+SELECT id, title, created_at 
+FROM boards 
+ORDER BY created_at DESC
+`
+
+type GetAllBoardsRow struct {
+	ID        pgtype.UUID
+	Title     string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetAllBoards(ctx context.Context) ([]GetAllBoardsRow, error) {
+	rows, err := q.db.Query(ctx, getAllBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllBoardsRow
+	for rows.Next() {
+		var i GetAllBoardsRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getCardsByColumnIDs = `-- name: GetCardsByColumnIDs :many
@@ -163,37 +195,6 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) 
 			&i.Title,
 			&i.Position,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBoards = `-- name: ListBoards :many
-SELECT id, title, budget, created_at, updated_at FROM boards
-ORDER BY created_at DESC
-`
-
-func (q *Queries) ListBoards(ctx context.Context) ([]Board, error) {
-	rows, err := q.db.Query(ctx, listBoards)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Board
-	for rows.Next() {
-		var i Board
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Budget,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
