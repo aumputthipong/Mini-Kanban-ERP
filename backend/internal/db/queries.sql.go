@@ -35,6 +35,41 @@ func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (Board
 	return i, err
 }
 
+const createCard = `-- name: CreateCard :one
+INSERT INTO cards (id, column_id, title, position, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, column_id, title, position, created_at, updated_at
+`
+
+type CreateCardParams struct {
+	ColumnID pgtype.UUID
+	Title    string
+	Position float64
+}
+
+type CreateCardRow struct {
+	ID        pgtype.UUID
+	ColumnID  pgtype.UUID
+	Title     string
+	Position  float64
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateCardRow, error) {
+	row := q.db.QueryRow(ctx, createCard, arg.ColumnID, arg.Title, arg.Position)
+	var i CreateCardRow
+	err := row.Scan(
+		&i.ID,
+		&i.ColumnID,
+		&i.Title,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createColumn = `-- name: CreateColumn :one
 INSERT INTO columns (board_id, title, position)
 VALUES ($1, $2, $3)

@@ -7,7 +7,8 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/jackc/pgx/v5/pgtype"
-) // 3. สร้าง Struct ชั่วคราว (DTO) เพื่อประกอบร่าง Column และ Card เข้าด้วยกันก่อนส่งเป็น JSON
+)
+ // 3. สร้าง Struct ชั่วคราว (DTO) เพื่อประกอบร่าง Column และ Card เข้าด้วยกันก่อนส่งเป็น JSON
 type CardResponse struct {
 	ID       string  `json:"id"`
 	ColumnID string  `json:"column_id"`
@@ -25,6 +26,11 @@ type ColumnResponse struct {
 type BoardHandler struct {
 	queries *db.Queries
 	frontendURL string
+}
+
+type CreateCardRequest struct {
+	ColumnID string `json:"column_id"`
+	Title    string `json:"title"`
 }
 
 // NewBoardHandler คือ Constructor สำหรับสร้าง BoardHandler
@@ -93,4 +99,50 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(result)
+}
+
+
+func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", h.frontendURL)
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	// จัดการ Preflight Request ของ Browser
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req CreateCardRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var colUUID pgtype.UUID
+	if err := colUUID.Scan(req.ColumnID); err != nil {
+		http.Error(w, "Invalid column ID", http.StatusBadRequest)
+		return
+	}
+
+	// สร้างการ์ดใหม่ใน Database (กำหนด position เป็น 0 หรือค่าเริ่มต้นไปก่อน)
+	card, err := h.queries.CreateCard(r.Context(), db.CreateCardParams{
+		ColumnID: colUUID,
+		Title:    req.Title,
+		Position: 0, // ในระบบจริงควรคำนวณหาตำแหน่งสุดท้ายของคอลัมน์
+	})
+
+	if err != nil {
+		log.Printf("Error creating card: %v", err)
+		http.Error(w, "Failed to create card", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(card)
 }

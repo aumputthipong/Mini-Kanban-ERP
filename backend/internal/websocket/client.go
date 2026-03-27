@@ -1,12 +1,15 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -72,24 +75,84 @@ func (c *Client) ReadPump() {
 		// 3. เช็คว่าเป็นคำสั่งอะไร (Best Practice: ใช้ switch case จะอ่านง่ายกว่า if-else)
 		switch wsMsg.Type {
 		case "CARD_MOVED":
-			// Type Assertion: แปลง interface{} ให้กลายเป็น string
-			cardID, ok1 := wsMsg.Payload["card_id"].(string)
-			newColumnID, ok2 := wsMsg.Payload["new_column_id"].(string)
+			// 1. ดึงข้อมูลและยืนยันประเภทข้อมูล (Type Assertion)
+			cardIDStr, ok1 := wsMsg.Payload["card_id"].(string)
+			newColumnIDStr, ok2 := wsMsg.Payload["new_column_id"].(string)
 
-			if ok1 && ok2 {
-				log.Printf("Action: Moved Card [%s] to Column [%s]\n", cardID, newColumnID)
-				
-				// TODO: ขั้นตอนต่อไปเราจะเอาตัวแปรนี้ไปสั่ง c.hub.queries.UpdateCardColumn(...)
+			// ข้อควรระวังใน Go: ตัวเลขจาก JSON interface{} จะถูกแปลงเป็น float64 เสมอ
+			position, ok3 := wsMsg.Payload["position"].(float64)
+
+			if ok1 && ok2 && ok3 {
+				// 2. แปลง String เป็น UUID สำหรับ PostgreSQL
+				var cardUUID, colUUID pgtype.UUID
+				if err := cardUUID.Scan(cardIDStr); err != nil {
+					log.Printf("Invalid card ID: %s", cardIDStr)
+					continue
+				}
+				if err := colUUID.Scan(newColumnIDStr); err != nil {
+					log.Printf("Invalid column ID: %s", newColumnIDStr)
+					continue
+				}
+
+				// 3. สั่ง Update ลง Database ผ่าน queries ที่อยู่ใน hub
+				// ใช้ context.Background() เพื่อบอกว่าคำสั่งนี้ไม่มีวันหมดอายุ (ทำงานจนกว่าจะเสร็จ)
+				err := c.hub.queries.UpdateCardColumn(context.Background(), db.UpdateCardColumnParams{
+					ColumnID: colUUID,
+					Position: position,
+					ID:       cardUUID,
+				})
+
+				if err != nil {
+					log.Printf("Failed to update database: %v", err)
+				} else {
+					log.Printf("Success: Moved Card [%s] to Column [%s] at Pos [%f]\n", cardIDStr, newColumnIDStr, position)
+					// ส่งข้อความดิบ (JSON bytes) ที่รับมา โยนเข้า Channel broadcast ของ Hub
+					// เพื่อให้ Hub กระจายต่อไปยัง Client ทุกคนที่เชื่อมต่ออยู่
+					c.hub.broadcast <- message
+				}
 			} else {
 				log.Println("Invalid payload data for CARD_MOVED")
 			}
+		
+		case "CARD_CREATED":
+			// 1. แกะ Payload ที่ส่งมาจาก Frontend
+			columnIDStr, ok1 := wsMsg.Payload["column_id"].(string)
+			title, ok2 := wsMsg.Payload["title"].(string)
 
+			if ok1 && ok2 {
+				var colUUID pgtype.UUID
+				colUUID.Scan(columnIDStr)
+
+				// 2. บันทึกลง Database (ใช้คำสั่ง CreateCard ที่เราเตรียมไว้)
+				newCard, err := c.hub.queries.CreateCard(context.Background(), db.CreateCardParams{
+					ColumnID: colUUID,
+					Title:    title,
+					Position: 0, // หรือคำนวณตำแหน่งจริง
+				})
+
+				if err == nil {
+					// 3. ปั้นข้อมูลใหม่เพื่อส่งกลับไปให้ทุกคน (รวมถึงคนสร้างด้วย)
+					// เราจะส่ง Object การ์ดที่สมบูรณ์ (มี ID จาก DB) กลับไป
+					broadcastMsg := WSMessage{
+						Type: "CARD_CREATED",
+						Payload: map[string]interface{}{
+							"id":         newCard.ID.String(),
+							"column_id":  newCard.ColumnID.String(),
+							"title":      newCard.Title,
+							"position":   newCard.Position,
+						},
+					}
+					
+					// แปลงเป็น JSON แล้วกระจายข่าว!
+					msgBytes, _ := json.Marshal(broadcastMsg)
+					c.hub.broadcast <- msgBytes
+				}
+			}
+			
 		default:
 			log.Printf("Unknown message type: %s\n", wsMsg.Type)
 		}
 
-		// 4. กระจายข้อความให้ทุกคนในห้อง เพื่อให้หน้าจอคนอื่นอัปเดตตาม
-		c.hub.broadcast <- message
 	}
 }
 

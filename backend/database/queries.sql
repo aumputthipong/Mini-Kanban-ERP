@@ -28,3 +28,8 @@ SELECT id, column_id, assignee_id, title, description, estimated_hours, position
 FROM cards 
 WHERE column_id = ANY($1::uuid[]) 
 ORDER BY position ASC;
+
+-- name: CreateCard :one
+INSERT INTO cards (id, column_id, title, position, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, column_id, title, position, created_at, updated_at;
