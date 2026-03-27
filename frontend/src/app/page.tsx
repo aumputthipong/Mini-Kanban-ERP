@@ -14,15 +14,29 @@ export default function KanbanPage() {
 
 
 useEffect(() => {
-    // ข้อมูลจำลองสำหรับทดสอบ
-    const mockData = [
-      { id: '1', title: 'To Do', position: 1, cards: [{ id: 'c1', title: 'Fix CSS bug', column_id: '1', position: 1 }] },
-      { id: '2', title: 'In Progress', position: 2, cards: [] },
-      { id: '3', title: 'Done', position: 3, cards: [] },
-    ];
-    setColumns(mockData);
+    const fetchBoardData = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/boards/');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Data from Go Backend:", data);
+
+        // ยัดข้อมูลที่ Go ส่งมา ลง Store ได้เลย!
+        // แค่บรรทัดเดียวจบ เพราะ Go เตรียมมาให้ดีแล้ว
+        setColumns(data);
+
+      } catch (error) {
+        console.error("Failed to fetch board data:", error);
+      }
+    };
+
+    fetchBoardData();
   }, [setColumns]);
-  
+ 
 
  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -75,9 +89,9 @@ useEffect(() => {
       {/* DndContext เป็นตัวกลางตรวจจับการลากวางทั้งหมด */}
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-4">
-          {columns.map((col) => (
-            <KanbanColumn key={col.id} id={col.id} title={col.title} cards={col.cards} />
-          ))}
+        {columns.map((col) => (
+          <KanbanColumn key={col.id} id={col.id} title={col.title} cards={col.cards} />
+        ))}
         </div>
       </DndContext>
     </main>
