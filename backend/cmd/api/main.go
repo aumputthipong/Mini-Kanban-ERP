@@ -72,8 +72,11 @@ func main() {
 		websocket.ServeWs(hub, w, r, boardID)
 	})
 
+	mux.HandleFunc("/api/boards", boardHandler.HandleBoardsRoute)
 	mux.HandleFunc("/api/boards/{boardID}", boardHandler.GetBoardData)
 	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
+	
+	
 	// 5. เปิด Web Server โดยใช้พอร์ตจาก .env
 	fmt.Printf("Server is running on port %s\n", port)
 

@@ -29,8 +29,8 @@ export function KanbanColumn({ id, title, cards,onDeleteCard }: ColumnProps) {
         <span className="bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-full">{cards.length}</span>
       </div>
       
-      <div className="space-y-3 flex flex-col min-h-[100px]">
-        {cards.map((card) => (
+      <div className="space-y-3 flex flex-col min-h-[400px]">
+        {(cards || []).map((card) => (
           <KanbanCard key={card.id} card={card} 
           onDelete={() => onDeleteCard(card.id, card.title)}
           />

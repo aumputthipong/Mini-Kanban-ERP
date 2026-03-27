@@ -23,10 +23,9 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// ในการพัฒนาจริงควรตรวจเช็ค Origin เพื่อป้องกันความปลอดภัย (CORS)
-	// แต่ช่วงทดสอบนี้เราจะอนุญาตทั้งหมดไปก่อน
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		// return true หมายถึงอนุญาตให้ Next.js (localhost:3000) เชื่อมต่อเข้ามาได้
+		return true 
 	},
 }
 
@@ -57,8 +56,8 @@ func (c *Client) ReadPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
+				log.Printf("Unexpected websocket error: %v", err)
 			}
 			break
 		}

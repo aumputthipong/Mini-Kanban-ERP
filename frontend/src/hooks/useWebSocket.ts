@@ -11,69 +11,83 @@ export interface WebSocketMessage {
 export const useWebSocket = (url: string) => {
   const socketRef = useRef<WebSocket | null>(null);
   const isConnecting = useRef(false);
-  useEffect(() => {
-    // ถ้ากำลังเชื่อมต่ออยู่ หรือมี Socket แล้ว ให้ข้ามไปเลย ไม่ต้องสร้างใหม่
-    if (isConnecting.current || socketRef.current) return;
 
+useEffect(() => {
+    // 1. Guard ป้องกัน URL ไม่พร้อม
+    if (!url || url.endsWith('undefined') || url.endsWith('null') || url.endsWith('/')) {
+      return; 
+    }
+
+    let isCancelled = false; // Flag พระเอกของเรา
+
+    console.log("🎯 Attempting to connect WebSocket to:", url);
     isConnecting.current = true;
+    
     const socket = new WebSocket(url);
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log('Connected to Go WebSocket');
+      if (isCancelled) {
+        socket.close();
+        return;
+      }
+      console.log('✅ Connected to Go WebSocket');
       isConnecting.current = false;
     };
 
     socket.onmessage = (event) => {
-      // 2. ใช้ Try-Catch เสมอเมื่อจัดการกับ JSON เพื่อป้องกันแอปแครช
+      if (isCancelled) return; // ถ้ายกเลิกแล้ว ห้ามประมวลผลข้อความ
       try {
         const parsedData = JSON.parse(event.data);
-        console.log('Message from server:', parsedData);
+        console.log('📩 Message from server:', parsedData);
 
-        // 3. ตรวจสอบประเภทของ Action
         if (parsedData.type === 'CARD_MOVED') {
           const { card_id, old_column_id, new_column_id } = parsedData.payload;
-          
-          // 4. เรียกใช้ moveCard จากนอก Component ผ่าน getState()
-          // นี่คือ Best Practice ของ Zustand ในการเข้าถึง State จากไฟล์ Hook ทั่วไป
           useBoardStore.getState().moveCard(card_id, old_column_id, new_column_id);
         }
 
         if (parsedData.type === 'CARD_CREATED') {
-          const newCard = parsedData.payload;
-          
-          // เราต้องไปเพิ่มฟังก์ชัน addCard ให้กับ Zustand Store ของเราด้วย
-          useBoardStore.getState().addCardToStore(newCard);
+          useBoardStore.getState().addCardToStore(parsedData.payload);
         }
-        
 
         if (parsedData.type === 'CARD_DELETED') {
-          const { card_id } = parsedData.payload;
-          useBoardStore.getState().removeCardFromStore(card_id);
+          useBoardStore.getState().removeCardFromStore(parsedData.payload.card_id);
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('❌ Error parsing WebSocket message:', error);
       }
     };
 
     socket.onclose = () => {
-      console.log('Disconnected from WebSocket');
+      // [แก้บั๊กที่นี่!]: ถ้าถูกสั่ง Cancel ไปแล้ว ห้ามเอา null ไปทับของใหม่เด็ดขาด!
+      if (isCancelled) return; 
+      
+      console.log('🛑 Disconnected from WebSocket');
       socketRef.current = null;
       isConnecting.current = false;
     };
 
     socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      // [แก้บั๊กที่นี่!]: ไม่แสดง Error และไม่เคลียร์ค่า ถ้ามันคือ socket ที่เราจงใจปิดเอง
+      if (isCancelled) return;
+
+      console.error('❌ WebSocket encountered an error.');
       isConnecting.current = false;
     };
 
-    // Cleanup function
     return () => {
+      // เมื่อ Component ถูกทำลาย (เช่น กดกลับหน้า Dashboard)
+      isCancelled = true; 
+      
       if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
         socket.close();
       }
-      socketRef.current = null;
-      isConnecting.current = false;
+      
+      // [ป้องกันชั้นที่ 2]: เคลียร์ค่า Ref เฉพาะกรณีที่ Ref นั้นยังชี้มาที่ socket ตัวเก่านี้เท่านั้น
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+        isConnecting.current = false;
+      }
     };
   }, [url]);
 
