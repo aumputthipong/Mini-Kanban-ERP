@@ -68,7 +68,7 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/boards/", boardHandler.GetBoardData)
-
+	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
 	// 5. เปิด Web Server โดยใช้พอร์ตจาก .env
 	fmt.Printf("Server is running on port %s\n", port)
 
