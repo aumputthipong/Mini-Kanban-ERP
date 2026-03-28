@@ -7,12 +7,17 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
+
+
+
 func main() {
 	// 1. โหลดไฟล์ .env
 	// หากไม่พบไฟล์ ระบบจะไม่พัง แต่จะข้ามไปอ่านจากตัวแปรระบบ (System Env) ของ Server จริง
@@ -55,7 +60,8 @@ func main() {
 	go hub.Run()
 
 	// 4. ส่ง frontendURL เข้าไปใน Handler
-	boardHandler := handler.NewBoardHandler(queries, frontendURL)
+	boardService := service.NewBoardService(queries)
+	boardHandler := handler.NewBoardHandler(boardService)
 
 	mux := http.NewServeMux()
 
@@ -75,16 +81,16 @@ func main() {
 	mux.HandleFunc("/api/boards", boardHandler.HandleBoardsRoute)
 	mux.HandleFunc("/api/boards/{boardID}", boardHandler.GetBoardData)
 	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
-	
+
+	handlerWithCORS := middleware.CORS(frontendURL, mux)
 	
 	// 5. เปิด Web Server โดยใช้พอร์ตจาก .env
 	fmt.Printf("Server is running on port %s\n", port)
 
 	server := &http.Server{
-		Addr:    ":" + port, // เพิ่ม colon (:) นำหน้าตัวเลขพอร์ต
-		Handler: mux,
+		Addr:    ":" + port,
+		Handler: handlerWithCORS, // [แก้ไข 5]: สั่งให้ Server ใช้งานตัวที่โดนครอบ Middleware แล้ว (เปลี่ยนจากตัวแปร mux ธรรมดา)
 	}
-
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
