@@ -108,19 +108,19 @@ useEffect(() => {
 
   return (
     <main className="min-h-screen bg-slate-50 p-8">
-      <header className="mb-8 flex items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <header className="mb-8 flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Kanban className="text-blue-600" />
             Mini ERP Kanban
           </h1>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center gap-3">
+        <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex items-center gap-3">
           <div className="bg-green-500 p-2 rounded-full text-white">
             <DollarSign size={20} />
           </div>
           <div>
-            <p className="text-xs text-green-700 font-medium uppercase">
+            <p className="text-xs text-green-700 font-medium uppercase tracking-wider">
               Budget Used
             </p>
             <p className="text-xl font-bold text-green-900">$100,000.00</p>
@@ -128,25 +128,17 @@ useEffect(() => {
         </div>
       </header>
 
-      {/* DndContext เป็นตัวกลางตรวจจับการลากวางทั้งหมด */}
       <DndContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-4">
-          {(columns || []).map((col)=> (
-            <div key={col.id} className="flex flex-col">
-              <button
-                onClick={() => addCard(col.id)}
-                className="mt-2 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg 
-                     text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-all text-sm font-medium"
-              >
-                + Add Task
-              </button>
-              {" "}
-              
-              {/* เพิ่ม Wrapper เพื่อใส่ปุ่มข้างล่าง */}
-              <KanbanColumn id={col.id} title={col.title} cards={col.cards}
-              onDeleteCard={handleDeleteCard} />
-              {/* ปุ่มเพิ่มการ์ดจะอยู่ท้ายคอลัมน์นั้นๆ */}
-            </div>
+        <div className="flex gap-6 overflow-x-auto pb-4 items-start">
+          {(columns || []).map((col) => (
+            <KanbanColumn 
+              key={col.id} 
+              id={col.id} 
+              title={col.title} 
+              cards={col.cards}
+              onDeleteCard={handleDeleteCard}
+              onAddCard={() => addCard(col.id)} // ส่งฟังก์ชันเพิ่มการ์ดลงไปที่คอลัมน์
+            />
           ))}
         </div>
       </DndContext>

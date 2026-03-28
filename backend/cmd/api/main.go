@@ -16,16 +16,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
-
 func main() {
-	// 1. โหลดไฟล์ .env
-	// หากไม่พบไฟล์ ระบบจะไม่พัง แต่จะข้ามไปอ่านจากตัวแปรระบบ (System Env) ของ Server จริง
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, falling back to system environment variables")
 	}
-
-	// 2. อ่านค่าจาก Environment Variables พร้อมกำหนดค่าเริ่มต้น (Fallback) หากไม่มีการตั้งค่าไว้
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL is required but not set")
@@ -41,7 +35,6 @@ func main() {
 		frontendURL = "http://localhost:3000" // ค่าเริ่มต้น
 	}
 
-	// 3. เชื่อมต่อ Database โดยใช้ dbURL จาก .env
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
@@ -59,7 +52,6 @@ func main() {
 	hub := websocket.NewHub(queries)
 	go hub.Run()
 
-	// 4. ส่ง frontendURL เข้าไปใน Handler
 	boardService := service.NewBoardService(queries)
 	boardHandler := handler.NewBoardHandler(boardService)
 
@@ -84,12 +76,11 @@ func main() {
 
 	handlerWithCORS := middleware.CORS(frontendURL, mux)
 	
-	// 5. เปิด Web Server โดยใช้พอร์ตจาก .env
 	fmt.Printf("Server is running on port %s\n", port)
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: handlerWithCORS, // [แก้ไข 5]: สั่งให้ Server ใช้งานตัวที่โดนครอบ Middleware แล้ว (เปลี่ยนจากตัวแปร mux ธรรมดา)
+		Handler: handlerWithCORS,
 	}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("ListenAndServe: ", err)
