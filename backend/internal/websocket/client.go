@@ -1,3 +1,4 @@
+// internal/websocket/client.go
 package websocket
 
 import (
@@ -16,23 +17,21 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 4096
+	dbTimeout      = 5 * time.Second
 )
 
-// ตั้งค่า Upgrader เพื่อเปลี่ยน HTTP ธรรมดาเป็น WebSocket
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// return true หมายถึงอนุญาตให้ Next.js (localhost:3000) เชื่อมต่อเข้ามาได้
-		return true 
+		return true
 	},
 }
 
-// Client เป็นตัวแทนของการเชื่อมต่อ 1 รายการ
 type Client struct {
-	hub  *Hub
-	conn *websocket.Conn
+	hub     *Hub
+	conn    *websocket.Conn
 	send    chan []byte
 	boardID string
 }
@@ -42,7 +41,6 @@ type WSMessage struct {
 	Payload map[string]interface{} `json:"payload"`
 }
 
-// ReadPump ดึงข้อความจาก WebSocket ส่งเข้า Hub
 func (c *Client) ReadPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -51,7 +49,10 @@ func (c *Client) ReadPump() {
 
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
 		_, message, err := c.conn.ReadMessage()
@@ -62,130 +63,131 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		// 1. สร้างตัวแปรมารองรับ
 		var wsMsg WSMessage
-
-		// 2. แกะกล่อง JSON (Unmarshal) ลงไปในตัวแปร wsMsg
-		err = json.Unmarshal(message, &wsMsg)
-		if err != nil {
+		if err := json.Unmarshal(message, &wsMsg); err != nil {
 			log.Printf("Invalid JSON format: %v", err)
-			continue // ถ้าแกะไม่ได้ ให้ข้ามไปรอรับข้อความรอบถัดไป (อย่าเพิ่งปิดการเชื่อมต่อ)
+			continue
 		}
 
-		// 3. เช็คว่าเป็นคำสั่งอะไร (Best Practice: ใช้ switch case จะอ่านง่ายกว่า if-else)
 		switch wsMsg.Type {
 		case "CARD_MOVED":
-			// 1. ดึงข้อมูลและยืนยันประเภทข้อมูล (Type Assertion)
-			cardIDStr, ok1 := wsMsg.Payload["card_id"].(string)
-			newColumnIDStr, ok2 := wsMsg.Payload["new_column_id"].(string)
-
-			// ข้อควรระวังใน Go: ตัวเลขจาก JSON interface{} จะถูกแปลงเป็น float64 เสมอ
-			position, ok3 := wsMsg.Payload["position"].(float64)
-
-			if ok1 && ok2 && ok3 {
-				// 2. แปลง String เป็น UUID สำหรับ PostgreSQL
-				var cardUUID, colUUID pgtype.UUID
-				if err := cardUUID.Scan(cardIDStr); err != nil {
-					log.Printf("Invalid card ID: %s", cardIDStr)
-					continue
-				}
-				if err := colUUID.Scan(newColumnIDStr); err != nil {
-					log.Printf("Invalid column ID: %s", newColumnIDStr)
-					continue
-				}
-
-				// 3. สั่ง Update ลง Database ผ่าน queries ที่อยู่ใน hub
-				// ใช้ context.Background() เพื่อบอกว่าคำสั่งนี้ไม่มีวันหมดอายุ (ทำงานจนกว่าจะเสร็จ)
-				err := c.hub.queries.UpdateCardColumn(context.Background(), db.UpdateCardColumnParams{
-					ColumnID: colUUID,
-					Position: position,
-					ID:       cardUUID,
-				})
-
-				if err != nil {
-					log.Printf("Failed to update database: %v", err)
-				} else {
-					log.Printf("Success: Moved Card [%s] to Column [%s] at Pos [%f]\n", cardIDStr, newColumnIDStr, position)
-					// ส่งข้อความดิบ (JSON bytes) ที่รับมา โยนเข้า Channel broadcast ของ Hub
-					// เพื่อให้ Hub กระจายต่อไปยัง Client ทุกคนที่เชื่อมต่ออยู่
-					c.hub.broadcast <- BroadcastMessage{
-						BoardID: c.boardID,
-						Message: message, // หรือ msgBytes สำหรับ CARD_CREATED
-					}
-				}
-			} else {
-				log.Println("Invalid payload data for CARD_MOVED")
-			}
-
+			c.handleCardMoved(wsMsg.Payload, message)
 		case "CARD_CREATED":
-			// 1. แกะ Payload ที่ส่งมาจาก Frontend
-			columnIDStr, ok1 := wsMsg.Payload["column_id"].(string)
-			title, ok2 := wsMsg.Payload["title"].(string)
-
-			if ok1 && ok2 {
-				var colUUID pgtype.UUID
-				colUUID.Scan(columnIDStr)
-
-				// 2. บันทึกลง Database (ใช้คำสั่ง CreateCard ที่เราเตรียมไว้)
-				newCard, err := c.hub.queries.CreateCard(context.Background(), db.CreateCardParams{
-					ColumnID: colUUID,
-					Title:    title,
-					Position: 0, // หรือคำนวณตำแหน่งจริง
-				})
-
-				if err == nil {
-					// 3. ปั้นข้อมูลใหม่เพื่อส่งกลับไปให้ทุกคน (รวมถึงคนสร้างด้วย)
-					// เราจะส่ง Object การ์ดที่สมบูรณ์ (มี ID จาก DB) กลับไป
-					broadcastMsg := WSMessage{
-						Type: "CARD_CREATED",
-						Payload: map[string]interface{}{
-							"id":        newCard.ID.String(),
-							"column_id": newCard.ColumnID.String(),
-							"title":     newCard.Title,
-							"position":  newCard.Position,
-						},
-					}
-
-					// แปลงเป็น JSON แล้วกระจายข่าว!
-					msgBytes, _ := json.Marshal(broadcastMsg)
-					c.hub.broadcast <- BroadcastMessage{
-                BoardID: c.boardID,  // ใช้ ID ของบอร์ดที่ Client คนนี้เชื่อมต่ออยู่
-                Message: msgBytes,   // ข้อมูล JSON ที่เราเพิ่ง Marshal มา
-            }
-				}
-			}
-
+			c.handleCardCreated(wsMsg.Payload)
 		case "CARD_DELETED":
-			// 1. ดึง ID การ์ดที่ต้องการลบ
-			cardIDStr, ok := wsMsg.Payload["card_id"].(string)
-			if ok {
-				var cardUUID pgtype.UUID
-				if err := cardUUID.Scan(cardIDStr); err == nil {
-					// 2. สั่งลบจาก Database
-					err := c.hub.queries.DeleteCard(context.Background(), cardUUID)
-
-					if err == nil {
-						log.Printf("Success: Deleted Card [%s]\n", cardIDStr)
-						// 3. บรอดแคสต์บอกทุกคนว่าการ์ดใบนี้ถูกลบแล้ว ให้เอาออกจากหน้าจอซะ
-						c.hub.broadcast <- BroadcastMessage{
-								BoardID: c.boardID,
-								Message: message, // หรือ msgBytes สำหรับ CARD_CREATED
-							}
-					} else {
-						log.Printf("Failed to delete card: %v\n", err)
-					}
-				}
-			} else {
-				log.Println("Invalid payload data for CARD_DELETED")
-			}
+			c.handleCardDeleted(wsMsg.Payload, message)
 		default:
-			log.Printf("Unknown message type: %s\n", wsMsg.Type)
+			log.Printf("Unknown message type: %s", wsMsg.Type)
 		}
-
 	}
 }
 
-// WritePump ดึงข้อความจาก Hub ส่งออกไปยัง WebSocket
+func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) {
+	cardIDStr, ok1 := payload["card_id"].(string)
+	newColumnIDStr, ok2 := payload["new_column_id"].(string)
+	position, ok3 := payload["position"].(float64)
+	if !ok1 || !ok2 || !ok3 {
+		log.Println("Invalid payload for CARD_MOVED")
+		return
+	}
+
+	var cardUUID, colUUID pgtype.UUID
+	if err := cardUUID.Scan(cardIDStr); err != nil {
+		log.Printf("Invalid card ID: %s", cardIDStr)
+		return
+	}
+	if err := colUUID.Scan(newColumnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", newColumnIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if err := c.hub.queries.UpdateCardColumn(ctx, db.UpdateCardColumnParams{
+		ColumnID: colUUID,
+		Position: position,
+		ID:       cardUUID,
+	}); err != nil {
+		log.Printf("Failed to update card position: %v", err)
+		return
+	}
+
+	log.Printf("Moved card [%s] to column [%s] at position [%f]", cardIDStr, newColumnIDStr, position)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+}
+
+func (c *Client) handleCardCreated(payload map[string]interface{}) {
+	columnIDStr, ok1 := payload["column_id"].(string)
+	title, ok2 := payload["title"].(string)
+	if !ok1 || !ok2 {
+		log.Println("Invalid payload for CARD_CREATED")
+		return
+	}
+
+	var colUUID pgtype.UUID
+	if err := colUUID.Scan(columnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", columnIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
+		ColumnID: colUUID,
+		Title:    title,
+		Position: 0,
+	})
+	if err != nil {
+		log.Printf("Failed to create card: %v", err)
+		return
+	}
+
+	broadcastMsg := WSMessage{
+		Type: "CARD_CREATED",
+		Payload: map[string]interface{}{
+			"id":        newCard.ID.String(),
+			"column_id": newCard.ColumnID.String(),
+			"title":     newCard.Title,
+			"position":  newCard.Position,
+		},
+	}
+
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal CARD_CREATED broadcast: %v", err)
+		return
+	}
+
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte) {
+	cardIDStr, ok := payload["card_id"].(string)
+	if !ok {
+		log.Println("Invalid payload for CARD_DELETED")
+		return
+	}
+
+	var cardUUID pgtype.UUID
+	if err := cardUUID.Scan(cardIDStr); err != nil {
+		log.Printf("Invalid card ID: %s", cardIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if err := c.hub.queries.DeleteCard(ctx, cardUUID); err != nil {
+		log.Printf("Failed to delete card: %v", err)
+		return
+	}
+
+	log.Printf("Deleted card [%s]", cardIDStr)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+}
+
 func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -198,7 +200,6 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub สั่งปิดการเชื่อมต่อ
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -213,7 +214,6 @@ func (c *Client) WritePump() {
 				return
 			}
 		case <-ticker.C:
-			// ส่งสัญญาณ Ping เพื่อเช็คว่า Client ยังอยู่
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
@@ -222,7 +222,6 @@ func (c *Client) WritePump() {
 	}
 }
 
-// ServeWs เป็น Endpoint ที่ถูกเรียกเมื่อมีคนเชื่อมต่อเข้ามาที่ URL ของ WebSocket
 func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -234,11 +233,10 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 		hub:     hub,
 		conn:    conn,
 		send:    make(chan []byte, 256),
-		boardID: boardID, // รับค่ามาเก็บไว้ตอนเชื่อมต่อ
-	}	
+		boardID: boardID,
+	}
 	client.hub.register <- client
 
-	// อนุญาตให้ทำงานพร้อมกันโดยไม่บล็อกกันเอง
 	go client.WritePump()
 	go client.ReadPump()
 }

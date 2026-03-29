@@ -25,7 +25,7 @@ export function CreateBoardButton() {
       if (response.ok) {
         const data = await response.json();
         // Redirect ผู้ใช้ไปยังหน้าบอร์ดที่เพิ่งสร้างเสร็จทันที
-        router.push(`/boards/${data.id}`);
+        router.push(`/board/${data.id}`);
       }
     } catch (error) {
       console.error("Failed to create board:", error);
