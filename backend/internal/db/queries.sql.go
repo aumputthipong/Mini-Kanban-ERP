@@ -30,36 +30,44 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 }
 
 const createCard = `-- name: CreateCard :one
-INSERT INTO cards (id, column_id, title, position, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-RETURNING id, column_id, title, position, created_at, updated_at
+INSERT INTO cards (column_id, title, position, due_date, assignee_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, column_id, title, position, due_date, assignee_id
 `
 
 type CreateCardParams struct {
-	ColumnID pgtype.UUID
-	Title    string
-	Position float64
+	ColumnID   pgtype.UUID
+	Title      string
+	Position   float64
+	DueDate    pgtype.Date
+	AssigneeID pgtype.UUID
 }
 
 type CreateCardRow struct {
-	ID        pgtype.UUID
-	ColumnID  pgtype.UUID
-	Title     string
-	Position  float64
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	ID         pgtype.UUID
+	ColumnID   pgtype.UUID
+	Title      string
+	Position   float64
+	DueDate    pgtype.Date
+	AssigneeID pgtype.UUID
 }
 
 func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateCardRow, error) {
-	row := q.db.QueryRow(ctx, createCard, arg.ColumnID, arg.Title, arg.Position)
+	row := q.db.QueryRow(ctx, createCard,
+		arg.ColumnID,
+		arg.Title,
+		arg.Position,
+		arg.DueDate,
+		arg.AssigneeID,
+	)
 	var i CreateCardRow
 	err := row.Scan(
 		&i.ID,
 		&i.ColumnID,
 		&i.Title,
 		&i.Position,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.DueDate,
+		&i.AssigneeID,
 	)
 	return i, err
 }
@@ -137,31 +145,53 @@ func (q *Queries) GetAllBoards(ctx context.Context) ([]GetAllBoardsRow, error) {
 }
 
 const getCardsByColumnIDs = `-- name: GetCardsByColumnIDs :many
-SELECT id, column_id, assignee_id, title, description, estimated_hours, position, created_at, updated_at 
-FROM cards 
-WHERE column_id = ANY($1::uuid[]) 
-ORDER BY position ASC
+SELECT 
+    c.id,
+    c.column_id,
+    c.title,
+    c.description,
+    c.position,
+    c.due_date,
+    c.estimated_hours,
+    c.assignee_id,
+    u.full_name AS assignee_name
+FROM cards c
+LEFT JOIN users u ON c.assignee_id = u.id
+WHERE c.column_id = ANY($1::uuid[])
+ORDER BY c.position ASC
 `
 
-func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Card, error) {
+type GetCardsByColumnIDsRow struct {
+	ID             pgtype.UUID
+	ColumnID       pgtype.UUID
+	Title          string
+	Description    pgtype.Text
+	Position       float64
+	DueDate        pgtype.Date
+	EstimatedHours pgtype.Numeric
+	AssigneeID     pgtype.UUID
+	AssigneeName   pgtype.Text
+}
+
+func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetCardsByColumnIDsRow, error) {
 	rows, err := q.db.Query(ctx, getCardsByColumnIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Card
+	var items []GetCardsByColumnIDsRow
 	for rows.Next() {
-		var i Card
+		var i GetCardsByColumnIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ColumnID,
-			&i.AssigneeID,
 			&i.Title,
 			&i.Description,
-			&i.EstimatedHours,
 			&i.Position,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.DueDate,
+			&i.EstimatedHours,
+			&i.AssigneeID,
+			&i.AssigneeName,
 		); err != nil {
 			return nil, err
 		}

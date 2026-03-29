@@ -1,19 +1,6 @@
+import { Column } from '@/types/board';
 import { create } from 'zustand';
 
-// 1. กำหนดหน้าตาของข้อมูล (Type) ให้ตรงกับที่เราออกแบบไว้ในฐานข้อมูล Go
-export interface Card {
-  id: string;
-  column_id: string;
-  title: string;
-  position: number;
-}
-
-export interface Column {
-  id: string;
-  title: string;
-  position: number;
-  cards: Card[];
-}
 
 // 2. กำหนดว่าใน Store นี้จะมีข้อมูลและฟังก์ชันอะไรให้เรียกใช้บ้าง
 interface BoardState {
