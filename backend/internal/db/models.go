@@ -23,6 +23,7 @@ type Card struct {
 	Title          string
 	Description    pgtype.Text
 	EstimatedHours pgtype.Numeric
+	DueDate        pgtype.Date
 	Position       float64
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz

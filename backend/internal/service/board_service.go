@@ -60,8 +60,8 @@ func (s *BoardService) GetColumnsByBoardID(ctx context.Context, boardID pgtype.U
 	return s.queries.GetColumnsByBoardID(ctx, boardID)
 }
 
-func (s *BoardService) GetCardsByColumnIDs(ctx context.Context, columnIDs []pgtype.UUID) ([]db.Card, error) {
-	return s.queries.GetCardsByColumnIDs(ctx, columnIDs)
+func (s *BoardService) GetCardsByColumnIDs(ctx context.Context, columnIDs []pgtype.UUID) ([]db.GetCardsByColumnIDsRow, error) {
+    return s.queries.GetCardsByColumnIDs(ctx, columnIDs)
 }
 
 func (s *BoardService) CreateCard(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {

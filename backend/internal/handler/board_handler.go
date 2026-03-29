@@ -11,11 +11,17 @@ import (
 )
 
 type CardResponse struct {
-	ID       string  `json:"id"`
-	ColumnID string  `json:"column_id"`
-	Title    string  `json:"title"`
-	Position float64 `json:"position"`
+    ID             string  `json:"id"`
+    ColumnID       string  `json:"column_id"`
+    Title          string  `json:"title"`
+    Description    *string `json:"description"`
+    Position       float64 `json:"position"`
+    DueDate        *string `json:"due_date"`
+    EstimatedHours *float64 `json:"estimated_hours"`
+    AssigneeID     *string `json:"assignee_id"`
+    AssigneeName   *string `json:"assignee_name"`
 }
+
 type ColumnResponse struct {
 	ID       string         `json:"id"`
 	Title    string         `json:"title"`
@@ -26,8 +32,10 @@ type BoardHandler struct {
 	boardService *service.BoardService
 }
 type CreateCardRequest struct {
-	ColumnID string `json:"column_id"`
-	Title    string `json:"title"`
+    ColumnID   string  `json:"column_id"`
+    Title      string  `json:"title"`
+    DueDate    *string `json:"due_date"`
+    AssigneeID *string `json:"assignee_id"`
 }
 type CreateBoardRequest struct {
 	Title string `json:"title"`
@@ -35,6 +43,28 @@ type CreateBoardRequest struct {
 type BoardSummaryResponse struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+}
+func pgDateToPtr(d pgtype.Date) *string {
+    if !d.Valid {
+        return nil
+    }
+    s := d.Time.Format("2006-01-02")
+    return &s
+}
+
+func pgUUIDToPtr(u pgtype.UUID) *string {
+	if !u.Valid {
+		return nil
+	}
+	s := u.String()
+	return &s
+}
+
+func pgTextToPtr(t pgtype.Text) *string {
+	if !t.Valid {
+		return nil
+	}
+	return &t.String
 }
 
 func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
@@ -82,13 +112,17 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 	// group cards ก่อน แทนที่จะวน loop ซ้อนกัน O(n²)
 	cardsByColumn := make(map[pgtype.UUID][]CardResponse)
 	for _, card := range cards {
-		cardsByColumn[card.ColumnID] = append(cardsByColumn[card.ColumnID], CardResponse{
-			ID:       card.ID.String(),
-			ColumnID: card.ColumnID.String(),
-			Title:    card.Title,
-			Position: card.Position,
-		})
-	}
+    cardsByColumn[card.ColumnID] = append(cardsByColumn[card.ColumnID], CardResponse{
+        ID:           card.ID.String(),
+        ColumnID:     card.ColumnID.String(),
+        Title:        card.Title,
+        Description:  pgTextToPtr(card.Description),
+        Position:     card.Position,
+        DueDate:      pgDateToPtr(card.DueDate),
+        AssigneeID:   pgUUIDToPtr(card.AssigneeID),
+        AssigneeName: pgTextToPtr(card.AssigneeName),
+    })
+}
 
 	result := make([]ColumnResponse, 0, len(columns))
 	for _, col := range columns {
