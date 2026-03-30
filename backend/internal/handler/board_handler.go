@@ -226,3 +226,64 @@ func (h *BoardHandler) HandleBoardsRoute(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
+
+
+func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	boardIDStr := r.PathValue("boardID")
+	if boardIDStr == "" {
+		http.Error(w, "Board ID is required", http.StatusBadRequest)
+		return
+	}
+
+	var boardUUID pgtype.UUID
+	if err := boardUUID.Scan(boardIDStr); err != nil {
+		http.Error(w, "Invalid board ID format", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.boardService.MoveBoardToTrash(r.Context(), boardUUID); err != nil {
+		http.Error(w, "Failed to move board to trash", http.StatusInternalServerError)
+		return
+	}
+
+	// ส่ง Status 204 No Content เพื่อบอกว่าลบสำเร็จและไม่มีข้อมูลอะไรต้องส่งกลับ
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ดึงรายการในถังขยะ
+func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	boards, err := h.boardService.GetTrashedBoards(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to get trash", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(boards); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// ลบถาวร
+func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
+    boardIDStr := r.PathValue("boardID")
+    var boardUUID pgtype.UUID
+    boardUUID.Scan(boardIDStr)
+
+    if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
+        http.Error(w, "Delete failed", http.StatusInternalServerError)
+        return
+    }
+    w.WriteHeader(http.StatusNoContent)
+}

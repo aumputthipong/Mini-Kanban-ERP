@@ -17,66 +17,101 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
+
 type config struct {
-    DBUrl       string
-    Port        string
-    FrontendURL string
+	DBUrl       string
+	Port        string
+	FrontendURL string
 }
 
 func loadConfig() config {
-    cfg := config{
-        DBUrl:       os.Getenv("DB_URL"),
-        Port:        os.Getenv("PORT"),
-        FrontendURL: os.Getenv("FRONTEND_URL"),
-    }
-    if cfg.DBUrl == "" {
-        log.Fatal("DB_URL is required but not set")
-    }
-    if cfg.Port == "" {
-        cfg.Port = "8080"
-    }
-    if cfg.FrontendURL == "" {
-        cfg.FrontendURL = "http://localhost:3000"
-    }
-    return cfg
+	cfg := config{
+		DBUrl:       os.Getenv("DB_URL"),
+		Port:        os.Getenv("PORT"),
+		FrontendURL: os.Getenv("FRONTEND_URL"),
+	}
+	if cfg.DBUrl == "" {
+		log.Fatal("DB_URL is required but not set")
+	}
+	if cfg.Port == "" {
+		cfg.Port = "8080"
+	}
+	if cfg.FrontendURL == "" {
+		cfg.FrontendURL = "http://localhost:3000"
+	}
+	return cfg
 }
 
 func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
-    pool, err := pgxpool.New(ctx, dbURL)
-    if err != nil {
-        return nil, fmt.Errorf("unable to connect to database: %w", err)
-    }
-    if err := pool.Ping(ctx); err != nil {
-        return nil, fmt.Errorf("could not ping database: %w", err)
-    }
-    return pool, nil
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to database: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		return nil, fmt.Errorf("could not ping database: %w", err)
+	}
+	return pool, nil
 }
 
 func setupRoutes(boardHandler *handler.BoardHandler, hub *websocket.Hub) http.Handler {
-    mux := http.NewServeMux()
+	mux := http.NewServeMux()
 
-    mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprint(w, "API is running")
-    })
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "API is running")
+	})
 
-    mux.HandleFunc("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
-        boardID := r.PathValue("boardID")
-        if boardID == "" {
-            http.Error(w, "Board ID is required", http.StatusBadRequest)
-            return
-        }
-        websocket.ServeWs(hub, w, r, boardID)
-    })
+	mux.HandleFunc("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+		boardID := r.PathValue("boardID")
+		if boardID == "" {
+			http.Error(w, "Board ID is required", http.StatusBadRequest)
+			return
+		}
+		websocket.ServeWs(hub, w, r, boardID)
+	})
 
-    mux.HandleFunc("/api/boards", boardHandler.HandleBoardsRoute)
-    mux.HandleFunc("/api/boards/{boardID}", boardHandler.GetBoardData)
-    mux.HandleFunc("/api/cards", boardHandler.CreateCard)
+	mux.HandleFunc("/api/boards", boardHandler.HandleBoardsRoute)
+	// ถังขยะ
+	mux.HandleFunc("/api/trash", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		boardHandler.GetTrash(w, r)
+	})
 
-    return mux
+	mux.HandleFunc("/api/trash/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			// สำหรับการกด "ลบถาวร" (Hard Delete) จากหน้าถังขยะ
+			boardHandler.HardDelete(w, r)
+		case http.MethodPatch:
+			// เผื่อคุณอยากทำ "กู้คืน" (Restore) ในอนาคต ใช้ PATCH จะเหมาะสมมากครับ
+			// boardHandler.Restore(w, r)
+			http.Error(w, "Restore feature coming soon", http.StatusNotImplemented)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// บอร์ดเฉพาะตัว
+	mux.HandleFunc("/api/boards/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			boardHandler.GetBoardData(w, r)
+		case http.MethodDelete:
+			boardHandler.MoveToTrash(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
+
+	return mux
+
 }
 
 func run(ctx context.Context, cfg config) error {
- pool, err := initDB(ctx, cfg.DBUrl)
+	pool, err := initDB(ctx, cfg.DBUrl)
 	if err != nil {
 		return fmt.Errorf("database init failed: %w", err)
 	}
@@ -106,11 +141,10 @@ func run(ctx context.Context, cfg config) error {
 		}
 	}()
 
-    <-ctx.Done() // รอจนกว่าจะได้รับ signal
-    log.Println("Shutting down server...")
-    return server.Shutdown(context.Background())
+	<-ctx.Done() // รอจนกว่าจะได้รับ signal
+	log.Println("Shutting down server...")
+	return server.Shutdown(context.Background())
 }
-
 
 func main() {
 	if err := godotenv.Load(); err != nil {

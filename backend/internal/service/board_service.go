@@ -52,8 +52,9 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string) (pgtype.UU
 	return board.ID, nil
 }
 
-func (s *BoardService) GetAllBoards(ctx context.Context) ([]db.GetAllBoardsRow, error) {
-	return s.queries.GetAllBoards(ctx)
+func (s *BoardService) GetAllBoards(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
+	// return s.queries.GetAllBoards(ctx)
+	return s.queries.GetAllActiveBoards(ctx)
 }
 
 func (s *BoardService) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) ([]db.Column, error) {
@@ -66,4 +67,22 @@ func (s *BoardService) GetCardsByColumnIDs(ctx context.Context, columnIDs []pgty
 
 func (s *BoardService) CreateCard(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 	return s.queries.CreateCard(ctx, arg)
+}
+
+func (s *BoardService) MoveBoardToTrash(ctx context.Context, boardID pgtype.UUID) error {
+	// หากมีลอจิกการตรวจสอบสิทธิ์ (เช่น บอร์ดนี้เป็นของ user คนนี้จริงไหม) ให้ใส่ตรงนี้
+	
+	err := s.queries.MoveBoardToTrash(ctx, boardID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *BoardService) GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
+    return s.queries.GetTrashedBoards(ctx)
+}
+
+func (s *BoardService) HardDeleteBoard(ctx context.Context, id pgtype.UUID) error {
+    return s.queries.HardDeleteBoard(ctx, id)
 }
