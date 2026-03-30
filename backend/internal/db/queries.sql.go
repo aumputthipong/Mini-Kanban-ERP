@@ -112,6 +112,39 @@ func (q *Queries) DeleteCard(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getAllActiveBoards = `-- name: GetAllActiveBoards :many
+SELECT id, title, created_at 
+FROM boards 
+WHERE deleted_at IS NULL 
+ORDER BY created_at DESC
+`
+
+type GetAllActiveBoardsRow struct {
+	ID        pgtype.UUID
+	Title     string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetAllActiveBoards(ctx context.Context) ([]GetAllActiveBoardsRow, error) {
+	rows, err := q.db.Query(ctx, getAllActiveBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllActiveBoardsRow
+	for rows.Next() {
+		var i GetAllActiveBoardsRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllBoards = `-- name: GetAllBoards :many
 SELECT id, title, created_at 
 FROM boards 
@@ -204,7 +237,7 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUI
 }
 
 const getColumnsByBoardID = `-- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, created_at
+SELECT id, board_id, title, position, created_at, updated_at
 FROM columns 
 WHERE board_id = $1 
 ORDER BY position ASC
@@ -225,6 +258,7 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) 
 			&i.Title,
 			&i.Position,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -234,6 +268,73 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTrashedBoards = `-- name: GetTrashedBoards :many
+SELECT id, title, deleted_at 
+FROM boards 
+WHERE deleted_at IS NOT NULL 
+ORDER BY deleted_at DESC
+`
+
+type GetTrashedBoardsRow struct {
+	ID        pgtype.UUID
+	Title     string
+	DeletedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetTrashedBoards(ctx context.Context) ([]GetTrashedBoardsRow, error) {
+	rows, err := q.db.Query(ctx, getTrashedBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTrashedBoardsRow
+	for rows.Next() {
+		var i GetTrashedBoardsRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.DeletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const hardDeleteBoard = `-- name: HardDeleteBoard :exec
+DELETE FROM boards 
+WHERE id = $1
+`
+
+// ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)
+func (q *Queries) HardDeleteBoard(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, hardDeleteBoard, id)
+	return err
+}
+
+const moveBoardToTrash = `-- name: MoveBoardToTrash :exec
+UPDATE boards 
+SET deleted_at = CURRENT_TIMESTAMP 
+WHERE id = $1
+`
+
+func (q *Queries) MoveBoardToTrash(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, moveBoardToTrash, id)
+	return err
+}
+
+const restoreBoardFromTrash = `-- name: RestoreBoardFromTrash :exec
+UPDATE boards 
+SET deleted_at = NULL 
+WHERE id = $1
+`
+
+// แถมให้: เผื่ออยากกู้คืนบอร์ด ให้แก้ deleted_at กลับเป็น NULL
+func (q *Queries) RestoreBoardFromTrash(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, restoreBoardFromTrash, id)
+	return err
 }
 
 const updateCardColumn = `-- name: UpdateCardColumn :exec

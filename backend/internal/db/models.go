@@ -14,6 +14,7 @@ type Board struct {
 	Budget    pgtype.Numeric
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
 }
 
 type Card struct {
@@ -35,6 +36,7 @@ type Column struct {
 	Title     string
 	Position  float64
 	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }
 
 type TimeLog struct {

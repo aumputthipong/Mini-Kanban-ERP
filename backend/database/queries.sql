@@ -4,7 +4,7 @@ FROM boards
 ORDER BY created_at DESC;
 
 -- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, created_at
+SELECT id, board_id, title, position, created_at, updated_at
 FROM columns 
 WHERE board_id = $1 
 ORDER BY position ASC;
@@ -48,3 +48,32 @@ WHERE id = $3;
 
 -- name: DeleteCard :exec
 DELETE FROM cards WHERE id = $1;
+
+
+-- name: MoveBoardToTrash :exec
+UPDATE boards 
+SET deleted_at = CURRENT_TIMESTAMP 
+WHERE id = $1;
+
+-- name: GetAllActiveBoards :many
+SELECT id, title, created_at 
+FROM boards 
+WHERE deleted_at IS NULL 
+ORDER BY created_at DESC;
+
+-- name: GetTrashedBoards :many
+SELECT id, title, deleted_at 
+FROM boards 
+WHERE deleted_at IS NOT NULL 
+ORDER BY deleted_at DESC;
+
+-- name: HardDeleteBoard :exec
+-- ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)
+DELETE FROM boards 
+WHERE id = $1;
+
+-- name: RestoreBoardFromTrash :exec
+-- แถมให้: เผื่ออยากกู้คืนบอร์ด ให้แก้ deleted_at กลับเป็น NULL
+UPDATE boards 
+SET deleted_at = NULL 
+WHERE id = $1;
