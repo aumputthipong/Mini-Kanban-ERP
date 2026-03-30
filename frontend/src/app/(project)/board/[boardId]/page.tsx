@@ -5,10 +5,11 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useBoardStore } from "@/store/useBoardStore";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { use, useEffect, useState } from "react";
-import { Kanban, DollarSign } from "lucide-react";
+import { Kanban, DollarSign, Move } from "lucide-react";
 import { KanbanColumn } from "@/components/kanban/Column";
 import type { Metadata } from "next";
 import { title } from "process";
+import MoveToTrashButton from "@/components/MovetoTrashButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws";
@@ -124,6 +125,8 @@ const handleAddCard = (columnId: string, form: { title: string; due_date: string
             <p className="text-xl font-bold text-green-900">$100,000.00</p>
           </div>
         </div>
+        
+        <MoveToTrashButton boardId={boardId} boardTitle={columns[0]?.cards[0]?.title || "this board"} />
       </header>
 
       <DndContext onDragEnd={handleDragEnd}>

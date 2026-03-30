@@ -44,6 +44,13 @@ type BoardSummaryResponse struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 }
+
+type UpdateBoardRequest struct {
+	Title  *string  `json:"title"`
+	Budget *float64 `json:"budget"`
+}
+
+
 func pgDateToPtr(d pgtype.Date) *string {
     if !d.Valid {
         return nil
@@ -286,4 +293,25 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
         return
     }
     w.WriteHeader(http.StatusNoContent)
+}
+
+
+func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
+	boardIDStr := r.PathValue("boardID")
+	var boardUUID pgtype.UUID
+	boardUUID.Scan(boardIDStr)
+
+	var req UpdateBoardRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updatedBoard, err := h.boardService.UpdateBoard(r.Context(), boardUUID, req.Title, req.Budget)
+	if err != nil {
+		http.Error(w, "Failed to update board", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(updatedBoard)
 }

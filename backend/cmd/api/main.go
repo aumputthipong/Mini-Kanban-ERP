@@ -82,11 +82,8 @@ func setupRoutes(boardHandler *handler.BoardHandler, hub *websocket.Hub) http.Ha
 	mux.HandleFunc("/api/trash/{boardID}", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodDelete:
-			// สำหรับการกด "ลบถาวร" (Hard Delete) จากหน้าถังขยะ
 			boardHandler.HardDelete(w, r)
 		case http.MethodPatch:
-			// เผื่อคุณอยากทำ "กู้คืน" (Restore) ในอนาคต ใช้ PATCH จะเหมาะสมมากครับ
-			// boardHandler.Restore(w, r)
 			http.Error(w, "Restore feature coming soon", http.StatusNotImplemented)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -98,6 +95,8 @@ func setupRoutes(boardHandler *handler.BoardHandler, hub *websocket.Hub) http.Ha
 		switch r.Method {
 		case http.MethodGet:
 			boardHandler.GetBoardData(w, r)
+			case http.MethodPatch:
+			boardHandler.UpdateBoard(w, r)
 		case http.MethodDelete:
 			boardHandler.MoveToTrash(w, r)
 		default:

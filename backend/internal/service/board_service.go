@@ -86,3 +86,34 @@ func (s *BoardService) GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoa
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id pgtype.UUID) error {
     return s.queries.HardDeleteBoard(ctx, id)
 }
+
+// เปลี่ยน Parameter ให้รับเป็น Pointer
+func (s *BoardService) UpdateBoard(ctx context.Context, id pgtype.UUID, title *string, budget *float64) (db.Board, error) {
+	
+	// 1. ดึงข้อมูลบอร์ดปัจจุบันจาก Database ก่อน
+	existingBoard, err := s.queries.GetBoardByID(ctx, id)
+	if err != nil {
+		return db.Board{}, err // คืนค่า Error ถ้าหาบอร์ดไม่เจอ
+	}
+
+	// 2. นำข้อมูลเดิมมาตั้งต้น
+	newTitle := existingBoard.Title
+	newBudget := existingBoard.Budget
+
+	// 3. ตรวจสอบว่ามีการส่งค่า Title ใหม่มาหรือไม่ (เช็กว่าไม่เป็น nil)
+	if title != nil {
+		newTitle = *title // ใช้ค่าใหม่ที่ส่งมา
+	}
+
+	// 4. ตรวจสอบว่ามีการส่งค่า Budget ใหม่มาหรือไม่
+	if budget != nil {
+		newBudget.Scan(fmt.Sprintf("%f", *budget))
+	}
+
+	// 5. บันทึกข้อมูลที่ถูกรวม (Merge) แล้วกลับลงฐานข้อมูล
+	return s.queries.UpdateBoard(ctx, db.UpdateBoardParams{
+		ID:     id,
+		Title:  newTitle,
+		Budget: newBudget,
+	})
+}
