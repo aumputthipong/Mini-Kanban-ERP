@@ -3,9 +3,12 @@ export interface Card {
   id: string;
   column_id: string;
   title: string;
-  position: number;
-  due_date: string | null;
-  assignee: string | null;
+  description?: string;
+  due_date?: string | null;
+  assignee?: string | null;
+  avatar_url?: string | null; 
+  priority?: "low" | "medium" | "high";
+  estimated_hours?: number; 
 }
 
 export interface Column {

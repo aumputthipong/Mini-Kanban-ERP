@@ -1,15 +1,14 @@
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable } from "@dnd-kit/core";
 
-import { KanbanCard } from './Card';
-import { MoreHorizontal, Plus, X } from 'lucide-react';
-import { useState } from 'react';
-import { Card } from '@/types/board';
+import { TaskCard } from "./TaskCard";
+import { MoreHorizontal, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { Card } from "@/types/board";
 
 interface AddCardForm {
   title: string;
   due_date: string;
-   assignee_id: string;
-
+  assignee_id: string;
 }
 
 interface ColumnProps {
@@ -19,9 +18,14 @@ interface ColumnProps {
   onAddCard: (columnId: string, form: AddCardForm) => void;
   onDeleteCard: (cardId: string) => void;
 }
-export function KanbanColumn({ id, title, cards, onAddCard, onDeleteCard }: ColumnProps) {
-
-    const { setNodeRef, isOver } = useDroppable({ id });
+export function KanbanColumn({
+  id,
+  title,
+  cards,
+  onAddCard,
+  onDeleteCard,
+}: ColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id });
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState<AddCardForm>({
     title: "",
@@ -29,19 +33,19 @@ export function KanbanColumn({ id, title, cards, onAddCard, onDeleteCard }: Colu
     assignee_id: "",
   });
 
-const handleSubmit = () => {
-  if (!form.title.trim()) return;
-  onAddCard(id, form);
-  // ขาดสองบรรทัดนี้
-  setForm({ title: "", due_date: "",assignee_id: "", });
-  setIsAdding(false);
-};
-const handleCancel = () => {
-  setForm({ title: "", due_date: "", assignee_id: "" });
-  setIsAdding(false);
-};
+  const handleSubmit = () => {
+    if (!form.title.trim()) return;
+    onAddCard(id, form);
+    // ขาดสองบรรทัดนี้
+    setForm({ title: "", due_date: "", assignee_id: "" });
+    setIsAdding(false);
+  };
+  const handleCancel = () => {
+    setForm({ title: "", due_date: "", assignee_id: "" });
+    setIsAdding(false);
+  };
   return (
- <div
+    <div
       ref={setNodeRef}
       className={`w-72 shrink-0 rounded-2xl p-4 flex flex-col gap-3 transition-colors
         ${isOver ? "bg-blue-50 border-2 border-blue-300" : "bg-slate-100 border-2 border-transparent"}`}
@@ -52,13 +56,6 @@ const handleCancel = () => {
           {cards.length}
         </span>
       </div>
-
-      <div className="flex flex-col gap-2">
-        {cards.map((card) => (
-          <KanbanCard key={card.id} card={card} onDelete={onDeleteCard} />
-        ))}
-      </div>
-
       {isAdding ? (
         <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2">
           <input
@@ -73,14 +70,18 @@ const handleCancel = () => {
           <input
             type="date"
             value={form.due_date}
-            onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, due_date: e.target.value }))
+            }
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 text-slate-500"
           />
-         <input
+          <input
             type="text"
             placeholder="Assignee ID (optional)"
             value={form.assignee_id}
-            onChange={(e) => setForm((f) => ({ ...f, assignee_id: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, assignee_id: e.target.value }))
+            }
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
           />
           <div className="flex gap-2">
@@ -107,6 +108,13 @@ const handleCancel = () => {
           Add card
         </button>
       )}
+      <div className="flex flex-col gap-2">
+        {cards.map((card) => (
+          <TaskCard key={card.id} card={card} onDelete={onDeleteCard} />
+        ))}
+      </div>
+
+
     </div>
   );
 }
