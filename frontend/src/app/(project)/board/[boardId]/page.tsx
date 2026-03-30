@@ -3,16 +3,15 @@
 
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useBoardStore } from "@/store/useBoardStore";
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { use, useEffect, useState } from "react";
 import { Kanban, DollarSign, Move } from "lucide-react";
 import { KanbanColumn } from "@/components/kanban/Column";
-import type { Metadata } from "next";
-import { title } from "process";
-import MoveToTrashButton from "@/components/MovetoTrashButton";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws";
+import { API_URL, WS_URL } from "@/lib/constants";
+import { BoardHeader } from "@/components/kanban/BoardHeader";
+
+
 
 interface PageProps {
   params: Promise<{ boardId: string }>;
@@ -90,6 +89,14 @@ const handleAddCard = (columnId: string, form: { title: string; due_date: string
       payload: { card_id: cardId },
     });
   };
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // ต้องลากเมาส์ไป 5 พิกเซลก่อน ถึงจะถือว่าเป็นการ "ลาก" (Drag)
+      },
+    })
+  );
 
   if (isLoading) {
     return (
@@ -108,41 +115,37 @@ const handleAddCard = (columnId: string, form: { title: string; due_date: string
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-8">
-      <header className="mb-8 flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Kanban className="text-blue-600" />
-          Mini ERP Kanban
-        </h1>
-        <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex items-center gap-3">
-          <div className="bg-green-500 p-2 rounded-full text-white">
-            <DollarSign size={20} />
-          </div>
-          <div>
-            <p className="text-xs text-green-700 font-medium uppercase tracking-wider">
-              Budget Used
-            </p>
-            <p className="text-xl font-bold text-green-900">$100,000.00</p>
-          </div>
-        </div>
-        
-        <MoveToTrashButton boardId={boardId} boardTitle={columns[0]?.cards[0]?.title || "this board"} />
-      </header>
+ <main className="relative min-h-screen bg-[#fafafa]  p-8">
+  {/* 1. Grid Background Layer (พื้นหลัง) 
+    สำคัญ: ต้องมี pointer-events-none เพื่อไม่ให้มันไปขวางการคลิกเม้าส์และการลากการ์ด
+  */}
+  <div
+    className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
+    style={{
+      backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
+      backgroundSize: "32px 32px",
+    }}
+  />
 
-      <DndContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-4 items-start">
-          {columns.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              id={col.id}
-              title={col.title}
-              cards={col.cards}
-              onAddCard={handleAddCard}
-              onDeleteCard={handleDeleteCard}
-            />
-          ))}
-        </div>
-      </DndContext>
-    </main>
+  {/* 2. Content Layer (เนื้อหาหลัก) ต้องมี relative และ z-10 เพื่อให้อยู่เหนือพื้นหลัง */}
+  <div className="relative z-10">
+  <BoardHeader title={`Project Board`} budgetUsed={100000} />
+
+    <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
+      <div className="flex gap-6 overflow-x-auto pb-4 items-start">
+        {columns.map((col) => (
+          <KanbanColumn
+            key={col.id}
+            id={col.id}
+            title={col.title}
+            cards={col.cards}
+            onAddCard={handleAddCard}
+            onDeleteCard={handleDeleteCard}
+          />
+        ))}
+      </div>
+    </DndContext>
+  </div>
+</main>
   );
 }
