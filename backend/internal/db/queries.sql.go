@@ -177,6 +177,25 @@ func (q *Queries) GetAllBoards(ctx context.Context) ([]GetAllBoardsRow, error) {
 	return items, nil
 }
 
+const getBoardByID = `-- name: GetBoardByID :one
+SELECT id, title, budget, created_at, updated_at, deleted_at FROM boards 
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetBoardByID(ctx context.Context, id pgtype.UUID) (Board, error) {
+	row := q.db.QueryRow(ctx, getBoardByID, id)
+	var i Board
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Budget,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getCardsByColumnIDs = `-- name: GetCardsByColumnIDs :many
 SELECT 
     c.id,
@@ -331,10 +350,38 @@ SET deleted_at = NULL
 WHERE id = $1
 `
 
-// แถมให้: เผื่ออยากกู้คืนบอร์ด ให้แก้ deleted_at กลับเป็น NULL
 func (q *Queries) RestoreBoardFromTrash(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, restoreBoardFromTrash, id)
 	return err
+}
+
+const updateBoard = `-- name: UpdateBoard :one
+UPDATE boards 
+SET title = $2, 
+    budget = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING id, title, budget, created_at, updated_at, deleted_at
+`
+
+type UpdateBoardParams struct {
+	ID     pgtype.UUID
+	Title  string
+	Budget pgtype.Numeric
+}
+
+func (q *Queries) UpdateBoard(ctx context.Context, arg UpdateBoardParams) (Board, error) {
+	row := q.db.QueryRow(ctx, updateBoard, arg.ID, arg.Title, arg.Budget)
+	var i Board
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Budget,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const updateCardColumn = `-- name: UpdateCardColumn :exec

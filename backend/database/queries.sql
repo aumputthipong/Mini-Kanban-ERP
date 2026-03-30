@@ -73,7 +73,19 @@ DELETE FROM boards
 WHERE id = $1;
 
 -- name: RestoreBoardFromTrash :exec
--- แถมให้: เผื่ออยากกู้คืนบอร์ด ให้แก้ deleted_at กลับเป็น NULL
 UPDATE boards 
 SET deleted_at = NULL 
 WHERE id = $1;
+
+
+-- name: UpdateBoard :one
+UPDATE boards 
+SET title = $2, 
+    budget = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+-- name: GetBoardByID :one
+SELECT * FROM boards 
+WHERE id = $1 LIMIT 1;
