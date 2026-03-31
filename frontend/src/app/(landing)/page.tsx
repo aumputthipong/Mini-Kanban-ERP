@@ -1,7 +1,17 @@
 // app/(landing)/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, LayoutDashboard, Zap, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import {
+  ArrowRight,
+  LayoutDashboard,
+  Zap,
+  CheckCircle2,
+  MoreHorizontal,
+  MessageSquare,
+  Clock,
+  Paperclip,
+} from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 
 export const metadata: Metadata = {
@@ -25,20 +35,33 @@ function BackgroundGrid() {
 
 function HeroSection() {
   return (
-    <div className="flex-1 max-w-2xl">
-  
+    <div className="flex-1 max-w-2xl z-10">
+      {/* ส่วนโลโก้ Turtask (เหนือหัวข้อ) */}
 
-      <h1 className="text-6xl md:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight mb-6">
-        Manage work. <br />
-        <span className="text-blue-600">Ship faster </span>
-        together.
-      </h1>
+      {/* หัวข้อ (Heading) */}
+      <div className="flex items-center gap-4 md:gap-6 mb-6">
+        {/* ส่วนโลโก้ (เพิ่มคลาส relative และ shrink-0 เพื่อไม่ให้รูปโดนบีบ) */}
+        <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0">
+          <Image
+            src="/Turtask.png"
+            alt="Turtask Logo"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
 
-      <p className="text-lg text-slate-600 mb-10 max-w-xl leading-relaxed">
-        Join your team in a real-time Kanban board that keeps everyone aligned
-        and productive — no distractions, just pure efficiency.
+        {/* หัวข้อ (Heading) เอา mb-6 ออกเพราะย้ายไปไว้ที่ตัว Wrapper ด้านบนแล้ว */}
+        <h1 className="text-6xl md:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight">
+          TURTASK. <br />
+        </h1>
+      </div>
+
+      <p className="text-4xl md:text-2xl text-slate-600 mb-10 max-w-xl leading-relaxed font-medium">
+        Manage your work tasks and hit your goals together."{" "}
       </p>
 
+      {/* ปุ่ม Call to Action */}
       <Link
         href="/dashboard"
         className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
@@ -117,32 +140,94 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   );
 }
 
-function PreviewCard() {
+function PreviewKanbanBoard() {
   return (
-    <div className="flex-1 relative w-full max-w-lg lg:h-[500px] flex items-center justify-center">
-      <div className="relative z-10 w-full bg-white p-8 rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Right Now
-            </p>
-            <h3 className="text-xl font-bold text-slate-800">Team Activity</h3>
+    <div className="flex-1 relative w-full max-w-lg lg:h-[550px] flex items-center justify-center z-10 mt-12 lg:mt-0">
+      {/* พื้นหลังตกแต่งให้ดูมีมิติ */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-blue-100 to-indigo-50 rounded-[3rem] transform rotate-3 scale-105 opacity-50 pointer-events-none" />
+
+      {/* Mockup Kanban Column */}
+      <div className="relative w-full max-w-sm bg-slate-100/80 backdrop-blur-xl p-5 rounded-3xl shadow-2xl shadow-blue-900/10 border border-white/60 flex flex-col gap-4">
+        {/* Column Header */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-slate-800">In Progress</h3>
+            <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+              2
+            </span>
           </div>
-          <div className="bg-blue-100 p-3 rounded-xl text-blue-600">
-            {/* <LayoutDashboard size={24} /> */}
+          <button className="text-slate-400 hover:text-slate-600">
+            <MoreHorizontal size={20} />
+          </button>
+        </div>
+
+        {/* Task Card 1 */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="bg-amber-100 text-amber-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-amber-200">
+              High Priority
+            </span>
+            <span className="bg-blue-50 text-blue-600 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-blue-100">
+              Design
+            </span>
+          </div>
+
+          <h4 className="font-bold text-slate-800 leading-snug">
+            Design Landing Page Hero Section
+          </h4>
+
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-3 text-slate-400">
+              <span className="flex items-center gap-1 text-xs font-medium">
+                <Clock size={14} /> 2 days left
+              </span>
+              <span className="flex items-center gap-1 text-xs font-medium">
+                <MessageSquare size={14} /> 4
+              </span>
+            </div>
+            {/* Mock Avatar */}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 border-2 border-white shadow-sm flex items-center justify-center text-white text-[10px] font-bold">
+              PC
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {activityItems.map((item) => (
-            <ActivityRow key={item.label} item={item} />
-          ))}
-        </div>
+        {/* Task Card 2 */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-emerald-100">
+              Backend
+            </span>
+          </div>
 
-        <button className="w-full mt-6 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          2 Boards Active
-        </button>
+          <h4 className="font-bold text-slate-800 leading-snug">
+            Setup PostgreSQL Schema
+          </h4>
+
+          {/* Progress Bar Mockup */}
+          <div className="flex flex-col gap-1.5 mt-1">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={12} className="text-emerald-500" /> Subtasks
+              </span>
+              <span>2/3</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-2/3 h-full bg-emerald-500 rounded-full" />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-3 text-slate-400">
+              <span className="flex items-center gap-1 text-xs font-medium">
+                <Paperclip size={14} /> 1
+              </span>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-orange-400 border-2 border-white shadow-sm flex items-center justify-center text-white text-[10px] font-bold">
+              AM
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -154,9 +239,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#fafafa] relative overflow-hidden font-sans">
       <BackgroundGrid />
+
       <main className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-32 flex flex-col lg:flex-row items-center justify-between gap-16">
         <HeroSection />
-        <PreviewCard />
+        <PreviewKanbanBoard />
       </main>
     </div>
   );
