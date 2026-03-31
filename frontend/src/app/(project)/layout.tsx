@@ -1,9 +1,11 @@
 // app/(project)/layout.tsx
 import { Sidebar } from "@/components/layout/Sidebar";
+import { apiFetch } from "@/lib/api";
 import { API_URL } from "@/lib/constants";
 import type { Board } from "@/types/board";
 
 async function getBoards(): Promise<Board[]> {
+  const boards = await apiFetch<Board[]>("/boards");
   try {
     const res = await fetch(`${API_URL}/boards`, { next: { revalidate: 60 } });
     if (!res.ok) return [];

@@ -1,0 +1,29 @@
+// src/middleware.ts
+import { NextRequest, NextResponse } from "next/server";
+
+const PROTECTED = ["/dashboard", "/board"];
+const AUTH_PAGES = ["/login", "/register"];
+
+export function middleware(request: NextRequest) {
+  const token    = request.cookies.get("auth_token");
+  const pathname = request.nextUrl.pathname;
+
+  const isProtected = PROTECTED.some((r) => pathname.startsWith(r));
+  const isAuthPage  = AUTH_PAGES.some((r) => pathname.startsWith(r));
+
+  // ไม่มี token พยายามเข้า protected route → redirect login
+  if (isProtected && !token) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // มี token แล้วยังเข้าหน้า login/register → redirect dashboard
+  if (isAuthPage && token) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/board/:path*", "/login", "/register"],
+};

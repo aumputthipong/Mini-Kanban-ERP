@@ -102,3 +102,27 @@ SET
     updated_at       = CURRENT_TIMESTAMP
 WHERE id = $1
 RETURNING *;
+
+
+
+-- name: CreateUser :one
+INSERT INTO users (email, full_name, password_hash, provider, provider_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE email = $1 LIMIT 1;
+
+-- name: GetUserByProviderID :one
+SELECT * FROM users 
+WHERE provider = $1 AND provider_id = $2 
+LIMIT 1;
+
+-- name: UpsertOAuthUser :one
+INSERT INTO users (email, full_name, provider, provider_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (email) 
+DO UPDATE SET 
+    full_name = EXCLUDED.full_name,
+    provider_id = EXCLUDED.provider_id
+RETURNING *;

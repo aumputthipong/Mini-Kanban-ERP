@@ -1,12 +1,14 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. ตาราง Users (เก็บข้อมูลนักพัฒนาและค่าแรง)
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    hourly_rate DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    -- ค่าแรงต่อชั่วโมง (ส่วนของ ERP Finance)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+       id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email         VARCHAR(255) UNIQUE NOT NULL,
+    full_name     VARCHAR(255) NOT NULL,
+    hourly_rate   DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    password_hash VARCHAR(255),
+    provider      VARCHAR(50) NOT NULL DEFAULT 'credentials',
+    provider_id   VARCHAR(255),
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 -- 2. ตาราง Boards (โปรเจกต์)
 CREATE TABLE boards (
@@ -57,3 +59,6 @@ CREATE INDEX idx_columns_board_id ON columns(board_id);
 CREATE INDEX idx_cards_column_id ON cards(column_id);
 CREATE INDEX idx_time_logs_card_id ON time_logs(card_id);
 CREATE INDEX idx_time_logs_user_id ON time_logs(user_id);
+
+
+

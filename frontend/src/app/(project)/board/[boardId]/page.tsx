@@ -24,7 +24,7 @@ interface PageProps {
 
 export default function KanbanPage({ params }: PageProps) {
   const { boardId } = use(params);
-  const { columns, setColumns, moveCard, updateCard } = useBoardStore();;
+  const { columns, setColumns, moveCard, updateCard } = useBoardStore();
   const { sendMessage } = useWebSocket(`${WS_URL}/${boardId}`);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +35,9 @@ export default function KanbanPage({ params }: PageProps) {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_URL}/boards/${boardId}`);
+        const response = await fetch(`${API_URL}/boards/${boardId}`, {
+          credentials: "include", 
+        });
         if (!response.ok) {
           throw new Error(`Failed to load board (${response.status})`);
         }

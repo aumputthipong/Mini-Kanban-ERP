@@ -50,9 +50,12 @@ type TimeLog struct {
 }
 
 type User struct {
-	ID         pgtype.UUID
-	Email      string
-	FullName   string
-	HourlyRate pgtype.Numeric
-	CreatedAt  pgtype.Timestamptz
+	ID           pgtype.UUID
+	Email        string
+	FullName     string
+	HourlyRate   pgtype.Numeric
+	PasswordHash pgtype.Text
+	Provider     string
+	ProviderID   pgtype.Text
+	CreatedAt    pgtype.Timestamptz
 }
