@@ -24,27 +24,6 @@ export function Navbar() {
           </Link>
         </div>
 
-        <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 hover:text-slate-900 transition-colors"
-          >
-            <LayoutDashboard size={16} />
-            Dashboard
-          </Link>
-          <Link
-            href="/projects"
-            className="hover:text-slate-900 transition-colors"
-          >
-            Projects
-          </Link>
-          <Link
-            href="/trash"
-            className="hover:text-slate-900 transition-colors"
-          >
-            Trash
-          </Link>
-        </div>
 
         <div className="flex items-center gap-3">
           <Link

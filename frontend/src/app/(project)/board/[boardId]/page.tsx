@@ -173,7 +173,7 @@ export default function KanbanPage({ params }: PageProps) {
 
       {/* 2. Content Layer (เนื้อหาหลัก) ต้องมี relative และ z-10 เพื่อให้อยู่เหนือพื้นหลัง */}
       <div className="relative z-10">
-        <BoardHeader title={`Project Board`} budgetUsed={100000} />
+        <BoardHeader title={`Project Board`} />
 
         <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
           <div className="flex gap-6 overflow-x-auto pb-4 items-start">
