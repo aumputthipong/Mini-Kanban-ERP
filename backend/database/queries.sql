@@ -19,12 +19,12 @@ SELECT
     c.due_date,
     c.estimated_hours,
     c.assignee_id,
+    c.priority,
     u.full_name AS assignee_name
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
 WHERE c.column_id = ANY($1::uuid[])
 ORDER BY c.position ASC;
-
 
 -- name: CreateBoard :one
 INSERT INTO boards (id, title, created_at, updated_at)
@@ -37,9 +37,9 @@ VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, board_id, title, position;
 
 -- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, column_id, title, position, due_date, assignee_id;
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority;
 
 -- name: UpdateCardColumn :exec
 UPDATE cards
@@ -89,3 +89,16 @@ RETURNING *;
 -- name: GetBoardByID :one
 SELECT * FROM boards 
 WHERE id = $1 LIMIT 1;
+
+-- name: UpdateCard :one
+UPDATE cards
+SET
+    title            = COALESCE($2, title),
+    description      = COALESCE($3, description),
+    due_date         = COALESCE($4, due_date),
+    assignee_id      = COALESCE($5, assignee_id),
+    priority         = COALESCE($6, priority),
+    estimated_hours  = COALESCE($7, estimated_hours),
+    updated_at       = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;

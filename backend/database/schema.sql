@@ -36,7 +36,7 @@ CREATE TABLE cards (
         title VARCHAR(255) NOT NULL,
         description TEXT,
         estimated_hours DECIMAL(5, 2) DEFAULT 0.00,
-        -- เวลาที่ประเมินไว้
+        priority VARCHAR(20) DEFAULT NULL,
         due_date DATE,
         position DOUBLE PRECISION NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

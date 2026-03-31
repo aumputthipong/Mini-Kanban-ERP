@@ -104,7 +104,7 @@ func setupRoutes(boardHandler *handler.BoardHandler, hub *websocket.Hub) http.Ha
 		}
 	})
 	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
-
+	mux.HandleFunc("/api/cards/{cardID}", boardHandler.UpdateCard)
 	return mux
 
 }

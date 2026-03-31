@@ -30,9 +30,9 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 }
 
 const createCard = `-- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, column_id, title, position, due_date, assignee_id
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority
 `
 
 type CreateCardParams struct {
@@ -41,15 +41,18 @@ type CreateCardParams struct {
 	Position   float64
 	DueDate    pgtype.Date
 	AssigneeID pgtype.UUID
+	Priority   pgtype.Text
 }
 
 type CreateCardRow struct {
-	ID         pgtype.UUID
-	ColumnID   pgtype.UUID
-	Title      string
-	Position   float64
-	DueDate    pgtype.Date
-	AssigneeID pgtype.UUID
+	ID          pgtype.UUID
+	ColumnID    pgtype.UUID
+	Title       string
+	Description pgtype.Text
+	Position    float64
+	DueDate     pgtype.Date
+	AssigneeID  pgtype.UUID
+	Priority    pgtype.Text
 }
 
 func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateCardRow, error) {
@@ -59,15 +62,18 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 		arg.Position,
 		arg.DueDate,
 		arg.AssigneeID,
+		arg.Priority,
 	)
 	var i CreateCardRow
 	err := row.Scan(
 		&i.ID,
 		&i.ColumnID,
 		&i.Title,
+		&i.Description,
 		&i.Position,
 		&i.DueDate,
 		&i.AssigneeID,
+		&i.Priority,
 	)
 	return i, err
 }
@@ -206,6 +212,7 @@ SELECT
     c.due_date,
     c.estimated_hours,
     c.assignee_id,
+    c.priority,
     u.full_name AS assignee_name
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
@@ -222,6 +229,7 @@ type GetCardsByColumnIDsRow struct {
 	DueDate        pgtype.Date
 	EstimatedHours pgtype.Numeric
 	AssigneeID     pgtype.UUID
+	Priority       pgtype.Text
 	AssigneeName   pgtype.Text
 }
 
@@ -243,6 +251,7 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUI
 			&i.DueDate,
 			&i.EstimatedHours,
 			&i.AssigneeID,
+			&i.Priority,
 			&i.AssigneeName,
 		); err != nil {
 			return nil, err
@@ -380,6 +389,57 @@ func (q *Queries) UpdateBoard(ctx context.Context, arg UpdateBoardParams) (Board
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const updateCard = `-- name: UpdateCard :one
+UPDATE cards
+SET
+    title            = COALESCE($2, title),
+    description      = COALESCE($3, description),
+    due_date         = COALESCE($4, due_date),
+    assignee_id      = COALESCE($5, assignee_id),
+    priority         = COALESCE($6, priority),
+    estimated_hours  = COALESCE($7, estimated_hours),
+    updated_at       = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, created_at, updated_at
+`
+
+type UpdateCardParams struct {
+	ID             pgtype.UUID
+	Title          string
+	Description    pgtype.Text
+	DueDate        pgtype.Date
+	AssigneeID     pgtype.UUID
+	Priority       pgtype.Text
+	EstimatedHours pgtype.Numeric
+}
+
+func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, error) {
+	row := q.db.QueryRow(ctx, updateCard,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.DueDate,
+		arg.AssigneeID,
+		arg.Priority,
+		arg.EstimatedHours,
+	)
+	var i Card
+	err := row.Scan(
+		&i.ID,
+		&i.ColumnID,
+		&i.AssigneeID,
+		&i.Title,
+		&i.Description,
+		&i.EstimatedHours,
+		&i.Priority,
+		&i.DueDate,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

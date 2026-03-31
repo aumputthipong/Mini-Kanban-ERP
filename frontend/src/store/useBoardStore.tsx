@@ -1,4 +1,4 @@
-import { Column } from '@/types/board';
+import { Card, Column } from '@/types/board';
 import { create } from 'zustand';
 
 
@@ -9,6 +9,8 @@ interface BoardState {
   moveCard: (cardId: string, fromColumnId: string, toColumnId: string) => void;
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
+    updateCard: (updated: Card) => void;
+
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
@@ -64,4 +66,15 @@ export const useBoardStore = create<BoardState>((set) => ({
       cards: col.cards.filter((card) => card.id !== cardId),
     })),
   })),
+
+   updateCard: (updated) => set((state) => ({
+    columns: state.columns.map((col) => ({
+      ...col,
+      cards: col.cards.map((card) =>
+        card.id === updated.id ? { ...card, ...updated } : card
+      ),
+    })),
+  })),
+
 }));
+

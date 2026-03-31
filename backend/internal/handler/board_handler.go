@@ -2,24 +2,27 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CardResponse struct {
-    ID             string  `json:"id"`
-    ColumnID       string  `json:"column_id"`
-    Title          string  `json:"title"`
-    Description    *string `json:"description"`
-    Position       float64 `json:"position"`
-    DueDate        *string `json:"due_date"`
-    EstimatedHours *float64 `json:"estimated_hours"`
-    AssigneeID     *string `json:"assignee_id"`
-    AssigneeName   *string `json:"assignee_name"`
+	ID             string   `json:"id"`
+	ColumnID       string   `json:"column_id"`
+	Title          string   `json:"title"`
+	Description    *string  `json:"description"`
+	Position       float64  `json:"position"`
+	DueDate        *string  `json:"due_date"`
+	EstimatedHours *float64 `json:"estimated_hours"`
+	AssigneeID     *string  `json:"assignee_id"`
+	AssigneeName   *string  `json:"assignee_name"`
+	Priority       *string  `json:"priority"`
 }
 
 type ColumnResponse struct {
@@ -32,10 +35,11 @@ type BoardHandler struct {
 	boardService *service.BoardService
 }
 type CreateCardRequest struct {
-    ColumnID   string  `json:"column_id"`
-    Title      string  `json:"title"`
-    DueDate    *string `json:"due_date"`
-    AssigneeID *string `json:"assignee_id"`
+	ColumnID   string  `json:"column_id"`
+	Title      string  `json:"title"`
+	DueDate    *string `json:"due_date"`
+	AssigneeID *string `json:"assignee_id"`
+	Priority   *string `json:"priority"`
 }
 type CreateBoardRequest struct {
 	Title string `json:"title"`
@@ -50,28 +54,13 @@ type UpdateBoardRequest struct {
 	Budget *float64 `json:"budget"`
 }
 
-
-func pgDateToPtr(d pgtype.Date) *string {
-    if !d.Valid {
-        return nil
-    }
-    s := d.Time.Format("2006-01-02")
-    return &s
-}
-
-func pgUUIDToPtr(u pgtype.UUID) *string {
-	if !u.Valid {
-		return nil
-	}
-	s := u.String()
-	return &s
-}
-
-func pgTextToPtr(t pgtype.Text) *string {
-	if !t.Valid {
-		return nil
-	}
-	return &t.String
+type UpdateCardRequest struct {
+    Title          *string  `json:"title"`
+    Description    *string  `json:"description"`
+    DueDate        *string  `json:"due_date"`
+    AssigneeID     *string  `json:"assignee_id"`
+    Priority       *string  `json:"priority"`
+    EstimatedHours *float64 `json:"estimated_hours"`
 }
 
 func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
@@ -98,53 +87,42 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	columns, err := h.boardService.GetColumnsByBoardID(r.Context(), boardUUID)
+	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardUUID)
 	if err != nil {
-		http.Error(w, "Failed to fetch columns", http.StatusInternalServerError)
+		log.Printf("GetBoardWithCards error: %v", err)
+		http.Error(w, "Failed to fetch board data", http.StatusInternalServerError)
 		return
 	}
 
-	columnIDs := make([]pgtype.UUID, len(columns))
-	for i, col := range columns {
-		columnIDs[i] = col.ID
-	}
-
-	cards, err := h.boardService.GetCardsByColumnIDs(r.Context(), columnIDs)
-	if err != nil {
-		log.Printf("Error fetching cards: %v", err)
-		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
-		return
-	}
-
-	// group cards ก่อน แทนที่จะวน loop ซ้อนกัน O(n²)
-	cardsByColumn := make(map[pgtype.UUID][]CardResponse)
-	for _, card := range cards {
-    cardsByColumn[card.ColumnID] = append(cardsByColumn[card.ColumnID], CardResponse{
-        ID:           card.ID.String(),
-        ColumnID:     card.ColumnID.String(),
-        Title:        card.Title,
-        Description:  pgTextToPtr(card.Description),
-        Position:     card.Position,
-        DueDate:      pgDateToPtr(card.DueDate),
-        AssigneeID:   pgUUIDToPtr(card.AssigneeID),
-        AssigneeName: pgTextToPtr(card.AssigneeName),
-    })
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(toColumnResponses(columns))
 }
 
+func toColumnResponses(columns []service.ColumnData) []ColumnResponse {
 	result := make([]ColumnResponse, 0, len(columns))
 	for _, col := range columns {
-		colCards := cardsByColumn[col.ID]
-		if colCards == nil {
-			colCards = []CardResponse{}
+		cards := make([]CardResponse, 0, len(col.Cards))
+		for _, card := range col.Cards {
+			cards = append(cards, CardResponse{
+				ID:           card.ID.String(),
+				ColumnID:     card.ColumnID.String(),
+				Title:        card.Title,
+				Description:  pgutil.TextToPtr(card.Description),
+				Position:     card.Position,
+				DueDate:      pgutil.DateToPtr(card.DueDate),
+				AssigneeID:   pgutil.UUIDToPtr(card.AssigneeID),
+				AssigneeName: pgutil.TextToPtr(card.AssigneeName),
+				Priority:     pgutil.TextToPtr(card.Priority),
+			})
 		}
 		result = append(result, ColumnResponse{
 			ID:       col.ID.String(),
 			Title:    col.Title,
 			Position: col.Position,
-			Cards:    colCards,
+			Cards:    cards,
 		})
 	}
-	json.NewEncoder(w).Encode(result)
+	return result
 }
 
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +147,9 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		ColumnID: colUUID,
 		Title:    req.Title,
 		Position: 0,
+		DueDate:  pgutil.PtrToDate(req.DueDate),
+		// AssigneeID ใช้ pgutil.PtrToUUID ถ้ามี helper นั้น
+		Priority: pgutil.PtrToText(req.Priority),
 	})
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
@@ -234,7 +215,6 @@ func (h *BoardHandler) HandleBoardsRoute(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-
 func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -284,17 +264,16 @@ func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) {
 
 // ลบถาวร
 func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
-    boardIDStr := r.PathValue("boardID")
-    var boardUUID pgtype.UUID
-    boardUUID.Scan(boardIDStr)
+	boardIDStr := r.PathValue("boardID")
+	var boardUUID pgtype.UUID
+	boardUUID.Scan(boardIDStr)
 
-    if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
-        http.Error(w, "Delete failed", http.StatusInternalServerError)
-        return
-    }
-    w.WriteHeader(http.StatusNoContent)
+	if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
+		http.Error(w, "Delete failed", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
-
 
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	boardIDStr := r.PathValue("boardID")
@@ -314,4 +293,59 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(updatedBoard)
+}
+func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPatch {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    cardIDStr := r.PathValue("cardID")
+    if cardIDStr == "" {
+        http.Error(w, "Card ID is required", http.StatusBadRequest)
+        return
+    }
+
+    var cardUUID pgtype.UUID
+    if err := cardUUID.Scan(cardIDStr); err != nil {
+        http.Error(w, "Invalid card ID format", http.StatusBadRequest)
+        return
+    }
+
+    var req UpdateCardRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    var estimatedHours pgtype.Numeric
+    if req.EstimatedHours != nil {
+        estimatedHours.Scan(fmt.Sprintf("%f", *req.EstimatedHours))
+    }
+
+    card, err := h.boardService.UpdateCard(r.Context(), service.UpdateCardParams{
+        ID:             cardUUID,
+        Title:          pgutil.PtrToText(req.Title),
+        Description:    pgutil.PtrToText(req.Description),
+        DueDate:        pgutil.PtrToDate(req.DueDate),
+        AssigneeID:     pgutil.PtrToUUID(req.AssigneeID),
+        Priority:       pgutil.PtrToText(req.Priority),
+        EstimatedHours: estimatedHours,
+    })
+    if err != nil {
+        log.Printf("UpdateCard error: %v", err)
+        http.Error(w, "Failed to update card", http.StatusInternalServerError)
+        return
+    }
+
+    writeJSON(w, http.StatusOK, card)
+}
+
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    if err := json.NewEncoder(w).Encode(v); err != nil {
+        log.Printf("writeJSON encode error: %v", err)
+    }
 }
