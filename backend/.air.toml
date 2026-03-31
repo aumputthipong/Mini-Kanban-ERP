@@ -1,0 +1,6 @@
+root = "."
+cmd = "go run ./cmd/api/main.go"
+
+[build]
+  include_ext = ["go"]
+  exclude_dir = ["vendor"]

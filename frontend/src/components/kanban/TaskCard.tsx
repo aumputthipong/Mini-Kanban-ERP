@@ -5,15 +5,16 @@ import { useDraggable } from "@dnd-kit/core";
 import { Calendar, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
-import { CardDetailModal } from "./CardDetailModal";
+import { CardDetailModal, FormState } from "./CardDetailModal";
 import { useBoardStore } from "@/store/useBoardStore";
 
 interface CardProps {
   card: Card;
   onDeleteCard: (cardId: string) => void;
+  onSaveCard: (cardId: string, form: FormState) => void;
 }
 
-export function TaskCard({ card, onDeleteCard }: CardProps) {
+export function TaskCard({ card, onDeleteCard, onSaveCard }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { updateCard } = useBoardStore();
 
@@ -101,8 +102,9 @@ export function TaskCard({ card, onDeleteCard }: CardProps) {
         card={card}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
-        onUpdated={(updated) => {
-          updateCard(updated);
+        onUpdated={(cardId, form) => {
+          // เปลี่ยน signature
+          onSaveCard(cardId, form);
           setIsDetailOpen(false);
         }}
         onDelete={(cardId) => {

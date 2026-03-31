@@ -19,7 +19,7 @@ import {
   Edit,
   Pencil,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Card } from "@/types/board";
 import { API_URL } from "@/lib/constants";
 
@@ -27,7 +27,7 @@ interface CardDetailModalProps {
   card: Card;
   isOpen: boolean;
   onClose: () => void;
-  onUpdated: (updated: Card) => void;
+  onUpdated: (cardId: string, form: FormState) => void;
   onDelete: (cardId: string) => void;
 }
 
@@ -42,7 +42,7 @@ const priorityColor: Record<
   high: "error",
 };
 
-interface FormState {
+export interface FormState { 
   title: string;
   description: string;
   due_date: string;
@@ -50,7 +50,6 @@ interface FormState {
   priority: string;
   estimated_hours: string;
 }
-
 export function CardDetailModal({
   card,
   isOpen,
@@ -88,53 +87,70 @@ export function CardDetailModal({
     ) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
 
-  const handleSave = async () => {
+  // const handleSave = async () => {
+  //   if (!form.title.trim()) {
+  //     setError("Title cannot be empty.");
+  //     return;
+  //   }
+
+  //   setIsSaving(true);
+  //   setError(null);
+
+  //   try {
+  //     const res = await fetch(`${API_URL}/cards/${card.id}`, {
+  //       method: "PATCH",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         title: form.title.trim(),
+  //         description: form.description || null,
+  //         due_date: form.due_date || null,
+  //         assignee_id: form.assignee_id || null,
+  //         priority: form.priority || null,
+  //         estimated_hours: form.estimated_hours
+  //           ? parseFloat(form.estimated_hours)
+  //           : null,
+  //       }),
+  //     });
+
+  //     if (!res.ok) throw new Error(`Failed to update card (${res.status})`);
+
+  //     const updated: Card = await res.json();
+  //     onUpdated(updated);
+  //     onClose();
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : "Something went wrong.");
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+  const handleSave = () => {
     if (!form.title.trim()) {
       setError("Title cannot be empty.");
       return;
     }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/cards/${card.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title.trim(),
-          description: form.description || null,
-          due_date: form.due_date || null,
-          assignee_id: form.assignee_id || null,
-          priority: form.priority || null,
-          estimated_hours: form.estimated_hours
-            ? parseFloat(form.estimated_hours)
-            : null,
-        }),
-      });
-
-      if (!res.ok) throw new Error(`Failed to update card (${res.status})`);
-
-      const updated: Card = await res.json();
-      onUpdated(updated);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsSaving(false);
-    }
+    onUpdated(card.id, form);
+    onClose();
   };
-
   const handleDelete = () => {
     onDelete(card.id);
   };
 
+  useEffect(() => {
+  setForm({
+    title:           card.title,
+    description:     card.description ?? "",
+    due_date:        card.due_date ?? "",
+    assignee_id:     card.assignee_id ?? "",
+    priority:        card.priority ?? "",
+    estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
+  });
+  setError(null);
+}, [card]);
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle className="border-b border-slate-100 pb-4 pt-5">
         {/* 1. เปลี่ยน items-start เป็น items-center ตรงนี้ครับ */}
         <div className="flex items-center gap-3 group">
-          
           {/* 2. เอา mt-2 ออกไปเลย เพราะ items-center จะจับให้อยู่ตรงกลางอัตโนมัติ */}
           <div className="text-slate-400 shrink-0">
             <Folder size={24} /> {/* ปรับขนาดขึ้นนิดนึงให้สมดุลกับ text-2xl */}
@@ -148,13 +164,12 @@ export function CardDetailModal({
               placeholder="Enter card title..."
               className="w-full text-2xl font-extrabold text-slate-800 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-all cursor-text placeholder:text-slate-300 pr-10"
             />
-            
+
             {/* ไอคอนดินสอ (อยู่ตรงกลางเหมือนเดิมเพราะใช้ top-1/2 -translate-y-1/2) */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
               <Pencil size={18} />
             </div>
           </div>
-
         </div>
       </DialogTitle>
       <DialogContent className="pt-4 flex flex-col gap-5 ">
