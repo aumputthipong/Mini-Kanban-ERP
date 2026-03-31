@@ -6,19 +6,31 @@ import { Navbar } from "@/components/layout/Navbar";
 import "./globals.css";
 import { MuiProvider } from "@/components/providers/MuiProvider";
 
-
-
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: { template: "%s | MiniERP", default: "MiniERP" },
-  description: "Real-time Kanban board for your team",
+  title: "Turtask", // เปลี่ยนชื่อเว็บตรงนี้
+  description: "Project Task board management system",
+  icons: {
+    icon: "/Turtask.png",
+    shortcut: "/Turtask.png",
+    apple: "/Turtask.png",
+  },
 };
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
       <body className="h-full flex flex-col">
         <MuiProvider>
           <Navbar />
