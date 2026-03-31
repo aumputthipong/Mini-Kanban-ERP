@@ -3,12 +3,13 @@ export interface Card {
   id: string;
   column_id: string;
   title: string;
-  description?: string;
-  due_date?: string | null;
-  assignee?: string | null;
-  avatar_url?: string | null; 
-  priority?: "low" | "medium" | "high";
-  estimated_hours?: number; 
+  position: number;
+  description: string | null;
+  due_date: string | null;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  priority: "low" | "medium" | "high" | null;
+  estimated_hours: number | null;
 }
 
 export interface Column {
@@ -26,6 +27,4 @@ export interface Board {
 export interface CreateCardPayload {
   column_id: string;
   title: string;
-  due_date?: string;
-  assignee?: string;
 }

@@ -1,23 +1,20 @@
+// components/kanban/Column.tsx
+"use client";
+
 import { useDroppable } from "@dnd-kit/core";
-
+import { Plus, X } from "lucide-react";
+import { useState, useRef } from "react";
 import { TaskCard } from "./TaskCard";
-import { MoreHorizontal, Plus, X } from "lucide-react";
-import { useState } from "react";
-import { Card } from "@/types/board";
-
-interface AddCardForm {
-  title: string;
-  due_date: string;
-  assignee_id: string;
-}
+import type { Card } from "@/types/board";
 
 interface ColumnProps {
   id: string;
   title: string;
   cards: Card[];
-  onAddCard: (columnId: string, form: AddCardForm) => void;
+  onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (cardId: string) => void;
 }
+
 export function KanbanColumn({
   id,
   title,
@@ -27,23 +24,26 @@ export function KanbanColumn({
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [isAdding, setIsAdding] = useState(false);
-  const [form, setForm] = useState<AddCardForm>({
-    title: "",
-    due_date: "",
-    assignee_id: "",
-  });
+  const [cardTitle, setCardTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
-    if (!form.title.trim()) return;
-    onAddCard(id, form);
-    // ขาดสองบรรทัดนี้
-    setForm({ title: "", due_date: "", assignee_id: "" });
+    if (!cardTitle.trim()) return;
+    onAddCard(id, cardTitle.trim());
+    setCardTitle("");
     setIsAdding(false);
   };
+
   const handleCancel = () => {
-    setForm({ title: "", due_date: "", assignee_id: "" });
+    setCardTitle("");
     setIsAdding(false);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSubmit();
+    if (e.key === "Escape") handleCancel();
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -59,35 +59,20 @@ export function KanbanColumn({
       {isAdding ? (
         <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2">
           <input
+            ref={inputRef}
             autoFocus
             type="text"
             placeholder="Card title"
-            value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
-          />
-          <input
-            type="date"
-            value={form.due_date}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, due_date: e.target.value }))
-            }
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 text-slate-500"
-          />
-          <input
-            type="text"
-            placeholder="Assignee ID (optional)"
-            value={form.assignee_id}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, assignee_id: e.target.value }))
-            }
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
+            value={cardTitle}
+            onChange={(e) => setCardTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
           <div className="flex gap-2">
             <button
               onClick={handleSubmit}
-              className="flex-1 bg-blue-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={!cardTitle.trim()}
+              className="flex-1 bg-blue-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Add Card
             </button>
@@ -110,11 +95,9 @@ export function KanbanColumn({
       )}
       <div className="flex flex-col gap-2">
         {cards.map((card) => (
-          <TaskCard key={card.id} card={card} onDelete={onDeleteCard} />
+          <TaskCard key={card.id} card={card} onDeleteCard={onDeleteCard}  />
         ))}
       </div>
-
-
     </div>
   );
 }

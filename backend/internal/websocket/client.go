@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -133,11 +134,12 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-
+	priority, _ := payload["priority"].(string)
 	newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
 		ColumnID: colUUID,
 		Title:    title,
 		Position: 0,
+		Priority: pgtype.Text{String: priority, Valid: priority != ""},
 	})
 	if err != nil {
 		log.Printf("Failed to create card: %v", err)
@@ -151,6 +153,7 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 			"column_id": newCard.ColumnID.String(),
 			"title":     newCard.Title,
 			"position":  newCard.Position,
+			"priority":  pgutil.TextToPtr(newCard.Priority),
 		},
 	}
 

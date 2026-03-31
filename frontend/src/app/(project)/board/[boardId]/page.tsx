@@ -72,14 +72,12 @@ export default function KanbanPage({ params }: PageProps) {
     });
   };
 
-const handleAddCard = (columnId: string, form: { title: string; due_date: string; assignee_id: string }) => {
+const handleAddCard = (columnId: string, title: string) => {
   sendMessage({
     type: "CARD_CREATED",
     payload: {
       column_id: columnId,
-      title: form.title,
-      due_date: form.due_date || undefined,
-      assignee_id: form.assignee_id || undefined,
+      title: title,
     },
   });
 };
