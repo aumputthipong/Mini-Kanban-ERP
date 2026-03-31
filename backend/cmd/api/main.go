@@ -1,3 +1,4 @@
+// cmd/api/main.go
 package main
 
 import (
@@ -16,6 +17,7 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	
 )
 
 type config struct {
@@ -53,62 +55,6 @@ func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func setupRoutes(boardHandler *handler.BoardHandler, hub *websocket.Hub) http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "API is running")
-	})
-
-	mux.HandleFunc("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
-		boardID := r.PathValue("boardID")
-		if boardID == "" {
-			http.Error(w, "Board ID is required", http.StatusBadRequest)
-			return
-		}
-		websocket.ServeWs(hub, w, r, boardID)
-	})
-
-	mux.HandleFunc("/api/boards", boardHandler.HandleBoardsRoute)
-	// ถังขยะ
-	mux.HandleFunc("/api/trash", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		boardHandler.GetTrash(w, r)
-	})
-
-	mux.HandleFunc("/api/trash/{boardID}", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodDelete:
-			boardHandler.HardDelete(w, r)
-		case http.MethodPatch:
-			http.Error(w, "Restore feature coming soon", http.StatusNotImplemented)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// บอร์ดเฉพาะตัว
-	mux.HandleFunc("/api/boards/{boardID}", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			boardHandler.GetBoardData(w, r)
-			case http.MethodPatch:
-			boardHandler.UpdateBoard(w, r)
-		case http.MethodDelete:
-			boardHandler.MoveToTrash(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.HandleFunc("/api/cards", boardHandler.CreateCard)
-	mux.HandleFunc("/api/cards/{cardID}", boardHandler.UpdateCard)
-	return mux
-
-}
-
 func run(ctx context.Context, cfg config) error {
 	pool, err := initDB(ctx, cfg.DBUrl)
 	if err != nil {
@@ -123,11 +69,16 @@ func run(ctx context.Context, cfg config) error {
 	go hub.Run()
 
 	boardService := service.NewBoardService(queries)
+	authService  := service.NewAuthService(queries)
+
 	boardHandler := handler.NewBoardHandler(boardService)
+	authHandler  := handler.NewAuthHandler(authService)
+
+	routes := setupRoutes(boardHandler, authHandler, hub)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: middleware.CORS(cfg.FrontendURL, setupRoutes(boardHandler, hub)),
+		Handler: middleware.CORS(cfg.FrontendURL, routes),
 	}
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
@@ -140,7 +91,7 @@ func run(ctx context.Context, cfg config) error {
 		}
 	}()
 
-	<-ctx.Done() // รอจนกว่าจะได้รับ signal
+	<-ctx.Done()
 	log.Println("Shutting down server...")
 	return server.Shutdown(context.Background())
 }

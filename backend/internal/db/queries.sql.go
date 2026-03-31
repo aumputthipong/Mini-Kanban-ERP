@@ -109,6 +109,42 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Cre
 	return i, err
 }
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, full_name, password_hash, provider, provider_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, email, full_name, hourly_rate, password_hash, provider, provider_id, created_at
+`
+
+type CreateUserParams struct {
+	Email        string
+	FullName     string
+	PasswordHash pgtype.Text
+	Provider     string
+	ProviderID   pgtype.Text
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.FullName,
+		arg.PasswordHash,
+		arg.Provider,
+		arg.ProviderID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FullName,
+		&i.HourlyRate,
+		&i.PasswordHash,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteCard = `-- name: DeleteCard :exec
 DELETE FROM cards WHERE id = $1
 `
@@ -331,6 +367,53 @@ func (q *Queries) GetTrashedBoards(ctx context.Context) ([]GetTrashedBoardsRow, 
 	return items, nil
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, full_name, hourly_rate, password_hash, provider, provider_id, created_at FROM users WHERE email = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FullName,
+		&i.HourlyRate,
+		&i.PasswordHash,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByProviderID = `-- name: GetUserByProviderID :one
+SELECT id, email, full_name, hourly_rate, password_hash, provider, provider_id, created_at FROM users 
+WHERE provider = $1 AND provider_id = $2 
+LIMIT 1
+`
+
+type GetUserByProviderIDParams struct {
+	Provider   string
+	ProviderID pgtype.Text
+}
+
+func (q *Queries) GetUserByProviderID(ctx context.Context, arg GetUserByProviderIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByProviderID, arg.Provider, arg.ProviderID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FullName,
+		&i.HourlyRate,
+		&i.PasswordHash,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const hardDeleteBoard = `-- name: HardDeleteBoard :exec
 DELETE FROM boards 
 WHERE id = $1
@@ -459,4 +542,42 @@ type UpdateCardColumnParams struct {
 func (q *Queries) UpdateCardColumn(ctx context.Context, arg UpdateCardColumnParams) error {
 	_, err := q.db.Exec(ctx, updateCardColumn, arg.ColumnID, arg.Position, arg.ID)
 	return err
+}
+
+const upsertOAuthUser = `-- name: UpsertOAuthUser :one
+INSERT INTO users (email, full_name, provider, provider_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (email) 
+DO UPDATE SET 
+    full_name = EXCLUDED.full_name,
+    provider_id = EXCLUDED.provider_id
+RETURNING id, email, full_name, hourly_rate, password_hash, provider, provider_id, created_at
+`
+
+type UpsertOAuthUserParams struct {
+	Email      string
+	FullName   string
+	Provider   string
+	ProviderID pgtype.Text
+}
+
+func (q *Queries) UpsertOAuthUser(ctx context.Context, arg UpsertOAuthUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, upsertOAuthUser,
+		arg.Email,
+		arg.FullName,
+		arg.Provider,
+		arg.ProviderID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FullName,
+		&i.HourlyRate,
+		&i.PasswordHash,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+	)
+	return i, err
 }

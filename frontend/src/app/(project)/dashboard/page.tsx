@@ -1,4 +1,7 @@
 import { CreateBoardButton } from "@/components/CreateBoardButton";
+import { apiFetch } from "@/lib/api";
+import { API_URL } from "@/lib/constants";
+import { Board } from "@/types/board";
 import Link from "next/link";
 
 // Best Practice สำหรับ Next.js 14+:
@@ -6,11 +9,11 @@ import Link from "next/link";
 // (ไม่ต้องใส่ "use client") ทำให้เว็บโหลดเร็วขึ้นและ SEO ดีขึ้นครับ
 
 export default async function DashboardPage() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  const boards = await apiFetch<Board[]>("/boards", { cache: "no-store" });
 
   // ดึงข้อมูลรายชื่อโปรเจกต์ (ใช้ cache: 'no-store' เพื่อให้ดึงข้อมูลใหม่เสมอเมื่อรีเฟรชหน้า)
-  const res = await fetch(`${apiUrl}/boards`, { cache: "no-store" });
-  const boards = await res.json();
+  const res = await fetch(`${API_URL}/boards`, { cache: "no-store" });
+  // const boards = await res.json();
 
   return (
     <main className="p-10 bg-slate-50 min-h-screen">

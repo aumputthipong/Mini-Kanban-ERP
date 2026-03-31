@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
+	"github.com/go-chi/chi/v5"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
@@ -70,12 +70,8 @@ func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
 }
 
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
-	boardIDStr := r.PathValue("boardID")
+	boardIDStr := chi.URLParam(r, "boardID")
 	if boardIDStr == "" {
 		http.Error(w, "Board ID is required", http.StatusBadRequest)
 		return
@@ -160,10 +156,6 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	boards, err := h.boardService.GetAllBoards(r.Context())
 	if err != nil {
@@ -221,7 +213,7 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	boardIDStr := r.PathValue("boardID")
+	boardIDStr := chi.URLParam(r, "boardID")
 	if boardIDStr == "" {
 		http.Error(w, "Board ID is required", http.StatusBadRequest)
 		return
@@ -244,10 +236,6 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) {
 
 // ดึงรายการในถังขยะ
 func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	boards, err := h.boardService.GetTrashedBoards(r.Context())
 	if err != nil {
@@ -264,7 +252,7 @@ func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) {
 
 // ลบถาวร
 func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
-	boardIDStr := r.PathValue("boardID")
+	boardIDStr := chi.URLParam(r, "boardID")
 	var boardUUID pgtype.UUID
 	boardUUID.Scan(boardIDStr)
 
@@ -276,7 +264,7 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
-	boardIDStr := r.PathValue("boardID")
+	boardIDStr := chi.URLParam(r, "boardID")
 	var boardUUID pgtype.UUID
 	boardUUID.Scan(boardIDStr)
 
