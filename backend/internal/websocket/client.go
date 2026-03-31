@@ -4,6 +4,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -77,6 +78,8 @@ func (c *Client) ReadPump() {
 			c.handleCardCreated(wsMsg.Payload)
 		case "CARD_DELETED":
 			c.handleCardDeleted(wsMsg.Payload, message)
+		case "CARD_UPDATED":
+			c.handleCardUpdated(wsMsg.Payload, message)
 		default:
 			log.Printf("Unknown message type: %s", wsMsg.Type)
 		}
@@ -242,4 +245,51 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 
 	go client.WritePump()
 	go client.ReadPump()
+}
+
+
+func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte) {
+    cardIDStr, ok := payload["card_id"].(string)
+    if !ok {
+        log.Println("Invalid payload for CARD_UPDATED")
+        return
+    }
+
+    var cardUUID pgtype.UUID
+    if err := cardUUID.Scan(cardIDStr); err != nil {
+        log.Printf("Invalid card ID: %s", cardIDStr)
+        return
+    }
+
+    title, _          := payload["title"].(string)
+    description, _    := payload["description"].(string)
+    dueDate, _        := payload["due_date"].(string)
+    assigneeID, _     := payload["assignee_id"].(string)
+    priority, _       := payload["priority"].(string)
+    estimatedHours, _ := payload["estimated_hours"].(float64)
+
+    var estimatedHoursNumeric pgtype.Numeric
+    if estimatedHours != 0 {
+        estimatedHoursNumeric.Scan(fmt.Sprintf("%f", estimatedHours))
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+    defer cancel()
+
+    _, err := c.hub.queries.UpdateCard(ctx, db.UpdateCardParams{
+        ID:             cardUUID,
+        Title:          title,
+        Description:    pgutil.PtrToText(pgutil.NilIfEmpty(description)),
+        DueDate:        pgutil.PtrToDate(pgutil.NilIfEmpty(dueDate)),
+        AssigneeID:     pgutil.PtrToUUID(pgutil.NilIfEmpty(assigneeID)),
+        Priority:       pgutil.PtrToText(pgutil.NilIfEmpty(priority)),
+        EstimatedHours: estimatedHoursNumeric,
+    })
+    if err != nil {
+        log.Printf("Failed to update card: %v", err)
+        return
+    }
+
+    log.Printf("Updated card [%s]", cardIDStr)
+    c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 }

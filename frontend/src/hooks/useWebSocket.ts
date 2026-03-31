@@ -12,17 +12,17 @@ export const useWebSocket = (url: string) => {
   const socketRef = useRef<WebSocket | null>(null);
   const isConnecting = useRef(false);
 
-useEffect(() => {
+  useEffect(() => {
     // 1. Guard ป้องกัน URL ไม่พร้อม
     if (!url || url.endsWith('undefined') || url.endsWith('null') || url.endsWith('/')) {
-      return; 
+      return;
     }
 
     let isCancelled = false; // Flag พระเอกของเรา
 
     console.log("🎯 Attempting to connect WebSocket to:", url);
     isConnecting.current = true;
-    
+
     const socket = new WebSocket(url);
     socketRef.current = socket;
 
@@ -39,7 +39,7 @@ useEffect(() => {
       if (isCancelled) return; // ถ้ายกเลิกแล้ว ห้ามประมวลผลข้อความ
       try {
         const parsedData = JSON.parse(event.data);
-        console.log('📩 Message from server:', parsedData);
+        console.log('Message from server:', parsedData);
 
         if (parsedData.type === 'CARD_MOVED') {
           const { card_id, old_column_id, new_column_id } = parsedData.payload;
@@ -53,15 +53,20 @@ useEffect(() => {
         if (parsedData.type === 'CARD_DELETED') {
           useBoardStore.getState().removeCardFromStore(parsedData.payload.card_id);
         }
+        if (parsedData.type === 'CARD_UPDATED') {
+          const { card_id, ...rest } = parsedData.payload;
+          useBoardStore.getState().updateCard({ id: card_id, ...rest });
+        }
+
       } catch (error) {
-        console.error('❌ Error parsing WebSocket message:', error);
+        console.error('Error parsing WebSocket message:', error);
       }
     };
 
     socket.onclose = () => {
       // [แก้บั๊กที่นี่!]: ถ้าถูกสั่ง Cancel ไปแล้ว ห้ามเอา null ไปทับของใหม่เด็ดขาด!
-      if (isCancelled) return; 
-      
+      if (isCancelled) return;
+
       console.log('🛑 Disconnected from WebSocket');
       socketRef.current = null;
       isConnecting.current = false;
@@ -77,12 +82,12 @@ useEffect(() => {
 
     return () => {
       // เมื่อ Component ถูกทำลาย (เช่น กดกลับหน้า Dashboard)
-      isCancelled = true; 
-      
+      isCancelled = true;
+
       if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
         socket.close();
       }
-      
+
       // [ป้องกันชั้นที่ 2]: เคลียร์ค่า Ref เฉพาะกรณีที่ Ref นั้นยังชี้มาที่ socket ตัวเก่านี้เท่านั้น
       if (socketRef.current === socket) {
         socketRef.current = null;

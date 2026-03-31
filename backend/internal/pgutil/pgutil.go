@@ -86,3 +86,10 @@ func PtrToUUID(s *string) pgtype.UUID {
     }
     return u
 }
+
+func NilIfEmpty(s string) *string {
+    if s == "" {
+        return nil
+    }
+    return &s
+}

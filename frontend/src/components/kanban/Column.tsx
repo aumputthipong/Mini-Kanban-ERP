@@ -6,6 +6,8 @@ import { Plus, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { TaskCard } from "./TaskCard";
 import type { Card } from "@/types/board";
+import { FormState } from "./CardDetailModal";
+
 
 interface ColumnProps {
   id: string;
@@ -13,6 +15,7 @@ interface ColumnProps {
   cards: Card[];
   onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (cardId: string) => void;
+  onSaveCard: (cardId: string, form: FormState) => void;
 }
 
 export function KanbanColumn({
@@ -21,6 +24,7 @@ export function KanbanColumn({
   cards,
   onAddCard,
   onDeleteCard,
+  onSaveCard,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [isAdding, setIsAdding] = useState(false);
@@ -95,7 +99,7 @@ export function KanbanColumn({
       )}
       <div className="flex flex-col gap-2">
         {cards.map((card) => (
-          <TaskCard key={card.id} card={card} onDeleteCard={onDeleteCard}  />
+          <TaskCard key={card.id} card={card} onDeleteCard={onDeleteCard}   onSaveCard={onSaveCard}   />
         ))}
       </div>
     </div>
