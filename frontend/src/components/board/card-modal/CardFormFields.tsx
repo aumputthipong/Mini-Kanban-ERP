@@ -51,16 +51,59 @@ export function CardFormFields({ form, members, assigneeName, onChange, error }:
         </div>
 
         {/* Due Date */}
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase block mb-1 flex items-center gap-1">
+       {/* Due Date */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
             <Calendar size={11} /> Due Date
           </label>
+          
           <input
             type="date"
             value={form.due_date}
             onChange={onChange("due_date")}
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-600"
           />
+
+          {/* Hot Choices Buttons */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "Today", days: 0 },
+              { label: "Tomorrow", days: 1 },
+              { label: "3 Days", days: 3 },
+              { label: "1 Week", days: 7 },
+            ].map((choice) => {
+              // คำนวณวันที่เป้าหมาย (YYYY-MM-DD)
+              const targetDate = new Date();
+              targetDate.setDate(targetDate.getDate() + choice.days);
+              // ป้องกันปัญหา Timezone แกว่ง ให้ปรับเวลาท้องถิ่นก่อน
+              const formattedDate = new Date(targetDate.getTime() - (targetDate.getTimezoneOffset() * 60000))
+                .toISOString()
+                .split("T")[0];
+
+              // เช็คว่าปุ่มนี้คือวันที่กำลังเลือกอยู่หรือไม่ (เพื่อทำไฮไลท์สี)
+              const isActive = form.due_date === formattedDate;
+
+              return (
+                <button
+                  key={choice.label}
+                  type="button" // สำคัญ: ป้องกันไม่ให้ปุ่มนี้เผลอ Submit Form
+                  onClick={() => {
+                    // ส่งค่าจำลอง (Mock Event) เข้าไปให้ onChange ของคุณ
+                    onChange("due_date")({
+                      target: { value: formattedDate },
+                    } as any);
+                  }}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors border ${
+                    isActive
+                      ? "bg-blue-50 border-blue-200 text-blue-700" // สีตอนถูกเลือก
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800" // สีปกติ
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Assignee */}
@@ -82,11 +125,12 @@ export function CardFormFields({ form, members, assigneeName, onChange, error }:
           </select>
         </div>
 
-        {/* Estimated Hours */}
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase block mb-1 flex items-center gap-1">
+      {/* Estimated Hours */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
             <Clock size={11} /> Estimated Hours
           </label>
+          
           <input
             type="number"
             min="0"
@@ -96,6 +140,39 @@ export function CardFormFields({ form, members, assigneeName, onChange, error }:
             placeholder="0"
             className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+
+          {/* Hot Choices Buttons for Hours */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "1h", value: "1" },
+              { label: "2h", value: "2" },
+              { label: "4h", value: "4" },
+              { label: "8h", value: "8" },
+            ].map((choice) => {
+              // เช็คว่าค่าใน input ตรงกับปุ่มนี้ไหม (แปลงค่าเป็น String เพื่อเปรียบเทียบให้ชัวร์)
+              const isActive = form.estimated_hours === choice.value;
+
+              return (
+                <button
+                  key={choice.label}
+                  type="button"
+                  onClick={() => {
+                    // ส่งค่าจำลอง (Mock Event) เข้าไปให้ onChange
+                    onChange("estimated_hours")({
+                      target: { value: choice.value },
+                    } as any);
+                  }}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors border ${
+                    isActive
+                      ? "bg-blue-50 border-blue-200 text-blue-700"
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
