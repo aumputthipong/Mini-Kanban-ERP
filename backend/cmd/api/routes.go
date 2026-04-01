@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 func setupRoutes(
@@ -40,9 +40,9 @@ func setupRoutes(
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
-		r.Post("/login",    authHandler.Login)
-		r.Post("/oauth",    authHandler.OAuthCallback)
-		r.Post("/logout",   authHandler.Logout)
+		r.Post("/login", authHandler.Login)
+		r.Post("/oauth", authHandler.OAuthCallback)
+		r.Post("/logout", authHandler.Logout)
 	})
 
 	// Protected routes
@@ -50,26 +50,36 @@ func setupRoutes(
 		r.Use(middleware.RequireAuth)
 
 		r.Get("/api/auth/me", authHandler.Me)
+		r.Get("/api/users", boardHandler.GetAllUsers)
 
 		r.Route("/api/boards", func(r chi.Router) {
-			r.Get("/",                boardHandler.GetAllBoards)
-			r.Post("/",               boardHandler.CreateBoard)
-			r.Get("/{boardID}",       boardHandler.GetBoardData)
-			r.Patch("/{boardID}",     boardHandler.UpdateBoard)
-			r.Delete("/{boardID}",    boardHandler.MoveToTrash)
-		})
+			r.Get("/", boardHandler.GetAllBoards)
+			r.Post("/", boardHandler.CreateBoard)
+			r.Get("/{boardID}", boardHandler.GetBoardData)
+			r.Patch("/{boardID}", boardHandler.UpdateBoard)
+			r.Delete("/{boardID}", boardHandler.MoveToTrash)
 
+			// Members — nested ใน /{boardID}
+			r.Route("/{boardID}/members", func(r chi.Router) {
+				r.Get("/", boardHandler.GetBoardMembers)
+				r.Post("/", boardHandler.AddBoardMember)
+				r.Delete("/{userID}", boardHandler.RemoveBoardMember)
+				r.Patch("/{userID}", boardHandler.UpdateMemberRole)
+			})
+		})
 		r.Route("/api/cards", func(r chi.Router) {
-			r.Post("/",              boardHandler.CreateCard)
-			r.Patch("/{cardID}",     boardHandler.UpdateCard)
+			r.Post("/", boardHandler.CreateCard)
+			r.Patch("/{cardID}", boardHandler.UpdateCard)
+			r.Get("/{cardID}", boardHandler.GetCard)
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
 		})
 
 		r.Route("/api/trash", func(r chi.Router) {
-			r.Get("/",               boardHandler.GetTrash)
-			r.Delete("/{boardID}",   boardHandler.HardDelete)
+			r.Get("/", boardHandler.GetTrash)
+			r.Delete("/{boardID}", boardHandler.HardDelete)
 			// r.Patch("/{boardID}",    boardHandler.RestoreBoard)
 		})
+
 	})
 
 	return r

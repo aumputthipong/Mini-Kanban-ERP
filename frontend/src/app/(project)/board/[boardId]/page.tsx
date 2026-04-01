@@ -12,10 +12,10 @@ import {
 } from "@dnd-kit/core";
 import { use, useEffect, useState } from "react";
 import { Kanban, DollarSign, Move } from "lucide-react";
-import { KanbanColumn } from "@/components/kanban/Column";
+import { KanbanColumn } from "@/components/board/Column";
 
 import { API_URL, WS_URL } from "@/lib/constants";
-import { BoardHeader } from "@/components/kanban/BoardHeader";
+import { BoardHeader } from "@/components/board/BoardHeader";
 import { Card } from "@/types/board";
 
 interface PageProps {
@@ -36,7 +36,7 @@ export default function KanbanPage({ params }: PageProps) {
       setError(null);
       try {
         const response = await fetch(`${API_URL}/boards/${boardId}`, {
-          credentials: "include", 
+          credentials: "include",
         });
         if (!response.ok) {
           throw new Error(`Failed to load board (${response.status})`);
@@ -106,7 +106,6 @@ export default function KanbanPage({ params }: PageProps) {
       estimated_hours: string;
     },
   ) => {
-    // optimistic update ทันที
     updateCard({
       ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
       title: form.title,
@@ -124,20 +123,20 @@ export default function KanbanPage({ params }: PageProps) {
       payload: {
         card_id: cardId,
         title: form.title,
-        description: form.description || undefined,
-        due_date: form.due_date || undefined,
-        assignee_id: form.assignee_id || undefined,
-        priority: form.priority || undefined,
+        description: form.description || null,
+        due_date: form.due_date || null,
+        assignee_id: form.assignee_id || null,
+        priority: form.priority || null,
         estimated_hours: form.estimated_hours
           ? parseFloat(form.estimated_hours)
-          : undefined,
+          : null,
       },
     });
   };
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // ต้องลากเมาส์ไป 5 พิกเซลก่อน ถึงจะถือว่าเป็นการ "ลาก" (Drag)
+        distance: 5,
       },
     }),
   );
@@ -181,6 +180,7 @@ export default function KanbanPage({ params }: PageProps) {
               <KanbanColumn
                 key={col.id}
                 id={col.id}
+                boardId={boardId}
                 title={col.title}
                 cards={col.cards}
                 onAddCard={handleAddCard}

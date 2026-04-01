@@ -11,6 +11,7 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -95,7 +96,7 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 		return
 	}
 
-	var cardUUID, colUUID pgtype.UUID
+	var cardUUID, colUUID uuid.UUID
 	if err := cardUUID.Scan(cardIDStr); err != nil {
 		log.Printf("Invalid card ID: %s", cardIDStr)
 		return
@@ -129,7 +130,7 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 		return
 	}
 
-	var colUUID pgtype.UUID
+	var colUUID uuid.UUID
 	if err := colUUID.Scan(columnIDStr); err != nil {
 		log.Printf("Invalid column ID: %s", columnIDStr)
 		return
@@ -176,7 +177,7 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 		return
 	}
 
-	var cardUUID pgtype.UUID
+	var cardUUID uuid.UUID
 	if err := cardUUID.Scan(cardIDStr); err != nil {
 		log.Printf("Invalid card ID: %s", cardIDStr)
 		return
@@ -255,7 +256,7 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
         return
     }
 
-    var cardUUID pgtype.UUID
+    var cardUUID uuid.UUID
     if err := cardUUID.Scan(cardIDStr); err != nil {
         log.Printf("Invalid card ID: %s", cardIDStr)
         return

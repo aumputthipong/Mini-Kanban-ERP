@@ -62,3 +62,19 @@ CREATE INDEX idx_time_logs_user_id ON time_logs(user_id);
 
 
 
+-- รันใน database
+CREATE TABLE board_members (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    board_id    UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role        VARCHAR(20) NOT NULL DEFAULT 'member'
+                CHECK (role IN ('owner', 'manager', 'member')),
+    joined_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (board_id, user_id)
+);
+
+CREATE INDEX idx_board_members_board_id ON board_members(board_id);
+CREATE INDEX idx_board_members_user_id  ON board_members(user_id);
+
+ALTER TABLE board_members ADD CONSTRAINT board_members_role_check 
+    CHECK (role IN ('owner', 'manager', 'member'));

@@ -1,9 +1,9 @@
 // app/(project)/board/[boardId]/settings/page.tsx
-
-import { API_URL } from "@/lib/constants";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { BoardSettingsForm } from "@/components/kanban/BoardSettingsForm";
+import { BoardSettingsForm } from "@/components/board/BoardSettingsForm";
+import { apiFetch } from "@/lib/api";
+import { Board } from "@/types/board";
 
 interface PageProps {
   params: Promise<{ boardId: string }>;
@@ -11,23 +11,15 @@ interface PageProps {
 
 export const metadata: Metadata = { title: "Board Settings" };
 
-async function getBoard(boardId: string) {
-  try {
-    const res = await fetch(`${API_URL}/boards/${boardId}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
 export default async function BoardSettingsPage({ params }: PageProps) {
   const { boardId } = await params;
-  const board = await getBoard(boardId);
 
-  if (!board) notFound();
+ let board: Board | undefined;
+try {
+  board = await apiFetch<Board>(`/boards/${boardId}`, { cache: "no-store" });
+} catch {
+  notFound();
+}
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -38,6 +30,7 @@ export default async function BoardSettingsPage({ params }: PageProps) {
         </p>
       </div>
       <BoardSettingsForm boardId={boardId} board={board} />
+    
     </div>
   );
 }

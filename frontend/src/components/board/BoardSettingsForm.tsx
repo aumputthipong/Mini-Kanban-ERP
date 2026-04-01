@@ -5,22 +5,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import { API_URL } from "@/lib/constants";
+import { Board } from "@/types/board";
+import { BoardMembersSection } from "./BoardMembersSection";
 
-interface Board {
-  id: string;
-  title: string;
-  budget: number;
-}
 
 interface BoardSettingsFormProps {
   boardId: string;
   board: Board;
-}
-
-interface SettingSectionProps {
-  title: string;
-  description: string;
-  children: React.ReactNode;
 }
 
 interface EditableFieldProps {
@@ -214,7 +205,7 @@ export function BoardSettingsForm({ boardId, board }: BoardSettingsFormProps) {
         boardId={boardId}
         prefix="$"
       />
-
+        <BoardMembersSection boardId={boardId} />
       {/* Danger Zone */}
       <div className="mt-8 border border-red-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 bg-red-50 border-b border-red-200 flex items-center gap-2">

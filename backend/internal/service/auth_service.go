@@ -32,11 +32,11 @@ type RegisterParams struct {
 }
 
 func (s *AuthService) Register(ctx context.Context, arg RegisterParams) (db.User, error) {
-	existing, err := s.queries.GetUserByEmail(ctx, arg.Email)
-	if err == nil && existing.ID.Valid {
-		return db.User{}, ErrEmailTaken
-	}
-
+	_, err := s.queries.GetUserByEmail(ctx, arg.Email)
+    if err == nil {
+        // ถ้า err เป็น nil แปลว่า query สำเร็จ = เจอข้อมูลคนใช้ชื่่อนี้แล้ว
+        return db.User{}, ErrEmailTaken
+    }
 	hash, err := bcrypt.GenerateFromPassword([]byte(arg.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return db.User{}, fmt.Errorf("hash password: %w", err)

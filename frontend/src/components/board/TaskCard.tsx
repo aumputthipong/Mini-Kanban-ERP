@@ -10,11 +10,12 @@ import { useBoardStore } from "@/store/useBoardStore";
 
 interface CardProps {
   card: Card;
+  boardId: string;
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
 }
 
-export function TaskCard({ card, onDeleteCard, onSaveCard }: CardProps) {
+export function TaskCard({ card, boardId, onDeleteCard, onSaveCard }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { updateCard } = useBoardStore();
 
@@ -100,6 +101,7 @@ export function TaskCard({ card, onDeleteCard, onSaveCard }: CardProps) {
 
       <CardDetailModal
         card={card}
+        boardId={boardId}  
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         onUpdated={(cardId, form) => {
