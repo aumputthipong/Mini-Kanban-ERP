@@ -94,7 +94,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuthCookie(w, token)
-	writeJSON(w, http.StatusCreated, map[string]string{
+	respondJSON(w, http.StatusCreated, map[string]string{
 		"id":        user.ID.String(),
 		"email":     user.Email,
 		"full_name": user.FullName,
@@ -130,7 +130,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuthCookie(w, token)
-	writeJSON(w, http.StatusOK, map[string]string{
+	respondJSON(w, http.StatusOK, map[string]string{
 		"id":        user.ID.String(),
 		"email":     user.Email,
 		"full_name": user.FullName,
@@ -162,7 +162,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuthCookie(w, token)
-	writeJSON(w, http.StatusOK, map[string]string{
+	respondJSON(w, http.StatusOK, map[string]string{
 		"id":        user.ID.String(),
 		"email":     user.Email,
 		"full_name": user.FullName,
@@ -182,5 +182,5 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
-	writeJSON(w, http.StatusOK, map[string]string{"user_id": userID})
+	respondJSON(w, http.StatusOK, map[string]string{"user_id": userID})
 }
