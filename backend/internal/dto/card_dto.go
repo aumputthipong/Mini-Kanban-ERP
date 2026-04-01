@@ -1,4 +1,4 @@
-package handler
+package dto
 
 type CardResponse struct {
 	ID             string   `json:"id"`
