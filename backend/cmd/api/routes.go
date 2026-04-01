@@ -53,11 +53,11 @@ func setupRoutes(
 		r.Get("/api/users", boardHandler.GetAllUsers)
 
 		r.Route("/api/boards", func(r chi.Router) {
-			r.Get("/", boardHandler.GetAllBoards)
-			r.Post("/", boardHandler.CreateBoard)
-			r.Get("/{boardID}", boardHandler.GetBoardData)
-			r.Patch("/{boardID}", boardHandler.UpdateBoard)
-			r.Delete("/{boardID}", boardHandler.MoveToTrash)
+			r.Get("/", handler.MakeHandler(boardHandler.GetAllBoards))
+			r.Post("/", handler.MakeHandler(boardHandler.CreateBoard))
+			r.Get("/{boardID}", handler.MakeHandler(boardHandler.GetBoardData))
+			r.Patch("/{boardID}", handler.MakeHandler(boardHandler.UpdateBoard))
+			r.Delete("/{boardID}", handler.MakeHandler(boardHandler.MoveToTrash))
 
 			// Members — nested ใน /{boardID}
 			r.Route("/{boardID}/members", func(r chi.Router) {
@@ -75,8 +75,8 @@ func setupRoutes(
 		})
 
 		r.Route("/api/trash", func(r chi.Router) {
-			r.Get("/", boardHandler.GetTrash)
-			r.Delete("/{boardID}", boardHandler.HardDelete)
+			r.Get("/", handler.MakeHandler(boardHandler.GetTrash))
+			r.Delete("/{boardID}", handler.MakeHandler(boardHandler.HardDelete))
 			// r.Patch("/{boardID}",    boardHandler.RestoreBoard)
 		})
 
