@@ -8,7 +8,6 @@ type ColumnResponse struct {
 	Cards    []CardResponse `json:"cards"`
 }
 
-
 type CreateBoardRequest struct {
 	Title string `json:"title"`
 }

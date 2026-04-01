@@ -39,10 +39,10 @@ func setupRoutes(
 	})
 
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Post("/register", authHandler.Register)
-		r.Post("/login", authHandler.Login)
-		r.Post("/oauth", authHandler.OAuthCallback)
-		r.Post("/logout", authHandler.Logout)
+		r.Post("/register", handler.MakeHandler(authHandler.Register))
+		r.Post("/login", handler.MakeHandler(authHandler.Login))
+		r.Post("/oauth", handler.MakeHandler(authHandler.OAuthCallback))
+		r.Post("/logout",authHandler.Logout)
 	})
 
 	// Protected routes

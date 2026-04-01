@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) error{
 	boardIDStr := chi.URLParam(r, "boardID")
 	var boardUUID uuid.UUID
@@ -38,8 +37,6 @@ func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) e
 	respondJSON(w, http.StatusOK, result)
 	return nil
 }
-
-
 
 func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) error {
 	boardIDStr := chi.URLParam(r, "boardID")
@@ -120,7 +117,6 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
-
 
 func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request)error {
 	users, err := h.boardService.GetAllUsers(r.Context())
