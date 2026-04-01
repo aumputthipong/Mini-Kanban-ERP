@@ -1,22 +1,11 @@
 // app/(project)/board/[boardId]/page.tsx
 "use client";
 
-import { useWebSocket } from "@/hooks/useWebSocket";
-import { useBoardStore } from "@/store/useBoardStore";
-import {
-  DndContext,
-  DragEndEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { use, useEffect, useState } from "react";
-import { Kanban, DollarSign, Move } from "lucide-react";
-import { KanbanColumn } from "@/components/board/Column";
-
-import { API_URL, WS_URL } from "@/lib/constants";
+import { use } from "react";
+import { useBoardData } from "@/hooks/useBoardData";
 import { BoardHeader } from "@/components/board/BoardHeader";
-import { Card } from "@/types/board";
+import { KanbanBoard } from "@/components/board/KanbanBoard";
+import { BoardBackground } from "@/components/board/BoardBackground";
 
 interface PageProps {
   params: Promise<{ boardId: string }>;
@@ -24,122 +13,9 @@ interface PageProps {
 
 export default function KanbanPage({ params }: PageProps) {
   const { boardId } = use(params);
-  const { columns, setColumns, moveCard, updateCard } = useBoardStore();
-  const { sendMessage } = useWebSocket(`${WS_URL}/${boardId}`);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchBoardData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`${API_URL}/boards/${boardId}`, {
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to load board (${response.status})`);
-        }
-        const data = await response.json();
-        setColumns(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchBoardData();
-  }, [boardId, setColumns]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const cardId = active.id as string;
-    const newColumnId = over.id as string;
-    const oldColumnId = active.data.current?.currentColumnId;
-
-    if (!oldColumnId || newColumnId === oldColumnId) return;
-
-    moveCard(cardId, oldColumnId, newColumnId);
-
-    const targetColumn = columns.find((c) => c.id === newColumnId);
-    const newPosition = targetColumn ? targetColumn.cards.length + 1 : 1;
-
-    sendMessage({
-      type: "CARD_MOVED",
-      payload: {
-        card_id: cardId,
-        old_column_id: oldColumnId,
-        new_column_id: newColumnId,
-        position: newPosition,
-      },
-    });
-  };
-
-  const handleAddCard = (columnId: string, title: string) => {
-    sendMessage({
-      type: "CARD_CREATED",
-      payload: {
-        column_id: columnId,
-        title: title,
-      },
-    });
-  };
-  const handleDeleteCard = (cardId: string) => {
-    sendMessage({
-      type: "CARD_DELETED",
-      payload: { card_id: cardId },
-    });
-  };
-
-  const handleUpdateCard = (
-    cardId: string,
-    form: {
-      title: string;
-      description: string;
-      due_date: string;
-      assignee_id: string;
-      priority: string;
-      estimated_hours: string;
-    },
-  ) => {
-    updateCard({
-      ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
-      title: form.title,
-      description: form.description || null,
-      due_date: form.due_date || null,
-      assignee_id: form.assignee_id || null,
-      priority: (form.priority as Card["priority"]) || null,
-      estimated_hours: form.estimated_hours
-        ? parseFloat(form.estimated_hours)
-        : null,
-    });
-
-    sendMessage({
-      type: "CARD_UPDATED",
-      payload: {
-        card_id: cardId,
-        title: form.title,
-        description: form.description || null,
-        due_date: form.due_date || null,
-        assignee_id: form.assignee_id || null,
-        priority: form.priority || null,
-        estimated_hours: form.estimated_hours
-          ? parseFloat(form.estimated_hours)
-          : null,
-      },
-    });
-  };
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-  );
+  
+  // เรียกใช้ Hook ที่เราแยกออกไป
+  const { isLoading, error } = useBoardData(boardId);
 
   if (isLoading) {
     return (
@@ -158,38 +34,12 @@ export default function KanbanPage({ params }: PageProps) {
   }
 
   return (
-    <main className="relative min-h-screen bg-[#fafafa]  p-8">
-      {/* 1. Grid Background Layer (พื้นหลัง) 
-    สำคัญ: ต้องมี pointer-events-none เพื่อไม่ให้มันไปขวางการคลิกเม้าส์และการลากการ์ด
-  */}
-      <div
-        className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
-          backgroundSize: "32px 32px",
-        }}
-      />
-
-      {/* 2. Content Layer (เนื้อหาหลัก) ต้องมี relative และ z-10 เพื่อให้อยู่เหนือพื้นหลัง */}
+    <main className="relative min-h-screen bg-[#fafafa] p-8">
+      <BoardBackground />
+      
       <div className="relative z-10">
-        <BoardHeader title={`Project Board`} />
-
-        <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-          <div className="flex gap-6 overflow-x-auto pb-4 items-start">
-            {columns.map((col) => (
-              <KanbanColumn
-                key={col.id}
-                id={col.id}
-                boardId={boardId}
-                title={col.title}
-                cards={col.cards}
-                onAddCard={handleAddCard}
-                onDeleteCard={handleDeleteCard}
-                onSaveCard={handleUpdateCard} // เพิ่ม
-              />
-            ))}
-          </div>
-        </DndContext>
+        <BoardHeader title="Project Board" />
+        <KanbanBoard boardId={boardId} />
       </div>
     </main>
   );
