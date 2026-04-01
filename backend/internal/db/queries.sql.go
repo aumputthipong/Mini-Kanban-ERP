@@ -8,8 +8,34 @@ package db
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const addBoardMember = `-- name: AddBoardMember :one
+INSERT INTO board_members (board_id, user_id, role)
+VALUES ($1, $2, $3)
+RETURNING id, board_id, user_id, role, joined_at
+`
+
+type AddBoardMemberParams struct {
+	BoardID uuid.UUID
+	UserID  uuid.UUID
+	Role    string
+}
+
+func (q *Queries) AddBoardMember(ctx context.Context, arg AddBoardMemberParams) (BoardMember, error) {
+	row := q.db.QueryRow(ctx, addBoardMember, arg.BoardID, arg.UserID, arg.Role)
+	var i BoardMember
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.UserID,
+		&i.Role,
+		&i.JoinedAt,
+	)
+	return i, err
+}
 
 const createBoard = `-- name: CreateBoard :one
 INSERT INTO boards (id, title, created_at, updated_at)
@@ -18,7 +44,7 @@ RETURNING id, title
 `
 
 type CreateBoardRow struct {
-	ID    pgtype.UUID
+	ID    uuid.UUID
 	Title string
 }
 
@@ -36,7 +62,7 @@ RETURNING id, column_id, title, description, position, due_date, assignee_id, pr
 `
 
 type CreateCardParams struct {
-	ColumnID   pgtype.UUID
+	ColumnID   uuid.UUID
 	Title      string
 	Position   float64
 	DueDate    pgtype.Date
@@ -45,8 +71,8 @@ type CreateCardParams struct {
 }
 
 type CreateCardRow struct {
-	ID          pgtype.UUID
-	ColumnID    pgtype.UUID
+	ID          uuid.UUID
+	ColumnID    uuid.UUID
 	Title       string
 	Description pgtype.Text
 	Position    float64
@@ -85,14 +111,14 @@ RETURNING id, board_id, title, position
 `
 
 type CreateColumnParams struct {
-	BoardID  pgtype.UUID
+	BoardID  uuid.UUID
 	Title    string
 	Position float64
 }
 
 type CreateColumnRow struct {
-	ID       pgtype.UUID
-	BoardID  pgtype.UUID
+	ID       uuid.UUID
+	BoardID  uuid.UUID
 	Title    string
 	Position float64
 }
@@ -149,7 +175,7 @@ const deleteCard = `-- name: DeleteCard :exec
 DELETE FROM cards WHERE id = $1
 `
 
-func (q *Queries) DeleteCard(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteCard(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteCard, id)
 	return err
 }
@@ -162,7 +188,7 @@ ORDER BY created_at DESC
 `
 
 type GetAllActiveBoardsRow struct {
-	ID        pgtype.UUID
+	ID        uuid.UUID
 	Title     string
 	CreatedAt pgtype.Timestamptz
 }
@@ -194,7 +220,7 @@ ORDER BY created_at DESC
 `
 
 type GetAllBoardsRow struct {
-	ID        pgtype.UUID
+	ID        uuid.UUID
 	Title     string
 	CreatedAt pgtype.Timestamptz
 }
@@ -219,12 +245,42 @@ func (q *Queries) GetAllBoards(ctx context.Context) ([]GetAllBoardsRow, error) {
 	return items, nil
 }
 
+const getAllUsers = `-- name: GetAllUsers :many
+SELECT id, email, full_name FROM users ORDER BY full_name ASC
+`
+
+type GetAllUsersRow struct {
+	ID       uuid.UUID
+	Email    string
+	FullName string
+}
+
+func (q *Queries) GetAllUsers(ctx context.Context) ([]GetAllUsersRow, error) {
+	rows, err := q.db.Query(ctx, getAllUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllUsersRow
+	for rows.Next() {
+		var i GetAllUsersRow
+		if err := rows.Scan(&i.ID, &i.Email, &i.FullName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getBoardByID = `-- name: GetBoardByID :one
 SELECT id, title, budget, created_at, updated_at, deleted_at FROM boards 
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetBoardByID(ctx context.Context, id pgtype.UUID) (Board, error) {
+func (q *Queries) GetBoardByID(ctx context.Context, id uuid.UUID) (Board, error) {
 	row := q.db.QueryRow(ctx, getBoardByID, id)
 	var i Board
 	err := row.Scan(
@@ -234,6 +290,97 @@ func (q *Queries) GetBoardByID(ctx context.Context, id pgtype.UUID) (Board, erro
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getBoardMemberRole = `-- name: GetBoardMemberRole :one
+SELECT role FROM board_members
+WHERE board_id = $1 AND user_id = $2
+`
+
+type GetBoardMemberRoleParams struct {
+	BoardID uuid.UUID
+	UserID  uuid.UUID
+}
+
+func (q *Queries) GetBoardMemberRole(ctx context.Context, arg GetBoardMemberRoleParams) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardMemberRole, arg.BoardID, arg.UserID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
+const getBoardMembers = `-- name: GetBoardMembers :many
+SELECT 
+    bm.id,
+    bm.role,
+    bm.joined_at,
+    u.id       AS user_id,
+    u.email,
+    u.full_name
+FROM board_members bm
+JOIN users u ON bm.user_id = u.id
+WHERE bm.board_id = $1
+ORDER BY bm.joined_at ASC
+`
+
+type GetBoardMembersRow struct {
+	ID       uuid.UUID
+	Role     string
+	JoinedAt pgtype.Timestamptz
+	UserID   uuid.UUID
+	Email    string
+	FullName string
+}
+
+func (q *Queries) GetBoardMembers(ctx context.Context, boardID uuid.UUID) ([]GetBoardMembersRow, error) {
+	rows, err := q.db.Query(ctx, getBoardMembers, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBoardMembersRow
+	for rows.Next() {
+		var i GetBoardMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.JoinedAt,
+			&i.UserID,
+			&i.Email,
+			&i.FullName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCard = `-- name: GetCard :one
+SELECT id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, created_at, updated_at FROM cards 
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetCard(ctx context.Context, id uuid.UUID) (Card, error) {
+	row := q.db.QueryRow(ctx, getCard, id)
+	var i Card
+	err := row.Scan(
+		&i.ID,
+		&i.ColumnID,
+		&i.AssigneeID,
+		&i.Title,
+		&i.Description,
+		&i.EstimatedHours,
+		&i.Priority,
+		&i.DueDate,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -257,8 +404,8 @@ ORDER BY c.position ASC
 `
 
 type GetCardsByColumnIDsRow struct {
-	ID             pgtype.UUID
-	ColumnID       pgtype.UUID
+	ID             uuid.UUID
+	ColumnID       uuid.UUID
 	Title          string
 	Description    pgtype.Text
 	Position       float64
@@ -269,7 +416,7 @@ type GetCardsByColumnIDsRow struct {
 	AssigneeName   pgtype.Text
 }
 
-func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetCardsByColumnIDsRow, error) {
+func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetCardsByColumnIDsRow, error) {
 	rows, err := q.db.Query(ctx, getCardsByColumnIDs, dollar_1)
 	if err != nil {
 		return nil, err
@@ -307,7 +454,7 @@ WHERE board_id = $1
 ORDER BY position ASC
 `
 
-func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID pgtype.UUID) ([]Column, error) {
+func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID uuid.UUID) ([]Column, error) {
 	rows, err := q.db.Query(ctx, getColumnsByBoardID, boardID)
 	if err != nil {
 		return nil, err
@@ -342,7 +489,7 @@ ORDER BY deleted_at DESC
 `
 
 type GetTrashedBoardsRow struct {
-	ID        pgtype.UUID
+	ID        uuid.UUID
 	Title     string
 	DeletedAt pgtype.Timestamptz
 }
@@ -420,7 +567,7 @@ WHERE id = $1
 `
 
 // ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)
-func (q *Queries) HardDeleteBoard(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) HardDeleteBoard(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, hardDeleteBoard, id)
 	return err
 }
@@ -431,8 +578,23 @@ SET deleted_at = CURRENT_TIMESTAMP
 WHERE id = $1
 `
 
-func (q *Queries) MoveBoardToTrash(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) MoveBoardToTrash(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, moveBoardToTrash, id)
+	return err
+}
+
+const removeBoardMember = `-- name: RemoveBoardMember :exec
+DELETE FROM board_members
+WHERE board_id = $1 AND user_id = $2
+`
+
+type RemoveBoardMemberParams struct {
+	BoardID uuid.UUID
+	UserID  uuid.UUID
+}
+
+func (q *Queries) RemoveBoardMember(ctx context.Context, arg RemoveBoardMemberParams) error {
+	_, err := q.db.Exec(ctx, removeBoardMember, arg.BoardID, arg.UserID)
 	return err
 }
 
@@ -442,7 +604,7 @@ SET deleted_at = NULL
 WHERE id = $1
 `
 
-func (q *Queries) RestoreBoardFromTrash(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) RestoreBoardFromTrash(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, restoreBoardFromTrash, id)
 	return err
 }
@@ -457,7 +619,7 @@ RETURNING id, title, budget, created_at, updated_at, deleted_at
 `
 
 type UpdateBoardParams struct {
-	ID     pgtype.UUID
+	ID     uuid.UUID
 	Title  string
 	Budget pgtype.Numeric
 }
@@ -472,6 +634,32 @@ func (q *Queries) UpdateBoard(ctx context.Context, arg UpdateBoardParams) (Board
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const updateBoardMemberRole = `-- name: UpdateBoardMemberRole :one
+UPDATE board_members
+SET role = $3
+WHERE board_id = $1 AND user_id = $2
+RETURNING id, board_id, user_id, role, joined_at
+`
+
+type UpdateBoardMemberRoleParams struct {
+	BoardID uuid.UUID
+	UserID  uuid.UUID
+	Role    string
+}
+
+func (q *Queries) UpdateBoardMemberRole(ctx context.Context, arg UpdateBoardMemberRoleParams) (BoardMember, error) {
+	row := q.db.QueryRow(ctx, updateBoardMemberRole, arg.BoardID, arg.UserID, arg.Role)
+	var i BoardMember
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.UserID,
+		&i.Role,
+		&i.JoinedAt,
 	)
 	return i, err
 }
@@ -491,7 +679,7 @@ RETURNING id, column_id, assignee_id, title, description, estimated_hours, prior
 `
 
 type UpdateCardParams struct {
-	ID             pgtype.UUID
+	ID             uuid.UUID
 	Title          string
 	Description    pgtype.Text
 	DueDate        pgtype.Date
@@ -534,9 +722,9 @@ WHERE id = $3
 `
 
 type UpdateCardColumnParams struct {
-	ColumnID pgtype.UUID
+	ColumnID uuid.UUID
 	Position float64
-	ID       pgtype.UUID
+	ID       uuid.UUID
 }
 
 func (q *Queries) UpdateCardColumn(ctx context.Context, arg UpdateCardColumnParams) error {

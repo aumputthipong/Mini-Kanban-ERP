@@ -5,11 +5,12 @@
 package db
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Board struct {
-	ID        pgtype.UUID
+	ID        uuid.UUID
 	Title     string
 	Budget    pgtype.Numeric
 	CreatedAt pgtype.Timestamptz
@@ -17,9 +18,17 @@ type Board struct {
 	DeletedAt pgtype.Timestamptz
 }
 
+type BoardMember struct {
+	ID       uuid.UUID
+	BoardID  uuid.UUID
+	UserID   uuid.UUID
+	Role     string
+	JoinedAt pgtype.Timestamptz
+}
+
 type Card struct {
-	ID             pgtype.UUID
-	ColumnID       pgtype.UUID
+	ID             uuid.UUID
+	ColumnID       uuid.UUID
 	AssigneeID     pgtype.UUID
 	Title          string
 	Description    pgtype.Text
@@ -32,8 +41,8 @@ type Card struct {
 }
 
 type Column struct {
-	ID        pgtype.UUID
-	BoardID   pgtype.UUID
+	ID        uuid.UUID
+	BoardID   uuid.UUID
 	Title     string
 	Position  float64
 	CreatedAt pgtype.Timestamptz
@@ -41,16 +50,16 @@ type Column struct {
 }
 
 type TimeLog struct {
-	ID           pgtype.UUID
-	CardID       pgtype.UUID
-	UserID       pgtype.UUID
+	ID           uuid.UUID
+	CardID       uuid.UUID
+	UserID       uuid.UUID
 	HoursSpent   pgtype.Numeric
 	CostIncurred pgtype.Numeric
 	LoggedAt     pgtype.Timestamptz
 }
 
 type User struct {
-	ID           pgtype.UUID
+	ID           uuid.UUID
 	Email        string
 	FullName     string
 	HourlyRate   pgtype.Numeric

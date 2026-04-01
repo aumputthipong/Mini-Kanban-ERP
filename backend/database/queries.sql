@@ -126,3 +126,45 @@ DO UPDATE SET
     full_name = EXCLUDED.full_name,
     provider_id = EXCLUDED.provider_id
 RETURNING *;
+
+-- name: GetAllUsers :many
+SELECT id, email, full_name FROM users ORDER BY full_name ASC;
+
+
+
+-- name: AddBoardMember :one
+INSERT INTO board_members (board_id, user_id, role)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: GetBoardMembers :many
+SELECT 
+    bm.id,
+    bm.role,
+    bm.joined_at,
+    u.id       AS user_id,
+    u.email,
+    u.full_name
+FROM board_members bm
+JOIN users u ON bm.user_id = u.id
+WHERE bm.board_id = $1
+ORDER BY bm.joined_at ASC;
+
+-- name: RemoveBoardMember :exec
+DELETE FROM board_members
+WHERE board_id = $1 AND user_id = $2;
+
+-- name: UpdateBoardMemberRole :one
+UPDATE board_members
+SET role = $3
+WHERE board_id = $1 AND user_id = $2
+RETURNING *;
+
+-- name: GetBoardMemberRole :one
+SELECT role FROM board_members
+WHERE board_id = $1 AND user_id = $2;
+
+
+-- name: GetCard :one
+SELECT * FROM cards 
+WHERE id = $1 LIMIT 1;

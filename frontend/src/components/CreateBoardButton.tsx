@@ -1,5 +1,6 @@
 "use client";
 
+import { API_URL } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -14,11 +15,10 @@ export function CreateBoardButton() {
     setIsCreating(true);
 
     try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
-      const response = await fetch(`${apiUrl}/boards`, {
+      const response = await fetch(`${API_URL}/boards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ title: title }),
       });
 

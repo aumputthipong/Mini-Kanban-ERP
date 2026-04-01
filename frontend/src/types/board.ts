@@ -22,9 +22,24 @@ export interface Column {
 export interface Board {
   id: string;
   title: string;
+  budget: number;
 }
 
 export interface CreateCardPayload {
   column_id: string;
   title: string;
+}
+
+export interface BoardMember {
+  id:        string;
+  role:      "owner" | "manager" | "member";
+  user_id:   string;
+  email:     string;
+  full_name: string;
+}
+
+export interface User {
+  id:        string;
+  email:     string;
+  full_name: string;
 }

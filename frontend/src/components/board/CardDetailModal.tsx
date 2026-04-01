@@ -2,127 +2,96 @@
 "use client";
 
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Chip,
+  Dialog, DialogTitle, DialogContent,
+  DialogActions, Button, Chip,
 } from "@mui/material";
-import {
-  Calendar,
-  Clock,
-  User,
-  Loader2,
-  Trash2,
-  Folder,
-  Edit,
-  Pencil,
-} from "lucide-react";
+import { Calendar, Clock, User, Loader2, Trash2, Folder, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Card } from "@/types/board";
+import type { Card, BoardMember } from "@/types/board";
 import { API_URL } from "@/lib/constants";
 
+export interface FormState {
+  title:           string;
+  description:     string;
+  due_date:        string;
+  assignee_id:     string;
+  priority:        string;
+  estimated_hours: string;
+}
+
 interface CardDetailModalProps {
-  card: Card;
-  isOpen: boolean;
-  onClose: () => void;
+  card:      Card;
+  boardId:   string;       // เพิ่ม
+  isOpen:    boolean;
+  onClose:   () => void;
   onUpdated: (cardId: string, form: FormState) => void;
-  onDelete: (cardId: string) => void;
+  onDelete:  (cardId: string) => void;
 }
 
 const PRIORITY_OPTIONS = ["low", "medium", "high"] as const;
 
-const priorityColor: Record<
-  string,
-  "success" | "warning" | "error" | "default"
-> = {
-  low: "success",
+const priorityColor: Record<string, "success" | "warning" | "error" | "default"> = {
+  low:    "success",
   medium: "warning",
-  high: "error",
+  high:   "error",
 };
 
-export interface FormState { 
-  title: string;
-  description: string;
-  due_date: string;
-  assignee_id: string;
-  priority: string;
-  estimated_hours: string;
-}
 export function CardDetailModal({
-  card,
-  isOpen,
-  onClose,
-  onUpdated,
-  onDelete,
+  card, boardId, isOpen, onClose, onUpdated, onDelete,
 }: CardDetailModalProps) {
   const [form, setForm] = useState<FormState>({
-    title: card.title,
-    description: card.description ?? "",
-    due_date: card.due_date ?? "",
-    assignee_id: card.assignee_id ?? "",
-    priority: card.priority ?? "",
-    estimated_hours:
-      card.estimated_hours != null ? String(card.estimated_hours) : "",
+    title:           card.title,
+    description:     card.description ?? "",
+    due_date:        card.due_date ?? "",
+    assignee_id:     card.assignee_id ?? "",
+    priority:        card.priority ?? "",
+    estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
   });
+  const [members, setMembers] = useState<BoardMember[]>([]);  // เปลี่ยนจาก users
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
+
+  // sync form เมื่อ card เปลี่ยน
+  useEffect(() => {
+    setForm({
+      title:           card.title,
+      description:     card.description ?? "",
+      due_date:        card.due_date ?? "",
+      assignee_id:     card.assignee_id ?? "",
+      priority:        card.priority ?? "",
+      estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
+    });
+    setError(null);
+  }, [card]);
+
+  // fetch members 
+  useEffect(() => {
+    if (!isOpen || !boardId) return;
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch(`${API_URL}/boards/${boardId}/members`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        setMembers(await res.json());
+      } catch {}
+    };
+    fetchMembers();
+  }, [isOpen, boardId]);
 
   const isDirty =
-    form.title !== card.title ||
-    form.description !== (card.description ?? "") ||
-    form.due_date !== (card.due_date ?? "") ||
-    form.assignee_id !== (card.assignee_id ?? "") ||
-    form.priority !== (card.priority ?? "") ||
-    form.estimated_hours !==
-      (card.estimated_hours != null ? String(card.estimated_hours) : "");
+    form.title           !== card.title ||
+    form.description     !== (card.description ?? "") ||
+    form.due_date        !== (card.due_date ?? "") ||
+    form.assignee_id     !== (card.assignee_id ?? "") ||
+    form.priority        !== (card.priority ?? "") ||
+    form.estimated_hours !== (card.estimated_hours != null ? String(card.estimated_hours) : "");
 
   const set =
     (field: keyof FormState) =>
-    (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >,
-    ) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
 
-  // const handleSave = async () => {
-  //   if (!form.title.trim()) {
-  //     setError("Title cannot be empty.");
-  //     return;
-  //   }
-
-  //   setIsSaving(true);
-  //   setError(null);
-
-  //   try {
-  //     const res = await fetch(`${API_URL}/cards/${card.id}`, {
-  //       method: "PATCH",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         title: form.title.trim(),
-  //         description: form.description || null,
-  //         due_date: form.due_date || null,
-  //         assignee_id: form.assignee_id || null,
-  //         priority: form.priority || null,
-  //         estimated_hours: form.estimated_hours
-  //           ? parseFloat(form.estimated_hours)
-  //           : null,
-  //       }),
-  //     });
-
-  //     if (!res.ok) throw new Error(`Failed to update card (${res.status})`);
-
-  //     const updated: Card = await res.json();
-  //     onUpdated(updated);
-  //     onClose();
-  //   } catch (err) {
-  //     setError(err instanceof Error ? err.message : "Something went wrong.");
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // };
   const handleSave = () => {
     if (!form.title.trim()) {
       setError("Title cannot be empty.");
@@ -131,31 +100,19 @@ export function CardDetailModal({
     onUpdated(card.id, form);
     onClose();
   };
-  const handleDelete = () => {
-    onDelete(card.id);
-  };
 
-  useEffect(() => {
-  setForm({
-    title:           card.title,
-    description:     card.description ?? "",
-    due_date:        card.due_date ?? "",
-    assignee_id:     card.assignee_id ?? "",
-    priority:        card.priority ?? "",
-    estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
-  });
-  setError(null);
-}, [card]);
+  const handleDelete = () => onDelete(card.id);
+
+  // หา assignee name จาก members
+  const assigneeName = members.find((m) => m.user_id === form.assignee_id)?.full_name;
+
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle className="border-b border-slate-100 pb-4 pt-5">
-        {/* 1. เปลี่ยน items-start เป็น items-center ตรงนี้ครับ */}
         <div className="flex items-center gap-3 group">
-          {/* 2. เอา mt-2 ออกไปเลย เพราะ items-center จะจับให้อยู่ตรงกลางอัตโนมัติ */}
           <div className="text-slate-400 shrink-0">
-            <Folder size={24} /> {/* ปรับขนาดขึ้นนิดนึงให้สมดุลกับ text-2xl */}
+            <Folder size={24} />
           </div>
-
           <div className="flex-1 relative">
             <input
               type="text"
@@ -164,15 +121,14 @@ export function CardDetailModal({
               placeholder="Enter card title..."
               className="w-full text-2xl font-extrabold text-slate-800 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-all cursor-text placeholder:text-slate-300 pr-10"
             />
-
-            {/* ไอคอนดินสอ (อยู่ตรงกลางเหมือนเดิมเพราะใช้ top-1/2 -translate-y-1/2) */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
               <Pencil size={18} />
             </div>
           </div>
         </div>
       </DialogTitle>
-      <DialogContent className="pt-4 flex flex-col gap-5 ">
+
+      <DialogContent className="pt-4 flex flex-col gap-5">
         {/* Description */}
         <div>
           <label className="text-xs font-bold text-slate-400 uppercase block mb-1 pt-2">
@@ -220,18 +176,23 @@ export function CardDetailModal({
             />
           </div>
 
-          {/* Assignee */}
+          {/* Assignee — เปลี่ยนจาก input เป็น dropdown */}
           <div>
             <label className="text-xs font-bold text-slate-400 uppercase block mb-1 flex items-center gap-1">
-              <User size={11} /> Assignee ID
+              <User size={11} /> Assignee
             </label>
-            <input
-              type="text"
+            <select
               value={form.assignee_id}
               onChange={set("assignee_id")}
-              placeholder="User UUID"
               className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+            >
+              <option value="">Unassigned</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name} ({m.email})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Estimated Hours */}
@@ -251,17 +212,20 @@ export function CardDetailModal({
           </div>
         </div>
 
-        {/* Current assignee name (read-only) */}
-        {card.assignee_name && (
-          <p className="text-xs text-slate-400">
-            Currently assigned to{" "}
-            <span className="font-semibold text-slate-600">
-              {card.assignee_name}
+        {/* Assignee preview */}
+        {assigneeName && (
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+              {assigneeName.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-xs text-slate-500">
+              Assigned to{" "}
+              <span className="font-semibold text-slate-700">{assigneeName}</span>
             </span>
-          </p>
+          </div>
         )}
 
-        {/* Priority badge preview */}
+        {/* Priority preview */}
         {form.priority && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">Preview:</span>
@@ -281,7 +245,6 @@ export function CardDetailModal({
         sx={{ justifyContent: "space-between", padding: "16px" }}
         className="border-t border-slate-100"
       >
-        {/* ฝั่งซ้าย: ปุ่ม Delete */}
         <button
           onClick={handleDelete}
           disabled={isSaving}
@@ -291,7 +254,6 @@ export function CardDetailModal({
           <span>Delete</span>
         </button>
 
-        {/* ฝั่งขวา: กลุ่มปุ่ม Cancel & Save */}
         <div className="flex items-center gap-2">
           <Button
             onClick={onClose}
@@ -305,9 +267,7 @@ export function CardDetailModal({
             onClick={handleSave}
             variant="contained"
             disabled={isSaving || !isDirty}
-            startIcon={
-              isSaving ? <Loader2 size={14} className="animate-spin" /> : null
-            }
+            startIcon={isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
             disableElevation
             sx={{
               textTransform: "none",

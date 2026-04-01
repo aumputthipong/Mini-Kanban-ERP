@@ -1,14 +1,19 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"github.com/go-chi/chi/v5"
+
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -49,6 +54,12 @@ type BoardSummaryResponse struct {
 	Title string `json:"title"`
 }
 
+type UserResponse struct {
+    ID       string `json:"id"`
+    Email    string `json:"email"`
+    FullName string `json:"full_name"`
+}
+
 type UpdateBoardRequest struct {
 	Title  *string  `json:"title"`
 	Budget *float64 `json:"budget"`
@@ -61,6 +72,23 @@ type UpdateCardRequest struct {
     AssigneeID     *string  `json:"assignee_id"`
     Priority       *string  `json:"priority"`
     EstimatedHours *float64 `json:"estimated_hours"`
+}
+
+type BoardMemberResponse struct {
+    ID       string `json:"id"`
+    Role     string `json:"role"`
+    UserID   string `json:"user_id"`
+    Email    string `json:"email"`
+    FullName string `json:"full_name"`
+}
+
+type AddMemberRequest struct {
+    UserID string `json:"user_id"`
+    Role   string `json:"role"`
+}
+
+type UpdateMemberRoleRequest struct {
+    Role string `json:"role"`
 }
 
 func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
@@ -77,7 +105,7 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var boardUUID pgtype.UUID
+	var boardUUID uuid.UUID
 	if err := boardUUID.Scan(boardIDStr); err != nil {
 		http.Error(w, "Invalid board ID format", http.StatusBadRequest)
 		return
@@ -93,6 +121,8 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(toColumnResponses(columns))
 }
+
+
 
 func toColumnResponses(columns []service.ColumnData) []ColumnResponse {
 	result := make([]ColumnResponse, 0, len(columns))
@@ -133,7 +163,7 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var colUUID pgtype.UUID
+	colUUID, err := uuid.Parse(req.ColumnID)
 	if err := colUUID.Scan(req.ColumnID); err != nil {
 		http.Error(w, "Invalid column ID", http.StatusBadRequest)
 		return
@@ -174,28 +204,33 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+    var req CreateBoardRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
 
-	var req CreateBoardRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+    // ดึง userID จาก context ที่ RequireAuth inject ไว้
+    userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
+    if !ok || userIDStr == "" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
 
-	boardID, err := h.boardService.CreateBoard(r.Context(), req.Title)
-	if err != nil {
-		http.Error(w, "Failed to create board", http.StatusInternalServerError)
-		return
-	}
+    var ownerUUID uuid.UUID
+    if err := ownerUUID.Scan(userIDStr); err != nil {
+        http.Error(w, "Invalid user ID in token", http.StatusInternalServerError)
+        return
+    }
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"id": boardID.String(),
-	})
+    boardID, err := h.boardService.CreateBoard(r.Context(), req.Title, ownerUUID)
+    if err != nil {
+        http.Error(w, "Failed to create board", http.StatusInternalServerError)
+        return
+    }
+
+    writeJSON(w, http.StatusCreated, map[string]string{"id": boardID.String()})
 }
-
 func (h *BoardHandler) HandleBoardsRoute(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -219,7 +254,7 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var boardUUID pgtype.UUID
+	var boardUUID uuid.UUID
 	if err := boardUUID.Scan(boardIDStr); err != nil {
 		http.Error(w, "Invalid board ID format", http.StatusBadRequest)
 		return
@@ -253,7 +288,7 @@ func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) {
 // ลบถาวร
 func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
 	boardIDStr := chi.URLParam(r, "boardID")
-	var boardUUID pgtype.UUID
+	var boardUUID uuid.UUID
 	boardUUID.Scan(boardIDStr)
 
 	if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
@@ -265,7 +300,7 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) {
 
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	boardIDStr := chi.URLParam(r, "boardID")
-	var boardUUID pgtype.UUID
+	var boardUUID uuid.UUID
 	boardUUID.Scan(boardIDStr)
 
 	var req UpdateBoardRequest
@@ -294,7 +329,7 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    var cardUUID pgtype.UUID
+    var cardUUID uuid.UUID
     if err := cardUUID.Scan(cardIDStr); err != nil {
         http.Error(w, "Invalid card ID format", http.StatusBadRequest)
         return
@@ -336,4 +371,185 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
     if err := json.NewEncoder(w).Encode(v); err != nil {
         log.Printf("writeJSON encode error: %v", err)
     }
+}
+
+
+func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+    users, err := h.boardService.GetAllUsers(r.Context())
+    if err != nil {
+        log.Printf("GetAllUsers error: %v", err)
+        http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
+        return
+    }
+
+    result := make([]UserResponse, 0, len(users))
+    for _, u := range users {
+        result = append(result, UserResponse{
+            ID:       u.ID.String(),
+            Email:    u.Email,
+            FullName: u.FullName,
+        })
+    }
+
+    writeJSON(w, http.StatusOK, result)
+}
+
+
+func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) {
+    boardIDStr := chi.URLParam(r, "boardID")
+    var boardUUID uuid.UUID
+    if err := boardUUID.Scan(boardIDStr); err != nil {
+        http.Error(w, "Invalid board ID", http.StatusBadRequest)
+        return
+    }
+
+    members, err := h.boardService.GetBoardMembers(r.Context(), boardUUID)
+    if err != nil {
+        log.Printf("GetBoardMembers error: %v", err)
+        http.Error(w, "Failed to fetch members", http.StatusInternalServerError)
+        return
+    }
+
+    result := make([]BoardMemberResponse, 0, len(members))
+    for _, m := range members {
+        result = append(result, BoardMemberResponse{
+            ID:       m.ID.String(),
+            Role:     m.Role,
+            UserID:   m.UserID.String(),
+            Email:    m.Email,
+            FullName: m.FullName,
+        })
+    }
+
+    writeJSON(w, http.StatusOK, result)
+}
+
+func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) {
+    boardIDStr := chi.URLParam(r, "boardID")
+    var boardUUID uuid.UUID
+    if err := boardUUID.Scan(boardIDStr); err != nil {
+        http.Error(w, "Invalid board ID", http.StatusBadRequest)
+        return
+    }
+
+    var req AddMemberRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    validRoles := map[string]bool{"owner": true, "manager": true, "member": true}
+    if !validRoles[req.Role] {
+        http.Error(w, "Invalid role", http.StatusBadRequest)
+        return
+    }
+
+    var userUUID uuid.UUID
+    if err := userUUID.Scan(req.UserID); err != nil {
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+
+    if err := h.boardService.AddBoardMember(r.Context(), boardUUID, userUUID, req.Role); err != nil {
+        log.Printf("AddBoardMember error: %v", err)
+        http.Error(w, "Failed to add member", http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusCreated)
+}
+
+func (h *BoardHandler) RemoveBoardMember(w http.ResponseWriter, r *http.Request) {
+    boardIDStr := chi.URLParam(r, "boardID")
+    userIDStr  := chi.URLParam(r, "userID")
+
+    var boardUUID, userUUID uuid.UUID
+    if err := boardUUID.Scan(boardIDStr); err != nil {
+        http.Error(w, "Invalid board ID", http.StatusBadRequest)
+        return
+    }
+    if err := userUUID.Scan(userIDStr); err != nil {
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+
+    if err := h.boardService.RemoveBoardMember(r.Context(), boardUUID, userUUID); err != nil {
+        log.Printf("RemoveBoardMember error: %v", err)
+        http.Error(w, "Failed to remove member", http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+    boardIDStr := chi.URLParam(r, "boardID")
+    userIDStr  := chi.URLParam(r, "userID")
+
+    var boardUUID, userUUID uuid.UUID
+    if err := boardUUID.Scan(boardIDStr); err != nil {
+        http.Error(w, "Invalid board ID", http.StatusBadRequest)
+        return
+    }
+    if err := userUUID.Scan(userIDStr); err != nil {
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+
+    var req UpdateMemberRoleRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    validRoles := map[string]bool{"manager": true, "member": true}
+    if !validRoles[req.Role] {
+        http.Error(w, "Invalid role — cannot change to owner", http.StatusBadRequest)
+        return
+    }
+
+    if err := h.boardService.UpdateMemberRole(r.Context(), boardUUID, userUUID, req.Role); err != nil {
+        log.Printf("UpdateMemberRole error: %v", err)
+        http.Error(w, "Failed to update role", http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
+}
+
+
+func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
+	// 1. อ่านค่า cardID จาก URL
+	cardIDStr := chi.URLParam(r, "cardID")
+
+	// 2. แปลง String เป็น UUID (Best Practice: ตรวจสอบ Format ก่อนไปตี Database)
+	cardID, err := uuid.Parse(cardIDStr)
+	if err != nil {
+		http.Error(w, "Invalid card ID format", http.StatusBadRequest)
+		return
+	}
+
+	// 3. เรียกใช้ Service เพื่อดึงข้อมูล (ส่ง context ไปด้วยเสมอ)
+	card, err := h.boardService.GetCard(r.Context(), cardID)
+	if err != nil {
+		// Best Practice: แยกประเภทของ Error เพื่อส่ง HTTP Status ให้ถูกต้อง
+		if errors.Is(err, sql.ErrNoRows) {
+			// ถ้าหาไม่เจอ ให้ส่ง 404 Not Found
+			http.Error(w, "Card not found", http.StatusNotFound)
+			return
+		}
+		// ถ้าเป็น Error อื่นๆ จากระบบ ให้ส่ง 500
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. ตั้งค่า Header ว่าข้อมูลที่จะส่งกลับไปเป็น JSON
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	// 5. แปลง Struct card เป็น JSON แล้วส่งกลับ
+	if err := json.NewEncoder(w).Encode(card); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
