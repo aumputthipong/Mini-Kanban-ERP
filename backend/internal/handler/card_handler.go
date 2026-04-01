@@ -16,12 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+
 
 	var req CreateCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,10 +48,6 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	cardIDStr := r.PathValue("cardID")
 	if cardIDStr == "" {
