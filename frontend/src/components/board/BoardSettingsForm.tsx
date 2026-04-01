@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import { API_URL } from "@/lib/constants";
 import { Board } from "@/types/board";
-import { BoardMembersSection } from "./BoardMembersSection";
-
+import { BoardMembersSection } from "./members/BoardMembersSection";
 
 interface BoardSettingsFormProps {
   boardId: string;
@@ -61,9 +60,6 @@ function EditableField({
     setError(null);
 
     try {
-      // เราต้องส่งค่าที่ไม่ได้แก้ไปด้วย เพื่อไม่ให้ฝั่ง Go เผลอเซ็ตเป็นค่าว่าง
-      // ในระบบจริง ฝั่ง Go ควรทำ Partial Update (อัปเดตเฉพาะฟิลด์ที่ส่งมา)
-      // แต่เพื่อความปลอดภัยกับ API ปัจจุบันของคุณ เราจะส่งไปเฉพาะฟิลด์ที่แก้
 
       const payload = {
         [fieldKey]: type === "number" ? parseFloat(cleanValue) : cleanValue,
@@ -205,7 +201,7 @@ export function BoardSettingsForm({ boardId, board }: BoardSettingsFormProps) {
         boardId={boardId}
         prefix="$"
       />
-        <BoardMembersSection boardId={boardId} />
+      <BoardMembersSection boardId={boardId} />
       {/* Danger Zone */}
       <div className="mt-8 border border-red-200 rounded-xl overflow-hidden">
         <div className="px-5 py-4 bg-red-50 border-b border-red-200 flex items-center gap-2">

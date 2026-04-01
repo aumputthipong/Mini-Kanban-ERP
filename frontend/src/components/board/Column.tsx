@@ -6,7 +6,7 @@ import { Plus, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { TaskCard } from "./TaskCard";
 import type { Card } from "@/types/board";
-import { FormState } from "./CardDetailModal";
+import { FormState } from "./card-modal/CardDetailModal";
 
 interface ColumnProps {
   id: string;
