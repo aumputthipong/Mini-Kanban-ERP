@@ -50,7 +50,7 @@ func setupRoutes(
 		r.Use(middleware.RequireAuth)
 
 		r.Get("/api/auth/me", authHandler.Me)
-		r.Get("/api/users", boardHandler.GetAllUsers)
+		r.Get("/api/users", handler.MakeHandler(boardHandler.GetAllUsers))
 
 		r.Route("/api/boards", func(r chi.Router) {
 			r.Get("/", handler.MakeHandler(boardHandler.GetAllBoards))
@@ -61,16 +61,16 @@ func setupRoutes(
 
 			// Members — nested ใน /{boardID}
 			r.Route("/{boardID}/members", func(r chi.Router) {
-				r.Get("/", boardHandler.GetBoardMembers)
-				r.Post("/", boardHandler.AddBoardMember)
-				r.Delete("/{userID}", boardHandler.RemoveBoardMember)
-				r.Patch("/{userID}", boardHandler.UpdateMemberRole)
+				r.Get("/", handler.MakeHandler(boardHandler.GetBoardMembers))
+				r.Post("/", handler.MakeHandler(boardHandler.AddBoardMember))
+				r.Delete("/{userID}", handler.MakeHandler(boardHandler.RemoveBoardMember))
+				r.Patch("/{userID}", handler.MakeHandler(boardHandler.UpdateMemberRole))
 			})
 		})
 		r.Route("/api/cards", func(r chi.Router) {
-			r.Post("/", boardHandler.CreateCard)
-			r.Patch("/{cardID}", boardHandler.UpdateCard)
-			r.Get("/{cardID}", boardHandler.GetCard)
+			r.Post("/", handler.MakeHandler(boardHandler.CreateCard))
+			r.Patch("/{cardID}", handler.MakeHandler(boardHandler.UpdateCard))
+			r.Get("/{cardID}", handler.MakeHandler(boardHandler.GetCard))
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
 		})
 

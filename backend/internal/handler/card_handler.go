@@ -16,19 +16,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
+func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
 
 
 	var req CreateCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	colUUID, err := uuid.Parse(req.ColumnID)
 	if err := colUUID.Scan(req.ColumnID); err != nil {
-		http.Error(w, "Invalid column ID", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid column ID", err)
 	}
 
 	card, err := h.boardService.CreateCard(r.Context(), db.CreateCardParams{
@@ -41,30 +39,27 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
-		http.Error(w, "Failed to create card", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to create card", err)
 	}
 	json.NewEncoder(w).Encode(card)
+	return nil
 }
 
-func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
+func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error {
 
 	cardIDStr := r.PathValue("cardID")
 	if cardIDStr == "" {
-		http.Error(w, "Card ID is required", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Card ID is required", nil)
 	}
 
 	var cardUUID uuid.UUID
 	if err := cardUUID.Scan(cardIDStr); err != nil {
-		http.Error(w, "Invalid card ID format", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
 	var req UpdateCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	var estimatedHours pgtype.Numeric
@@ -83,22 +78,21 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("UpdateCard error: %v", err)
-		http.Error(w, "Failed to update card", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to update card", err)
 	}
 
 	respondJSON(w, http.StatusOK, card)
+	return nil
 }
 
-func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
+func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
 	// 1. อ่านค่า cardID จาก URL
 	cardIDStr := chi.URLParam(r, "cardID")
 
 	// 2. แปลง String เป็น UUID (Best Practice: ตรวจสอบ Format ก่อนไปตี Database)
 	cardID, err := uuid.Parse(cardIDStr)
 	if err != nil {
-		http.Error(w, "Invalid card ID format", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
 	// 3. เรียกใช้ Service เพื่อดึงข้อมูล (ส่ง context ไปด้วยเสมอ)
@@ -107,12 +101,10 @@ func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 		// Best Practice: แยกประเภทของ Error เพื่อส่ง HTTP Status ให้ถูกต้อง
 		if errors.Is(err, sql.ErrNoRows) {
 			// ถ้าหาไม่เจอ ให้ส่ง 404 Not Found
-			http.Error(w, "Card not found", http.StatusNotFound)
-			return
+			return NewAPIError(http.StatusNotFound, "Card not found", nil)
 		}
 		// ถ้าเป็น Error อื่นๆ จากระบบ ให้ส่ง 500
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Internal server error", err)
 	}
 
 	// 4. ตั้งค่า Header ว่าข้อมูลที่จะส่งกลับไปเป็น JSON
@@ -121,7 +113,7 @@ func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 
 	// 5. แปลง Struct card เป็น JSON แล้วส่งกลับ
 	if err := json.NewEncoder(w).Encode(card); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to encode response", err)
 	}
+	return nil
 }
