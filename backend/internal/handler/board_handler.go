@@ -3,11 +3,11 @@ package handler
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/google/uuid"
 )
@@ -152,12 +152,12 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 				ID:           card.ID.String(),
 				ColumnID:     card.ColumnID.String(),
 				Title:        card.Title,
-				Description:  pgutil.TextToPtr(card.Description),
+				Description:  card.Description,
 				Position:     card.Position,
-				DueDate:      pgutil.DateToPtr(card.DueDate),
-				AssigneeID:   pgutil.UUIDToPtr(card.AssigneeID),
-				AssigneeName: pgutil.TextToPtr(card.AssigneeName),
-				Priority:     pgutil.TextToPtr(card.Priority),
+				DueDate:      timePtrToStrPtr(card.DueDate),
+				AssigneeID:   uuidPtrToStrPtr(card.AssigneeID),
+				AssigneeName: card.AssigneeName,
+				Priority:     card.Priority,
 			})
 		}
 		result = append(result, dto.ColumnResponse{
@@ -168,4 +168,22 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 		})
 	}
 	return result
+}
+
+func timePtrToStrPtr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	// แปลงรูปแบบเวลาเป็นมาตรฐาน ISO 8601 (RFC3339)
+	val := t.Format("2006-01-02T15:04:05Z07:00") 
+	return &val
+}
+
+// Helper แปลง *uuid.UUID เป็น *string สำหรับ JSON
+func uuidPtrToStrPtr(u *uuid.UUID) *string {
+	if u == nil {
+		return nil
+	}
+	val := u.String()
+	return &val
 }

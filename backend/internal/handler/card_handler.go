@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
@@ -15,11 +15,9 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
-
 
 	var req dto.CreateCardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {
@@ -54,29 +52,49 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 		return httputil.NewAPIError(http.StatusBadRequest, "Card ID is required", nil)
 	}
 
-	var cardUUID uuid.UUID
-	if err := cardUUID.Scan(cardIDStr); err != nil {
+	cardUUID, err := uuid.Parse(cardIDStr)
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
+	// 2. ถอดรหัส JSON
 	var req dto.UpdateCardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	var estimatedHours pgtype.Numeric
-	if req.EstimatedHours != nil {
-		estimatedHours.Scan(fmt.Sprintf("%f", *req.EstimatedHours))
+	// 3. แปลงข้อมูล Title (*string -> string)
+	var title string
+	if req.Title != nil {
+		title = *req.Title // ดึงค่า String ออกมาจาก Pointer
 	}
 
+	// 4. แปลงข้อมูล DueDate (*string -> *time.Time)
+	var dueDate *time.Time
+	if req.DueDate != nil && *req.DueDate != "" {
+		// สมมติว่าหน้าเว็บส่งมาในรูปแบบ ISO 8601 (เช่น "2026-04-01T15:00:00Z")
+		// หากหน้าเว็บส่งมาแค่ "2026-04-01" ให้เปลี่ยนเวลาอ้างอิงเป็น time.DateOnly
+		parsedTime, err := time.Parse(time.RFC3339, *req.DueDate)
+		if err != nil {
+			return httputil.NewAPIError(http.StatusBadRequest, "Invalid due_date format", err)
+		}
+		dueDate = &parsedTime
+	}
+	var assigneeID *uuid.UUID
+	if req.AssigneeID != nil && *req.AssigneeID != "" {
+		parsedUUID, err := uuid.Parse(*req.AssigneeID)
+		if err != nil {
+			return httputil.NewAPIError(http.StatusBadRequest, "Invalid assignee_id format", err)
+		}
+		assigneeID = &parsedUUID
+	}
 	card, err := h.boardService.UpdateCard(r.Context(), service.UpdateCardParams{
-		ID:             cardUUID,
-		Title:          pgutil.PtrToText(req.Title),
-		Description:    pgutil.PtrToText(req.Description),
-		DueDate:        pgutil.PtrToDate(req.DueDate),
-		AssigneeID:     pgutil.PtrToUUID(req.AssigneeID),
-		Priority:       pgutil.PtrToText(req.Priority),
-		EstimatedHours: estimatedHours,
+		ID:          cardUUID,
+		Title:       title,           
+		Description: req.Description, 
+		DueDate:     dueDate,         
+		AssigneeID:  assigneeID,      
+		Priority:    req.Priority,    
 	})
 	if err != nil {
 		log.Printf("UpdateCard error: %v", err)
