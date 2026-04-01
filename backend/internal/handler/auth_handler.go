@@ -51,23 +51,20 @@ func setAuthCookie(w http.ResponseWriter, token string) {
 	})
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 
 
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	if req.Email == "" || req.FullName == "" || req.Password == "" {
-		http.Error(w, "Email, full name and password are required", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Email, full name and password are required", nil)
 	}
 
 	if len(req.Password) < 8 {
-		http.Error(w, "Password must be at least 8 characters", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Password must be at least 8 characters", nil)
 	}
 
 	user, err := h.authService.Register(r.Context(), service.RegisterParams{
@@ -77,17 +74,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrEmailTaken) {
-			http.Error(w, "Email already in use", http.StatusConflict)
-			return
+			return NewAPIError(http.StatusConflict, "Email already in use", nil)
 		}
-		http.Error(w, "Failed to register", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to register", err)
 	}
 
 	token, err := token.Generate(user.ID.String(), user.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
@@ -96,31 +90,28 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})
+	return nil
 }
 
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request)error {
 
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	user, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCreds) || errors.Is(err, service.ErrOAuthOnly) {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
+			return NewAPIError(http.StatusUnauthorized, err.Error(), nil)
 		}
-		http.Error(w, "Failed to login", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to login", err)
 	}
 
 	token, err := token.Generate(user.ID.String(), user.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
@@ -129,27 +120,25 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})
+	return nil
 }
 
-func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) error{
 
 
 	var req oauthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	user, err := h.authService.UpsertOAuthUser(r.Context(), req.Email, req.FullName, req.Provider, req.ProviderID)
 	if err != nil {
-		http.Error(w, "Failed to authenticate", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to authenticate", err)
 	}
 
 	token, err := token.Generate(user.ID.String(), user.Email)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
+		return NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
@@ -158,6 +147,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})
+	return nil
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
