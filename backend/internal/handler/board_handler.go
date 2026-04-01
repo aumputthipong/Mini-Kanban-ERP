@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
@@ -23,91 +25,91 @@ func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
 func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) error {
 	boards, err := h.boardService.GetAllBoards(r.Context())
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Failed to fetch boards", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch boards", err)
 	}
 
-	result := make([]BoardSummaryResponse, 0, len(boards))
+	result := make([]dto.BoardSummaryResponse, 0, len(boards))
 	for _, b := range boards {
-		result = append(result, BoardSummaryResponse{
+		result = append(result, dto.BoardSummaryResponse{
 			ID:    b.ID.String(),
 			Title: b.Title,
 		})
 	}
-	respondJSON(w, http.StatusOK, result)
+	httputil.RespondJSON(w, http.StatusOK, result)
 	return nil
 }
 
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) error {
-	// ใช้ getUUIDParam แทน uuid.Scan เดิม
-	boardUUID, err := getUUIDParam(r, "boardID")
+	// ใช้ httputil.GetUUIDParam แทน uuid.Scan เดิม
+	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
 	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardUUID)
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
 	}
 
-	respondJSON(w, http.StatusOK, toColumnResponses(columns))
+	httputil.RespondJSON(w, http.StatusOK, toColumnResponses(columns))
 	return nil
 }
 
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
-	var req CreateBoardRequest
+	var req dto.CreateBoardRequest
 	// ใช้ decodeJSON แทน json.NewDecoder
-	if err := decodeJSON(r, &req); err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
+	if err := httputil.DecodeJSON(r, &req); err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
 	}
 
 	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userIDStr == "" {
-		return NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
 	}
 
 	ownerUUID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Invalid user ID in token", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid user ID in token", err)
 	}
 
 	boardID, err := h.boardService.CreateBoard(r.Context(), req.Title, ownerUUID)
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Failed to create board", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create board", err)
 	}
 
-	respondJSON(w, http.StatusCreated, map[string]string{"id": boardID.String()})
+	httputil.RespondJSON(w, http.StatusCreated, map[string]string{"id": boardID.String()})
 	return nil
 }
 
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error{
-	boardUUID, err := getUUIDParam(r, "boardID")
+	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
-	return NewAPIError(http.StatusInternalServerError, "Invalid or missing board ID", err)
+	return httputil.NewAPIError(http.StatusInternalServerError, "Invalid or missing board ID", err)
 	}
 
-	var req UpdateBoardRequest
-	if err := decodeJSON(r, &req); err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
+	var req dto.UpdateBoardRequest
+	if err := httputil.DecodeJSON(r, &req); err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
 	}
 
 	updatedBoard, err := h.boardService.UpdateBoard(r.Context(), boardUUID, req.Title, req.Budget)
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Failed to update board", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update board", err)
 	}
 
-	respondJSON(w, http.StatusOK, updatedBoard)
+	httputil.RespondJSON(w, http.StatusOK, updatedBoard)
     return nil
 }
 
 func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error {
 
-	boardUUID, err := getUUIDParam(r, "boardID")
+	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
 	if err := h.boardService.MoveBoardToTrash(r.Context(), boardUUID); err != nil {
-		return NewAPIError(http.StatusInternalServerError,"Failed to move board to trash" , err)
+		return httputil.NewAPIError(http.StatusInternalServerError,"Failed to move board to trash" , err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -117,36 +119,36 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error
 func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error{
 	boards, err := h.boardService.GetTrashedBoards(r.Context())
 	if err != nil {
-		return NewAPIError(http.StatusInternalServerError,"Failed to get trash", err)
+		return httputil.NewAPIError(http.StatusInternalServerError,"Failed to get trash", err)
 
 	}
 
-	respondJSON(w, http.StatusOK, boards)
+	httputil.RespondJSON(w, http.StatusOK, boards)
     return nil
 }
 
 func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error{
 	// ของเดิมมีบักไม่ได้เช็ค Error ตอน Scan ตอนนี้แก้ให้ปลอดภัยแล้ว
-	boardUUID, err := getUUIDParam(r, "boardID")
+	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
 	if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
 		log.Printf("HardDelete error: %v", err)
-		return NewAPIError(http.StatusInternalServerError, "Delete failed", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Delete failed", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
     return nil
 }
 
-func toColumnResponses(columns []service.ColumnData) []ColumnResponse {
-	result := make([]ColumnResponse, 0, len(columns))
+func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
+	result := make([]dto.ColumnResponse, 0, len(columns))
 	for _, col := range columns {
-		cards := make([]CardResponse, 0, len(col.Cards))
+		cards := make([]dto.CardResponse, 0, len(col.Cards))
 		for _, card := range col.Cards {
-			cards = append(cards, CardResponse{
+			cards = append(cards, dto.CardResponse{
 				ID:           card.ID.String(),
 				ColumnID:     card.ColumnID.String(),
 				Title:        card.Title,
@@ -158,7 +160,7 @@ func toColumnResponses(columns []service.ColumnData) []ColumnResponse {
 				Priority:     pgutil.TextToPtr(card.Priority),
 			})
 		}
-		result = append(result, ColumnResponse{
+		result = append(result, dto.ColumnResponse{
 			ID:       col.ID.String(),
 			Title:    col.Title,
 			Position: col.Position,

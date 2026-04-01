@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -19,14 +21,14 @@ import (
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
 
 
-	var req CreateCardRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	var req dto.CreateCardRequest
+	if err := httputil.DecodeJSON(r, &req); err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	colUUID, err := uuid.Parse(req.ColumnID)
 	if err := colUUID.Scan(req.ColumnID); err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid column ID", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid column ID", err)
 	}
 
 	card, err := h.boardService.CreateCard(r.Context(), db.CreateCardParams{
@@ -39,7 +41,7 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error 
 	})
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
-		return NewAPIError(http.StatusInternalServerError, "Failed to create card", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create card", err)
 	}
 	json.NewEncoder(w).Encode(card)
 	return nil
@@ -49,17 +51,17 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 
 	cardIDStr := r.PathValue("cardID")
 	if cardIDStr == "" {
-		return NewAPIError(http.StatusBadRequest, "Card ID is required", nil)
+		return httputil.NewAPIError(http.StatusBadRequest, "Card ID is required", nil)
 	}
 
 	var cardUUID uuid.UUID
 	if err := cardUUID.Scan(cardIDStr); err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
-	var req UpdateCardRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	var req dto.UpdateCardRequest
+	if err := httputil.DecodeJSON(r, &req); err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	var estimatedHours pgtype.Numeric
@@ -78,10 +80,10 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 	})
 	if err != nil {
 		log.Printf("UpdateCard error: %v", err)
-		return NewAPIError(http.StatusInternalServerError, "Failed to update card", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update card", err)
 	}
 
-	respondJSON(w, http.StatusOK, card)
+	httputil.RespondJSON(w, http.StatusOK, card)
 	return nil
 }
 
@@ -92,7 +94,7 @@ func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
 	// 2. แปลง String เป็น UUID (Best Practice: ตรวจสอบ Format ก่อนไปตี Database)
 	cardID, err := uuid.Parse(cardIDStr)
 	if err != nil {
-		return NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
 	// 3. เรียกใช้ Service เพื่อดึงข้อมูล (ส่ง context ไปด้วยเสมอ)
@@ -101,10 +103,10 @@ func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
 		// Best Practice: แยกประเภทของ Error เพื่อส่ง HTTP Status ให้ถูกต้อง
 		if errors.Is(err, sql.ErrNoRows) {
 			// ถ้าหาไม่เจอ ให้ส่ง 404 Not Found
-			return NewAPIError(http.StatusNotFound, "Card not found", nil)
+			return httputil.NewAPIError(http.StatusNotFound, "Card not found", nil)
 		}
 		// ถ้าเป็น Error อื่นๆ จากระบบ ให้ส่ง 500
-		return NewAPIError(http.StatusInternalServerError, "Internal server error", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Internal server error", err)
 	}
 
 	// 4. ตั้งค่า Header ว่าข้อมูลที่จะส่งกลับไปเป็น JSON
@@ -113,7 +115,7 @@ func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
 
 	// 5. แปลง Struct card เป็น JSON แล้วส่งกลับ
 	if err := json.NewEncoder(w).Encode(card); err != nil {
-		return NewAPIError(http.StatusInternalServerError, "Failed to encode response", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to encode response", err)
 	}
 	return nil
 }

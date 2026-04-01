@@ -1,5 +1,5 @@
-// internal/handler/board_dto.go
-package handler
+// internal/dto/board_dto.go
+package dto
 
 type ColumnResponse struct {
 	ID       string         `json:"id"`
