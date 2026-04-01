@@ -35,3 +35,7 @@ func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 func respondError(w http.ResponseWriter, status int, message string) {
     respondJSON(w, status, map[string]string{"error": message})
 }
+
+
+
+

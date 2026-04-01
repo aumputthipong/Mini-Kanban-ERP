@@ -1,8 +1,6 @@
 // internal/handler/board_dto.go
 package handler
 
-import "github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
-
 type ColumnResponse struct {
 	ID       string         `json:"id"`
 	Title    string         `json:"title"`
@@ -10,9 +8,6 @@ type ColumnResponse struct {
 	Cards    []CardResponse `json:"cards"`
 }
 
-type BoardHandler struct {
-	boardService *service.BoardService
-}
 
 type CreateBoardRequest struct {
 	Title string `json:"title"`
