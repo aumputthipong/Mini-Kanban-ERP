@@ -1,14 +1,29 @@
+# version: "2"
+# sql:
+#   - engine: "postgresql"
+#     queries: "database/queries.sql"
+#     schema: "database/schema.sql"
+#     gen:
+#       go:
+#         package: "db"
+#         out: "internal/db"
+#         sql_package: "pgx/v5"
+
+#         overrides:
+#           - db_type: uuid
+#             go_type: github.com/google/uuid.UUID
 version: "2"
 sql:
-  - engine: "postgresql"
-    queries: "database/queries.sql"
-    schema: "database/schema.sql"
+  - schema: "db/migrations"
+    queries: "db/query"
+    engine: "postgresql"
     gen:
       go:
         package: "db"
         out: "internal/db"
         sql_package: "pgx/v5"
-
         overrides:
           - db_type: uuid
-            go_type: github.com/google/uuid.UUID
+            go_type:
+              import: github.com/google/uuid
+              type: UUID
