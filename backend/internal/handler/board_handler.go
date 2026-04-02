@@ -32,7 +32,7 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 	result := make([]dto.BoardSummaryResponse, 0, len(boards))
 	for _, b := range boards {
 		result = append(result, dto.BoardSummaryResponse{
-			ID:    b.ID.String(),
+			ID:    b.ID,
 			Title: b.Title,
 		})
 	}

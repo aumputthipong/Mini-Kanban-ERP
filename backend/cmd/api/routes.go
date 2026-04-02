@@ -16,6 +16,7 @@ import (
 func setupRoutes(
 	boardHandler *handler.BoardHandler,
 	authHandler *handler.AuthHandler,
+	subtaskHandler *handler.SubtaskHandler,
 	hub *websocket.Hub,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -43,7 +44,7 @@ func setupRoutes(
 		r.Post("/register", httputil.MakeHandler(authHandler.Register))
 		r.Post("/login", httputil.MakeHandler(authHandler.Login))
 		r.Post("/oauth", httputil.MakeHandler(authHandler.OAuthCallback))
-		r.Post("/logout",authHandler.Logout)
+		r.Post("/logout", authHandler.Logout)
 	})
 
 	// Protected routes
@@ -73,6 +74,9 @@ func setupRoutes(
 			r.Patch("/{cardID}", httputil.MakeHandler(boardHandler.UpdateCard))
 			r.Get("/{cardID}", httputil.MakeHandler(boardHandler.GetCard))
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
+			r.Route("/cards/{cardId}/subtasks", func(r chi.Router) {
+				r.Post("/", subtaskHandler.CreateSubtask)
+			})
 		})
 
 		r.Route("/api/trash", func(r chi.Router) {

@@ -15,7 +15,7 @@ func ToTrashedBoardDTO(b db.GetTrashedBoardsRow) dto.TrashedBoardDTO {
         deletedAt = b.DeletedAt.Time
     }
     return dto.TrashedBoardDTO{
-        ID:        b.ID.String(),
+        ID:        b.ID,
         Title:     b.Title,
         DeletedAt: deletedAt,
     }
