@@ -25,6 +25,7 @@ export function useBoardSettings(boardId: string) {
     try {
       const res = await fetch(`${API_URL}/boards/${boardId}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) throw new Error(`Failed to delete (${res.status})`);
       

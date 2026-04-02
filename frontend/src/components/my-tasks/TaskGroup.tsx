@@ -37,7 +37,7 @@ export function TaskGroup({
       {/* ส่วนกรอบที่ครอบ TaskRow ทั้งหมดเอาไว้ */}
       <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         {tasks.map((task) => (
-          <TaskRow 
+          <TaskRow   
             key={task.id} 
             task={task} 
             onComplete={onCompleteTask} 
