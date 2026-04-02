@@ -11,40 +11,43 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
-
 	var req dto.CreateCardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	colUUID, err := uuid.Parse(req.ColumnID)
-	if err := colUUID.Scan(req.ColumnID); err != nil {
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid column ID", err)
 	}
 
 	card, err := h.boardService.CreateCard(r.Context(), db.CreateCardParams{
-		ColumnID: colUUID,
+		ColumnID: colUUID.String(),
 		Title:    req.Title,
 		Position: 0,
-		DueDate:  pgutil.PtrToDate(req.DueDate),
-		// AssigneeID ใช้ pgutil.PtrToUUID ถ้ามี helper นั้น
-		Priority: pgutil.PtrToText(req.Priority),
+		DueDate:  util.PtrStringToPgDate(req.DueDate),
+		Priority: req.Priority,
 	})
+
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create card", err)
 	}
-	json.NewEncoder(w).Encode(card)
+
+	// ตอบกลับผลลัพธ์
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(card); err != nil {
+		return err
+	}
 	return nil
 }
-
 func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error {
 
 	cardIDStr := r.PathValue("cardID")
@@ -90,11 +93,11 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 	}
 	card, err := h.boardService.UpdateCard(r.Context(), service.UpdateCardParams{
 		ID:          cardUUID,
-		Title:       title,           
-		Description: req.Description, 
-		DueDate:     dueDate,         
-		AssigneeID:  assigneeID,      
-		Priority:    req.Priority,    
+		Title:       title,
+		Description: req.Description,
+		DueDate:     dueDate,
+		AssigneeID:  assigneeID,
+		Priority:    req.Priority,
 	})
 	if err != nil {
 		log.Printf("UpdateCard error: %v", err)

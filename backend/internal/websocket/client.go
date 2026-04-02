@@ -3,17 +3,18 @@ package websocket
 
 import (
 	"context"
+
 	"encoding/json"
-	"fmt"
+	
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
+
 )
 
 const (
@@ -110,9 +111,9 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 	defer cancel()
 
 	if err := c.hub.queries.UpdateCardColumn(ctx, db.UpdateCardColumnParams{
-		ColumnID: colUUID,
+		ColumnID: colUUID.String(),
 		Position: position,
-		ID:       cardUUID,
+		ID:       cardUUID.String(),
 	}); err != nil {
 		log.Printf("Failed to update card position: %v", err)
 		return
@@ -123,51 +124,58 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 }
 
 func (c *Client) handleCardCreated(payload map[string]interface{}) {
-	columnIDStr, ok1 := payload["column_id"].(string)
-	title, ok2 := payload["title"].(string)
-	if !ok1 || !ok2 {
-		log.Println("Invalid payload for CARD_CREATED")
-		return
-	}
+    columnIDStr, ok1 := payload["column_id"].(string)
+    title, ok2 := payload["title"].(string)
+    if !ok1 || !ok2 {
+        log.Println("Invalid payload for CARD_CREATED")
+        return
+    }
 
-	var colUUID uuid.UUID
-	if err := colUUID.Scan(columnIDStr); err != nil {
-		log.Printf("Invalid column ID: %s", columnIDStr)
-		return
-	}
+    var colUUID uuid.UUID
+    if err := colUUID.Scan(columnIDStr); err != nil {
+        log.Printf("Invalid column ID: %s", columnIDStr)
+        return
+    }
 
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-	priority, _ := payload["priority"].(string)
-	newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
-		ColumnID: colUUID,
-		Title:    title,
-		Position: 0,
-		Priority: pgtype.Text{String: priority, Valid: priority != ""},
-	})
-	if err != nil {
-		log.Printf("Failed to create card: %v", err)
-		return
-	}
+    ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+    defer cancel()
+    priority, _ := payload["priority"].(string)
+    
+    // 1. เรียก CreateCard 
+    newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
+        ColumnID: colUUID.String(),
+        Title:    title,
+        Position: 0,
+        // ✅ เปลี่ยนมาใช้ StringToPtr เพื่อคืนค่ากลับเป็น *string
+        Priority: util.StringToPtr(priority), 
+    })
+    if err != nil {
+        log.Printf("Failed to create card: %v", err)
+        return
+    }
 
-	broadcastMsg := WSMessage{
-		Type: "CARD_CREATED",
-		Payload: map[string]interface{}{
-			"id":        newCard.ID.String(),
-			"column_id": newCard.ColumnID.String(),
-			"title":     newCard.Title,
-			"position":  newCard.Position,
-			"priority":  pgutil.TextToPtr(newCard.Priority),
-		},
-	}
+    // 2. จัดเตรียมข้อมูลสำหรับส่งผ่าน WebSocket (Broadcast)
+    broadcastMsg := WSMessage{
+        Type: "CARD_CREATED",
+        Payload: map[string]interface{}{
+            "id":        newCard.ID,
+            "column_id": newCard.ColumnID,
+            "title":     newCard.Title,
+            "position":  newCard.Position,
+            // ✅ newCard.Priority เป็น *string อยู่แล้ว ส่งเข้า JSON ได้เลย
+            // ถ้ามันเป็น nil ตัว JSON Marshal จะแปลงเป็น null ให้เอง (Frontend ชอบมาก)
+            "priority":  newCard.Priority, 
+        },
+    }
 
-	msgBytes, err := json.Marshal(broadcastMsg)
-	if err != nil {
-		log.Printf("Failed to marshal CARD_CREATED broadcast: %v", err)
-		return
-	}
+    msgBytes, err := json.Marshal(broadcastMsg)
+    if err != nil {
+        log.Printf("Failed to marshal CARD_CREATED broadcast: %v", err)
+        return
+    }
 
-	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+    // 3. ส่งข้อความกระจายให้ทุกคนที่เชื่อมต่อ WebSocket ใน Board นี้
+    c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 
 func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte) {
@@ -186,7 +194,7 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	if err := c.hub.queries.DeleteCard(ctx, cardUUID); err != nil {
+	if err := c.hub.queries.DeleteCard(ctx, cardUUID.String()); err != nil {
 		log.Printf("Failed to delete card: %v", err)
 		return
 	}
@@ -248,49 +256,95 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 	go client.ReadPump()
 }
 
-
 func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte) {
-    cardIDStr, ok := payload["card_id"].(string)
-    if !ok {
-        log.Println("Invalid payload for CARD_UPDATED")
-        return
-    }
+	cardIDStr, ok := payload["card_id"].(string)
+	if !ok {
+		log.Println("Invalid payload for CARD_UPDATED")
+		return
+	}
 
-    var cardUUID uuid.UUID
-    if err := cardUUID.Scan(cardIDStr); err != nil {
-        log.Printf("Invalid card ID: %s", cardIDStr)
-        return
-    }
+	// ดึงข้อมูลจาก payload (ใช้การเช็คแบบสั้น)
+	title, _ := payload["title"].(string)
+	description, _ := payload["description"].(string)
+	dueDate, _ := payload["due_date"].(string)
+	assigneeID, _ := payload["assignee_id"].(string)
+	priority, _ := payload["priority"].(string)
+	estimatedHours, _ := payload["estimated_hours"].(float64)
 
-    title, _          := payload["title"].(string)
-    description, _    := payload["description"].(string)
-    dueDate, _        := payload["due_date"].(string)
-    assigneeID, _     := payload["assignee_id"].(string)
-    priority, _       := payload["priority"].(string)
-    estimatedHours, _ := payload["estimated_hours"].(float64)
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
 
-    var estimatedHoursNumeric pgtype.Numeric
-    if estimatedHours != 0 {
-        estimatedHoursNumeric.Scan(fmt.Sprintf("%f", estimatedHours))
-    }
+	// เรียก UpdateCard ด้วย Helper ที่เราสร้างไว้
+	_, err := c.hub.queries.UpdateCard(ctx, db.UpdateCardParams{
+		ID:             cardIDStr, // ส่ง string ได้เลยเพราะ override แล้ว
+		Title:          title,
+		Description:    util.StringToPtr(description),      
+		DueDate:        util.StringToPgDate(dueDate),       
+		AssigneeID:     util.StringToPgUUID(assigneeID),   
+		Priority:       util.StringToPtr(priority),         
+		EstimatedHours: util.FloatToPgNumeric(estimatedHours),
+	})
 
-    ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-    defer cancel()
+	if err != nil {
+		log.Printf("Failed to update card [%s]: %v", cardIDStr, err)
+		return
+	}
 
-    _, err := c.hub.queries.UpdateCard(ctx, db.UpdateCardParams{
-        ID:             cardUUID,
-        Title:          title,
-        Description:    pgutil.PtrToText(pgutil.NilIfEmpty(description)),
-        DueDate:        pgutil.PtrToDate(pgutil.NilIfEmpty(dueDate)),
-        AssigneeID:     pgutil.PtrToUUID(pgutil.NilIfEmpty(assigneeID)),
-        Priority:       pgutil.PtrToText(pgutil.NilIfEmpty(priority)),
-        EstimatedHours: estimatedHoursNumeric,
-    })
-    if err != nil {
-        log.Printf("Failed to update card: %v", err)
-        return
-    }
+	log.Printf("Updated card [%s] successfully", cardIDStr)
+	
+	// ส่ง Message เดิมออกไปให้ทุกคนใน Board
+	c.hub.broadcast <- BroadcastMessage{
+		BoardID: c.boardID, 
+		Message: rawMsg,
+	}
+}
+// ตัวอย่างใน handleSubtaskUpdated (โครงสร้างคล้าย handleCardUpdated)
+func (c *Client) handleSubtaskUpdate(payload map[string]interface{}, rawMsg []byte) {
+	subtaskID, _ := payload["subtask_id"].(string)
+	isDone, _ := payload["is_done"].(bool)
+	title, _ := payload["title"].(string)
+	
+	// ดึงค่า position ถ้าไม่มีให้เริ่มที่ 0 (หรือดึงจาก DB มาก่อนถ้าจำเป็นต้องแม่นยำ)
+	position, _ := payload["position"].(float64) 
 
-    log.Printf("Updated card [%s]", cardIDStr)
-    c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	// เรียกใช้ UpdateSubtask โดยใช้ Helper
+	_, err := c.hub.queries.UpdateSubtask(ctx, db.UpdateSubtaskParams{
+		ID:       subtaskID,
+		Title:    title,               // ถ้าใน params เป็น string
+		// หรือ Title: util.ToNullString(title), // ถ้าใน params เป็น sql.NullString
+		IsDone:   isDone,
+		Position: position,            // ส่ง float64 เข้าไป (ห้ามใส่ nil)
+	})
+
+	if err != nil {
+		log.Printf("Error updating subtask [%s]: %v", subtaskID, err)
+		return
+	}
+
+	// กระจายข่าว
+	c.hub.broadcast <- BroadcastMessage{
+		BoardID: c.boardID,
+		Message: rawMsg,
+	}
+}
+
+// สมมติชื่อฟังก์ชันใน client.go
+func (c *Client) handleSubtaskToggle(payload map[string]interface{}, rawMsg []byte) {
+	subtaskID, _ := payload["subtask_id"].(string)
+	isDone, _ := payload["is_done"].(bool)
+
+	// 1. สั่ง Database ให้ Update
+	_ = c.hub.queries.UpdateSubtaskDone(context.Background(), db.UpdateSubtaskDoneParams{
+		ID:     subtaskID,
+		IsDone: isDone,
+	})
+
+	// 2. ตะโกนบอกทุกคนในบอร์ด (Broadcast)
+	c.hub.broadcast <- BroadcastMessage{
+		BoardID: c.boardID,
+		Message: rawMsg, // ส่งก้อนเดิมนั่นแหละให้คนอื่นไปอัปเดต UI ตาม
+	}
 }

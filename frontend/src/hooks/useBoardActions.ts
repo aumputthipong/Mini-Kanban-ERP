@@ -2,8 +2,8 @@
 import { DragEndEvent } from "@dnd-kit/core";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { WS_URL } from "@/lib/constants";
-import type { Card } from "@/types/board";
+import { API_URL, WS_URL } from "@/lib/constants";
+import type { Card, Subtask } from "@/types/board";
 
 export function useBoardActions(boardId: string) {
   const { columns, moveCard, updateCard } = useBoardStore();
@@ -74,10 +74,47 @@ export function useBoardActions(boardId: string) {
     });
   };
 
+  const handleAddSubtask = async (cardId: string, title: string) => {
+    try {
+      // 1. หาตำแหน่ง Position ล่าสุดของ Subtask ในการ์ดนี้ (Best Practice)
+      const targetCard = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
+      if (!targetCard) return;
+
+      const currentSubtasks = targetCard.subtasks || [];
+      const newPosition = currentSubtasks.length + 1;
+      // 2. ยิง HTTP POST ไปยัง API ที่เราเพิ่งสร้าง
+      const response = await fetch(`${API_URL}/api/cards/${cardId}/subtasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, position: newPosition }),
+      });
+
+      console.log(response)
+      if (!response.ok) {
+        throw new Error("Failed to create subtask");
+      }
+
+      // 3. รับข้อมูล Subtask ที่เพิ่งบันทึกลง Database กลับมา
+      const newSubtask: Subtask = await response.json();
+
+      // 4. อัปเดต Store เพื่อให้ UI เปลี่ยนแปลงทันที
+      updateCard({
+        ...targetCard,
+        subtasks: [...currentSubtasks, newSubtask],
+      });
+
+    } catch (error) {
+      console.error("Error creating subtask:", error);
+      // ตรงนี้อาจจะเพิ่ม Toast Notification แจ้งเตือนผู้ใช้ในอนาคตได้
+    }
+  };
+
   return {
     handleDragEnd,
     handleAddCard,
     handleDeleteCard,
     handleUpdateCard,
+    handleAddSubtask,
   };
 }

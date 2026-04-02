@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/pgutil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/google/uuid"
 )
 
@@ -42,7 +42,7 @@ func (s *BoardService) GetCard(ctx context.Context, cardID uuid.UUID) (db.Card, 
 	// Best Practice: ถ้ามี Logic สิทธิ์การเข้าถึง (Authorization) ควรทำในชั้นนี้
 	// ก่อนจะยอมให้ดึงข้อมูลออกไป
 
-	card, err := s.queries.GetCard(ctx, cardID)
+	card, err := s.queries.GetCard(ctx, cardID.String())
 	if err != nil {
 		return db.Card{}, err
 	}
@@ -50,21 +50,34 @@ func (s *BoardService) GetCard(ctx context.Context, cardID uuid.UUID) (db.Card, 
 	return card, nil
 }
 
-
 func (s *BoardService) UpdateCard(ctx context.Context, arg UpdateCardParams) (db.Card, error) {
 	card, err := s.queries.UpdateCard(ctx, db.UpdateCardParams{
-		ID:             arg.ID,
-		Title:        	arg.Title,
-		Description:    pgutil.PtrToText(arg.Description),
-		DueDate:        pgutil.TimePtrToDate(arg.DueDate),
-		AssigneeID:     pgutil.PtrToPgUUID(arg.AssigneeID), // หรือ PtrToNullUUID ขึ้นอยู่กับว่า sqlc ของคุณใช้อะไร
-		Priority:       pgutil.PtrToText(arg.Priority),
-		EstimatedHours: pgutil.PtrToNumeric(arg.EstimatedHours),
+		ID:             arg.ID.String(), 
+		Title:          arg.Title,
+		
+		// สำหรับ string pointer ส่งค่าเข้าไปตรงๆ ได้เลย
+		Description:    arg.Description, 
+		Priority:       arg.Priority,
+		
+		// สำหรับ type พิเศษ ใช้ Helper ที่รองรับ pgtype
+		DueDate:        util.PtrToPgDate(arg.DueDate),      
+		AssigneeID:     util.PtrUUIDToPgUUID(arg.AssigneeID), 
+		EstimatedHours: util.PtrFloatToPgNumeric(arg.EstimatedHours),
 	})
+
 	if err != nil {
 		return db.Card{}, fmt.Errorf("update card: %w", err)
 	}
+
 	return card, nil
+}
+
+func formatFloatPtr(f *float64) *string {
+    if f == nil {
+        return nil
+    }
+    s := fmt.Sprintf("%.2f", *f)
+    return &s
 }
 
 func (s *BoardService) GetAllUsers(ctx context.Context) ([]db.GetAllUsersRow, error) {
@@ -73,9 +86,15 @@ func (s *BoardService) GetAllUsers(ctx context.Context) ([]db.GetAllUsersRow, er
 
 
 func (s *BoardService) GetCardsByColumnIDs(ctx context.Context, columnIDs []uuid.UUID) ([]db.GetCardsByColumnIDsRow, error) {
-	return s.queries.GetCardsByColumnIDs(ctx, columnIDs)
-}
+    ids := make([]string, len(columnIDs))
 
+    for i, id := range columnIDs {
+        ids[i] = id.String()
+    }
+
+    // 3. ส่ง slice ของ string ให้กับ sqlc
+    return s.queries.GetCardsByColumnIDs(ctx, ids)
+}
 func (s *BoardService) CreateCard(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 	return s.queries.CreateCard(ctx, arg)
 }

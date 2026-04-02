@@ -10,6 +10,7 @@ export interface Card {
   assignee_name: string | null;
   priority: "low" | "medium" | "high" | null;
   estimated_hours: number | null;
+  subtasks?: Subtask[];
 }
 
 export interface Column {
@@ -42,4 +43,12 @@ export interface User {
   id:        string;
   email:     string;
   full_name: string;
+}
+
+export interface Subtask {
+  id: string;
+  card_id: string;
+  title: string;
+  is_completed: boolean;
+  position: number;
 }

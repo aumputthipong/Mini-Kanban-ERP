@@ -79,14 +79,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to register", err)
 	}
 
-	token, err := token.Generate(user.ID.String(), user.Email)
+	token, err := token.Generate(user.ID, user.Email)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusCreated, map[string]string{
-		"id":        user.ID.String(),
+		"id":        user.ID,
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})
@@ -108,14 +108,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to login", err)
 	}
 
-	token, err := token.Generate(user.ID.String(), user.Email)
+	token, err := token.Generate(user.ID, user.Email)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusOK, map[string]string{
-		"id":        user.ID.String(),
+		"id":        user.ID,
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})
@@ -134,14 +134,14 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to authenticate", err)
 	}
 
-	token, err := token.Generate(user.ID.String(), user.Email)
+	token, err := token.Generate(user.ID, user.Email)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
 	setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusOK, map[string]string{
-		"id":        user.ID.String(),
+		"id":        user.ID,
 		"email":     user.Email,
 		"full_name": user.FullName,
 	})

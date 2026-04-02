@@ -17,7 +17,6 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	
 )
 
 type config struct {
@@ -69,16 +68,16 @@ func run(ctx context.Context, cfg config) error {
 	go hub.Run()
 
 	boardService := service.NewBoardService(pool, queries)
-	authService  := service.NewAuthService(queries)
-
+	authService := service.NewAuthService(queries)
+	
+	subtaskHandler := handler.NewSubtaskHandler(queries)
 	boardHandler := handler.NewBoardHandler(boardService)
-	authHandler  := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService)
 
-	routes := setupRoutes(boardHandler, authHandler, hub)
-
+	router := setupRoutes(boardHandler, authHandler, subtaskHandler, hub)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: middleware.CORS(cfg.FrontendURL, routes),
+		Handler: middleware.CORS(cfg.FrontendURL, router),
 	}
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)

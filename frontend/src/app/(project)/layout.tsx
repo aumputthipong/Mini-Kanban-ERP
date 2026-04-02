@@ -1,16 +1,31 @@
-// app/(project)/layout.tsx
+// src/app/(project)/layout.tsx
 import { Sidebar } from "@/components/layout/Sidebar";
-import { apiFetch } from "@/lib/api";
 import { API_URL } from "@/lib/constants";
 import type { Board } from "@/types/board";
+import { cookies } from "next/headers"; // 1. นำเข้า cookies
 
 async function getBoards(): Promise<Board[]> {
-  const boards = await apiFetch<Board[]>("/boards");
   try {
-    const res = await fetch(`${API_URL}/boards`, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.toString();
+
+    const res = await fetch(`${API_URL}/boards`, { 
+      cache: 'no-store', 
+      headers: {
+        "Cookie": allCookies,
+        "Content-Type": "application/json",
+      }
+    });
+    console.log("This is ",res )
+
+    if (!res.ok) {
+      console.error(`Fetch boards failed: ${res.status}`);
+      return [];
+    }
+    
+    return await res.json();
+  } catch (error) {
+    console.error("Network error fetching boards:", error);
     return [];
   }
 }

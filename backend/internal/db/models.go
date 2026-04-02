@@ -5,12 +5,11 @@
 package db
 
 import (
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Board struct {
-	ID        uuid.UUID
+	ID        string
 	Title     string
 	Budget    pgtype.Numeric
 	CreatedAt pgtype.Timestamptz
@@ -19,30 +18,40 @@ type Board struct {
 }
 
 type BoardMember struct {
-	ID       uuid.UUID
-	BoardID  uuid.UUID
-	UserID   uuid.UUID
+	ID       string
+	BoardID  string
+	UserID   string
 	Role     string
 	JoinedAt pgtype.Timestamptz
 }
 
 type Card struct {
-	ID             uuid.UUID
-	ColumnID       uuid.UUID
+	ID             string
+	ColumnID       string
 	AssigneeID     pgtype.UUID
 	Title          string
-	Description    pgtype.Text
+	Description    *string
 	EstimatedHours pgtype.Numeric
-	Priority       pgtype.Text
+	Priority       *string
 	DueDate        pgtype.Date
 	Position       float64
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }
 
+type CardSubtask struct {
+	ID        string
+	CardID    string
+	Title     string
+	IsDone    bool
+	Position  float64
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
 type Column struct {
-	ID        uuid.UUID
-	BoardID   uuid.UUID
+	ID        string
+	BoardID   string
 	Title     string
 	Position  float64
 	CreatedAt pgtype.Timestamptz
@@ -50,21 +59,21 @@ type Column struct {
 }
 
 type TimeLog struct {
-	ID           uuid.UUID
-	CardID       uuid.UUID
-	UserID       uuid.UUID
+	ID           string
+	CardID       string
+	UserID       string
 	HoursSpent   pgtype.Numeric
 	CostIncurred pgtype.Numeric
 	LoggedAt     pgtype.Timestamptz
 }
 
 type User struct {
-	ID           uuid.UUID
+	ID           string
 	Email        string
 	FullName     string
 	HourlyRate   pgtype.Numeric
-	PasswordHash pgtype.Text
+	PasswordHash *string
 	Provider     string
-	ProviderID   pgtype.Text
+	ProviderID   *string
 	CreatedAt    pgtype.Timestamptz
 }

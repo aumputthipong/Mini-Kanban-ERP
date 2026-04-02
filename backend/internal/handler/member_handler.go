@@ -27,9 +27,9 @@ func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) e
 	result := make([]dto.BoardMemberResponse, 0, len(members))
 	for _, m := range members {
 		result = append(result, dto.BoardMemberResponse{
-			ID:       m.ID.String(),
+			ID:       m.ID,
 			Role:     m.Role,
-			UserID:   m.UserID.String(),
+			UserID:   m.UserID,
 			Email:    m.Email,
 			FullName: m.FullName,
 		})
@@ -129,7 +129,7 @@ func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request)error 
 	result := make([]dto.UserResponse, 0, len(users))
 	for _, u := range users {
 		result = append(result, dto.UserResponse{
-			ID:       u.ID.String(),
+			ID:       u.ID,
 			Email:    u.Email,
 			FullName: u.FullName,
 		})

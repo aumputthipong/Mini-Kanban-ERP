@@ -168,3 +168,33 @@ WHERE board_id = $1 AND user_id = $2;
 -- name: GetCard :one
 SELECT * FROM cards 
 WHERE id = $1 LIMIT 1;
+
+
+-- name: GetSubtasksByCardID :many
+SELECT * FROM card_subtasks
+WHERE card_id = $1
+ORDER BY position ASC;
+
+-- name: CreateSubtask :one
+INSERT INTO card_subtasks (card_id, title, position)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: UpdateSubtask :one
+UPDATE card_subtasks
+SET 
+    title = COALESCE($2, title),
+    is_done = COALESCE($3, is_done),
+    position = COALESCE($4, position),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteSubtask :exec
+DELETE FROM card_subtasks
+WHERE id = $1;
+
+-- name: UpdateSubtaskDone :exec
+UPDATE card_subtasks 
+SET is_done = $2, updated_at = NOW() 
+WHERE id = $1;

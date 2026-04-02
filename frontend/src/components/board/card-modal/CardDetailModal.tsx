@@ -9,7 +9,7 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
-import { Folder, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Folder, Pencil, Trash2, Loader2, CheckSquare, Plus } from "lucide-react";
 import type { Card } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { CardFormFields } from "./CardFormFields";
@@ -30,6 +30,8 @@ interface CardDetailModalProps {
   onClose: () => void;
   onUpdated: (cardId: string, form: FormState) => void;
   onDelete: (cardId: string) => void;
+  // เพิ่ม Prop สำหรับรับฟังก์ชัน Add Subtask
+  onAddSubtask?: (cardId: string, title: string) => void; 
 }
 
 export function CardDetailModal({
@@ -39,8 +41,8 @@ export function CardDetailModal({
   onClose,
   onUpdated,
   onDelete,
+  onAddSubtask,
 }: CardDetailModalProps) {
-  // 1. นำ Logic ทั้งหมดไปไว้ใน Hook เดียว
   const {
     form,
     members,
@@ -52,12 +54,11 @@ export function CardDetailModal({
   } = useCardForm(card, boardId, isOpen);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState(""); // State สำหรับช่องพิมพ์ Subtask ใหม่
 
-  // 2. Handlers หลัก
   const handleSave = () => {
     if (!validate()) return;
     setIsSaving(true);
-    // สมมติว่า onUpdated มีการจัดการ await หรือไม่ก็เซ็ตกลับตอนจบ
     onUpdated(card.id, form);
     setIsSaving(false);
     onClose();
@@ -65,7 +66,19 @@ export function CardDetailModal({
 
   const handleDelete = () => onDelete(card.id);
 
-  // 3. ประกอบ UI
+  const handleAddSubtaskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubtaskTitle.trim() || !onAddSubtask) return;
+    
+    onAddSubtask(card.id, newSubtaskTitle.trim());
+    setNewSubtaskTitle(""); // ล้างช่อง Input หลังจากกดเพิ่ม
+  };
+
+  // คำนวณความคืบหน้าของ Subtask
+  const totalSubtasks = card.subtasks?.length || 0;
+  const completedSubtasks = card.subtasks?.filter(st => st.is_completed).length || 0;
+  const progressPercent = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
+
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       {/* --- ส่วนหัว (Header) --- */}
@@ -90,7 +103,7 @@ export function CardDetailModal({
       </DialogTitle>
 
       {/* --- ส่วนเนื้อหา (Content) --- */}
-      <DialogContent className="pt-4">
+      <DialogContent className="pt-4 pb-6">
         <CardFormFields
           form={form}
           members={members}
@@ -98,6 +111,71 @@ export function CardDetailModal({
           onChange={handleChange}
           error={error}
         />
+
+        {/* --- ส่วน Subtasks --- */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <CheckSquare size={18} className="text-blue-500" />
+              Subtasks
+            </h3>
+            {totalSubtasks > 0 && (
+              <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                {progressPercent}%
+              </span>
+            )}
+          </div>
+
+          {/* Progress Bar (แสดงเมื่อมี Subtask) */}
+          {totalSubtasks > 0 && (
+            <div className="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          )}
+
+          {/* รายการ Subtask */}
+          <div className="flex flex-col gap-2 mb-4">
+            {card.subtasks?.map((st) => (
+              <div key={st.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group">
+                <input 
+                  type="checkbox" 
+                  checked={st.is_completed}
+                  readOnly // ปล่อยไว้ก่อน เดี๋ยวเราค่อยมาทำ API สำหรับ Toggle
+                  className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className={`text-sm flex-1 ${st.is_completed ? "line-through text-slate-400" : "text-slate-700"}`}>
+                  {st.title}
+                </span>
+              </div>
+            ))}
+            {totalSubtasks === 0 && (
+              <p className="text-sm text-slate-400 italic px-2">No subtasks yet.</p>
+            )}
+          </div>
+
+          {/* ฟอร์มเพิ่ม Subtask */}
+          <form onSubmit={handleAddSubtaskSubmit} className="flex items-center gap-2 px-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                placeholder="Add a new subtask..."
+                className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!newSubtaskTitle.trim()}
+              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus size={18} />
+            </button>
+          </form>
+        </div>
       </DialogContent>
 
       {/* --- ส่วนปุ่มกด (Actions) --- */}

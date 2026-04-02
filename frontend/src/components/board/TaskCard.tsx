@@ -2,11 +2,12 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import { Calendar, Trash2 } from "lucide-react";
+import { Calendar, CheckSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
 import { useBoardStore } from "@/store/useBoardStore";
+import { useBoardActions } from "@/hooks/useBoardActions";
 
 interface CardProps {
   card: Card;
@@ -23,7 +24,9 @@ export function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { updateCard } = useBoardStore();
-
+  const totalSubtasks = card.subtasks?.length || 0;
+  const completedSubtasks =
+    card.subtasks?.filter((st) => st.is_completed).length || 0;
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: card.id,
@@ -48,7 +51,7 @@ export function TaskCard({
         return "hidden";
     }
   };
-
+  const { handleAddSubtask } = useBoardActions(boardId);
   return (
     <>
       <div
@@ -79,25 +82,17 @@ export function TaskCard({
           </div>
         </div>
 
-        {(card.due_date || card.assignee_name) && (
+        {(card.due_date || card.assignee_name || totalSubtasks > 0) && (
           <div className="flex items-center gap-3">
-            {card.due_date && (
+            {/* ... โค้ด Calendar และ Assignee คงเดิม ... */}
+
+            {/* UI แสดงจำนวน Subtask */}
+            {totalSubtasks > 0 && (
               <span
-                className={`flex items-center gap-1 text-xs font-medium ${isOverdue ? "text-red-500" : "text-slate-400"}`}
+                className={`flex items-center gap-1 text-xs font-medium ${completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"}`}
               >
-                <Calendar size={12} />
-                {new Date(card.due_date).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                })}
-              </span>
-            )}
-            {card.assignee_name && (
-              <span className="flex items-center gap-1 text-xs text-slate-400">
-                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-                  {card.assignee_name.charAt(0).toUpperCase()}
-                </div>
-                {card.assignee_name}
+                <CheckSquare size={12} />
+                {completedSubtasks}/{totalSubtasks}
               </span>
             )}
           </div>
@@ -118,6 +113,7 @@ export function TaskCard({
           onDeleteCard(cardId);
           setIsDetailOpen(false);
         }}
+        onAddSubtask = { handleAddSubtask }
       />
     </>
   );

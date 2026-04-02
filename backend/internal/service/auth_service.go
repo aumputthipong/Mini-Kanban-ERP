@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -30,30 +30,29 @@ type RegisterParams struct {
 	FullName string
 	Password string
 }
-
 func (s *AuthService) Register(ctx context.Context, arg RegisterParams) (db.User, error) {
-	_, err := s.queries.GetUserByEmail(ctx, arg.Email)
+    _, err := s.queries.GetUserByEmail(ctx, arg.Email)
     if err == nil {
         // ถ้า err เป็น nil แปลว่า query สำเร็จ = เจอข้อมูลคนใช้ชื่่อนี้แล้ว
         return db.User{}, ErrEmailTaken
     }
-	hash, err := bcrypt.GenerateFromPassword([]byte(arg.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return db.User{}, fmt.Errorf("hash password: %w", err)
-	}
+    hash, err := bcrypt.GenerateFromPassword([]byte(arg.Password), bcrypt.DefaultCost)
+    if err != nil {
+        return db.User{}, fmt.Errorf("hash password: %w", err)
+    }
 
-	user, err := s.queries.CreateUser(ctx, db.CreateUserParams{
-		Email:        arg.Email,
-		FullName:     arg.FullName,
-		PasswordHash: pgtype.Text{String: string(hash), Valid: true},
-		Provider:     "credentials",
-		ProviderID:   pgtype.Text{Valid: false},
-	})
-	if err != nil {
-		return db.User{}, fmt.Errorf("create user: %w", err)
-	}
+    user, err := s.queries.CreateUser(ctx, db.CreateUserParams{
+        Email:        arg.Email,
+        FullName:     arg.FullName,
+        PasswordHash: util.StringToPtr(string(hash)), 
+        Provider:     "credentials",
+        ProviderID:   nil, 
+    })
+    if err != nil {
+        return db.User{}, fmt.Errorf("create user: %w", err)
+    }
 
-	return user, nil
+    return user, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (db.User, error) {
@@ -66,13 +65,13 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (db.Use
 		return db.User{}, ErrOAuthOnly
 	}
 
-	if !user.PasswordHash.Valid {
-		return db.User{}, ErrInvalidCreds
-	}
+	if user.PasswordHash == nil {
+        return db.User{}, ErrInvalidCreds
+    }
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)); err != nil {
-		return db.User{}, ErrInvalidCreds
-	}
+if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(password)); err != nil {
+        return db.User{}, ErrInvalidCreds
+    }
 
 	return user, nil
 }
@@ -82,7 +81,7 @@ func (s *AuthService) UpsertOAuthUser(ctx context.Context, email, fullName, prov
 		Email:      email,
 		FullName:   fullName,
 		Provider:   provider,
-		ProviderID: pgtype.Text{String: providerID, Valid: true},
+		ProviderID: util.StringToPtr(providerID), 
 	})
 	if err != nil {
 		return db.User{}, fmt.Errorf("upsert oauth user: %w", err)
