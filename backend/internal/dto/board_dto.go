@@ -1,6 +1,8 @@
 // internal/dto/board_dto.go
 package dto
 
+import "time"
+
 type ColumnResponse struct {
 	ID       string         `json:"id"`
 	Title    string         `json:"title"`
@@ -42,4 +44,12 @@ type AddMemberRequest struct {
 
 type UpdateMemberRoleRequest struct {
 	Role string `json:"role"`
+}
+
+
+
+type TrashedBoardDTO struct {
+    ID        string    `json:"id"`
+    Title     string    `json:"title"`
+    DeletedAt time.Time `json:"deleted_at"`
 }

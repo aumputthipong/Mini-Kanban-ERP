@@ -7,6 +7,7 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/mapper"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/google/uuid"
@@ -123,7 +124,7 @@ func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error{
 
 	}
 
-	httputil.RespondJSON(w, http.StatusOK, boards)
+	httputil.RespondJSON(w, http.StatusOK,  mapper.ToTrashedBoardDTOs(boards))
     return nil
 }
 
