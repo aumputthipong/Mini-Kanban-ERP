@@ -24,7 +24,6 @@ export default function MyTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // ระหว่างรอ Backend ของ Go เราสร้างข้อมูลจำลอง (Mock Data) มาทดสอบ UI ก่อนได้ครับ
     const mockTasks: MyTask[] = [
       {
         id: "1",
@@ -32,7 +31,7 @@ export default function MyTasksPage() {
         board_id: "b1",
         board_name: "Mini ERP Project",
         priority: "high",
-        due_date: "2026-03-31", // วันที่อดีต (Overdue)
+        due_date: "2026-03-31", 
         estimated_hours: 2,
         status: "todo",
       },
@@ -42,7 +41,7 @@ export default function MyTasksPage() {
         board_id: "b2",
         board_name: "Client A",
         priority: "medium",
-        due_date: new Date().toISOString().split("T")[0], // วันนี้ (Due Today)
+        due_date: new Date().toISOString().split("T")[0], 
         estimated_hours: 1,
         status: "todo",
       }
@@ -57,7 +56,6 @@ export default function MyTasksPage() {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
-  // Logic จัดกลุ่มงาน
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

@@ -1,21 +1,35 @@
-// app/trash/page.tsx
-import { TrashTable } from "@/components/trash/TrashTable";
+import { cookies } from "next/headers";
 import { Trash2 } from "lucide-react";
+import { TrashTable } from "@/components/trash/TrashTable";
+import { API_URL } from "@/lib/constants";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
-
+// กำหนด Type เป็นตัวพิมพ์เล็กทั้งหมดตามที่ API ฝั่ง Go ส่งมา
 export interface TrashedBoard {
-  ID: string;
-  Title: string;
-  DeletedAt: string;
+  id: string;
+  title: string;
+  deleted_at: string;
 }
 
 async function getTrashedBoards(): Promise<TrashedBoard[]> {
   try {
-    const res = await fetch(`${API_URL}/trash`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
+    const cookieStore = await cookies();
+    const cookieString = cookieStore.toString();
+
+    const res = await fetch(`${API_URL}/trash`, {
+      cache: "no-store",
+      headers: {
+        Cookie: cookieString,
+      },
+    });
+
+    if (!res.ok) {
+      console.error("API Error:", res.status, res.statusText);
+      return [];
+    }
+    
+    return await res.json();
+  } catch (err) {
+    console.error("Fetch Error:", err);
     return [];
   }
 }

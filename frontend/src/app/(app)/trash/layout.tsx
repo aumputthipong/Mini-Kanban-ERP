@@ -1,19 +1,21 @@
 // app/(project)/layout.tsx
 import { Sidebar } from "@/components/layout/Sidebar";
+import { apiFetch } from "@/lib/api";
+import { API_URL } from "@/lib/constants";
+import { Board } from "@/types/board";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
 
-async function getBoards() {
+async function getBoards(): Promise<Board[]> {
+  const boards = await apiFetch<Board[]>("/boards");
   try {
-    const res = await fetch(`${API_URL}/boards`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(`${API_URL}/boards`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return res.json();
   } catch {
     return [];
   }
 }
+
 
 export default async function ProjectLayout({ children }: { children: React.ReactNode }) {
   const boards = await getBoards();

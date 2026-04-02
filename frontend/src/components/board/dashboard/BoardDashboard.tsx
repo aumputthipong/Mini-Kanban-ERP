@@ -107,46 +107,11 @@ export function BoardDashboard() {
           <h3 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">
             Needs Attention
           </h3>
-
-          {/* Overdue Tasks -> เปลี่ยนเป็น เลยกำหนดการ */}
-          <div className="bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-red-50 px-4 py-3 border-b border-red-200 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-red-700 font-semibold text-sm">
-                <AlertCircle size={16} /> Overdue Task
-              </div>
-              <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full">
-                {stats.overdueCards.length}
-              </span>
-            </div>
-            <div className="p-0">
-              {stats.overdueCards.map((card) => (
-                <li
-                  key={card.id}
-                  className="p-3 text-sm flex justify-between items-center hover:bg-slate-50"
-                >
-                  <span className="font-medium text-slate-700 truncate pr-4">
-                    {card.title}
-                  </span>
-                  <div className="flex flex-col items-end">
-                    {/* ด้านบน: แสดงจำนวนวันที่เลยกำหนด */}
-                    <span className="text-red-600 text-xs font-bold whitespace-nowrap">
-                      {getOverdueText(card.due_date!)}
-                    </span>
-                    {/* ด้านล่าง: แสดงวันที่แบบไทย สีจาง */}
-                    <span className="text-slate-400 text-[10px] whitespace-nowrap">
-                      {formatThaiDate(card.due_date!)}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </div>
-          </div>
-
           {/* Due Soon -> เปลี่ยนเป็น Upcoming Tasks พร้อมคำนวณวัน */}
           <div className="bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-amber-50 px-4 py-3 border-b border-amber-200 flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
-                <AlertTriangle size={16} /> Upcoming Tasks
+                <AlertTriangle size={16} /> Due Soon Tasks
               </div>
               <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">
                 {stats.dueSoonCards.length}
@@ -183,6 +148,41 @@ export function BoardDashboard() {
               )}
             </div>
           </div>
+          {/* Overdue Tasks -> เปลี่ยนเป็น เลยกำหนดการ */}
+          <div className="bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-red-50 px-4 py-3 border-b border-red-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-700 font-semibold text-sm">
+                <AlertCircle size={16} /> Overdue Tasks
+              </div>
+              <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                {stats.overdueCards.length}
+              </span>
+            </div>
+            <div className="p-0">
+              {stats.overdueCards.map((card) => (
+                <li
+                  key={card.id}
+                  className="p-3 text-sm flex justify-between items-center hover:bg-slate-50"
+                >
+                  <span className="font-medium text-slate-700 truncate pr-4">
+                    {card.title}
+                  </span>
+                  <div className="flex flex-col items-end">
+                    {/* ด้านบน: แสดงจำนวนวันที่เลยกำหนด */}
+                    <span className="text-red-600 text-xs font-bold whitespace-nowrap">
+                      {getOverdueText(card.due_date!)}
+                    </span>
+                    {/* ด้านล่าง: แสดงวันที่แบบไทย สีจาง */}
+                    <span className="text-slate-400 text-[10px] whitespace-nowrap">
+                      {formatThaiDate(card.due_date!)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </div>
+          </div>
+
+
         </div>
 
         {/* คอลัมน์ขวา: Active Workload (โค้ดชุดเดิม) */}
