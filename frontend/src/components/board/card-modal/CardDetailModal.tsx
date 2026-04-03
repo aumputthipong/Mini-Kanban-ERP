@@ -21,6 +21,7 @@ import type { Card } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { CardFormFields } from "./CardFormFields";
 import { useBoardActions } from "@/hooks/useBoardActions";
+import { SubtaskItem } from "../subtask/SubtaskItem";
 
 export interface FormState {
   title: string;
@@ -62,9 +63,16 @@ export function CardDetailModal({
   } = useCardForm(card, boardId, isOpen);
 
   const [isSaving, setIsSaving] = useState(false);
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState(""); // State สำหรับช่องพิมพ์ Subtask ใหม่
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
-const { fetchSubtasks } = useBoardActions(boardId); 
+
+
+  const {
+    fetchSubtasks,
+    handleToggleSubtask,
+    handleDeleteSubtask,
+    handleUpdateSubtaskTitle,
+  } = useBoardActions(boardId);
   const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false);
 
   // ✅ 2. useEffect ทำงานดึงข้อมูลตามปกติ
@@ -151,7 +159,6 @@ const { fetchSubtasks } = useBoardActions(boardId);
                 {progressPercent}%
               </span>
             )}
-            
           </div>
 
           {/* Progress Bar (แสดงเมื่อมี Subtask) */}
@@ -165,30 +172,18 @@ const { fetchSubtasks } = useBoardActions(boardId);
           )}
 
           {/* รายการ Subtask */}
-          <div className="flex flex-col gap-2 mb-4">
+      <div className="flex flex-col gap-2 mb-4">
             {card.subtasks?.map((st) => (
-              <div
+              // 3. เรียกใช้งาน Component ใหม่ และโยน Props ให้มัน
+              <SubtaskItem
                 key={st.id}
-                className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group"
-              >
-                <input
-                  type="checkbox"
-                  checked={st.is_done}
-                  readOnly // ปล่อยไว้ก่อน เดี๋ยวเราค่อยมาทำ API สำหรับ Toggle
-                  className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <span
-                  className={`text-sm flex-1 ${st.is_done ? "line-through text-slate-400" : "text-slate-700"}`}
-                >
-                  {st.title}
-                </span>
-              </div>
+                cardId={card.id}
+                subtask={st}
+                onToggle={handleToggleSubtask}
+                onUpdateTitle={handleUpdateSubtaskTitle}
+                onDelete={handleDeleteSubtask}
+              />
             ))}
-            {totalSubtasks === 0 && (
-              <p className="text-sm text-slate-400 italic px-2">
-                No subtasks yet.
-              </p>
-            )}
           </div>
 
           {/* ฟอร์มเพิ่ม Subtask */}

@@ -10,6 +10,8 @@ interface BoardState {
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
   setSubtasksToCard: (cardId: string, subtasks: any[]) => void;
+  updateSubtaskInCard: (cardId: string, subtaskId: string, updatedData: any) => void;
+  deleteSubtaskFromCard: (cardId: string, subtaskId: string) => void;
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
@@ -103,6 +105,42 @@ export const useBoardStore = create<BoardState>((set) => ({
           // ถ้าเจอการ์ดที่ ID ตรงกัน ให้เอา array ของ subtasks ไปใส่ทับของเดิม
           card.id === cardId ? { ...card, subtasks: subtasks } : card,
         ),
+      })),
+    })),
+
+    updateSubtaskInCard: (cardId, subtaskId, updatedData) =>
+    set((state) => ({
+      columns: state.columns.map((col) => ({
+        ...col,
+        cards: col.cards.map((card) => {
+          if (card.id === cardId && card.subtasks) {
+            return {
+              ...card,
+              subtasks: card.subtasks.map((st) =>
+                // ถ้าเจอ subtask ที่ตรงกัน ให้เอา data ใหม่ไปทับ
+                st.id === subtaskId ? { ...st, ...updatedData } : st
+              ),
+            };
+          }
+          return card;
+        }),
+      })),
+    })),
+
+  deleteSubtaskFromCard: (cardId, subtaskId) =>
+    set((state) => ({
+      columns: state.columns.map((col) => ({
+        ...col,
+        cards: col.cards.map((card) => {
+          if (card.id === cardId && card.subtasks) {
+            return {
+              ...card,
+              // กรองเอาตัวที่ถูกลบออกไป
+              subtasks: card.subtasks.filter((st) => st.id !== subtaskId),
+            };
+          }
+          return card;
+        }),
       })),
     })),
 }));
