@@ -76,13 +76,12 @@ export function useBoardActions(boardId: string) {
 
   const handleAddSubtask = async (cardId: string, title: string) => {
     try {
-      // 1. หาตำแหน่ง Position ล่าสุดของ Subtask ในการ์ดนี้ (Best Practice)
       const targetCard = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
       if (!targetCard) return;
 
       const currentSubtasks = targetCard.subtasks || [];
       const newPosition = currentSubtasks.length + 1;
-      // 2. ยิง HTTP POST ไปยัง API ที่เราเพิ่งสร้าง
+
       const response = await fetch(`${API_URL}/cards/${cardId}/subtasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,15 +89,12 @@ export function useBoardActions(boardId: string) {
         body: JSON.stringify({ title, position: newPosition }),
       });
 
-      console.log(response)
       if (!response.ok) {
         throw new Error("Failed to create subtask");
       }
 
-      // 3. รับข้อมูล Subtask ที่เพิ่งบันทึกลง Database กลับมา
       const newSubtask: Subtask = await response.json();
 
-      // 4. อัปเดต Store เพื่อให้ UI เปลี่ยนแปลงทันที
       updateCard({
         ...targetCard,
         subtasks: [...currentSubtasks, newSubtask],
@@ -106,13 +102,13 @@ export function useBoardActions(boardId: string) {
 
     } catch (error) {
       console.error("Error creating subtask:", error);
-      // ตรงนี้อาจจะเพิ่ม Toast Notification แจ้งเตือนผู้ใช้ในอนาคตได้
     }
   };
 
   const fetchSubtasks = async (cardId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cards/${cardId}/subtasks`, {
+      // ✅ ใช้ API_URL เพื่อความสม่ำเสมอ
+      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -121,14 +117,81 @@ export function useBoardActions(boardId: string) {
       if (!response.ok) throw new Error("Failed to fetch subtasks");
 
       const data = await response.json();
-
-      // ✅ เรียกใช้ Store เพื่ออัปเดตข้อมูล
       useBoardStore.getState().setSubtasksToCard(cardId, data);
 
     } catch (error) {
       console.error("Error fetching subtasks:", error);
     }
+  }; // ✅ ปิดปีกกานี้ให้เรียบร้อยแล้วครับ!
+
+  const handleToggleSubtask = async (cardId: string, subtaskId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+
+    useBoardStore.getState().updateSubtaskInCard(cardId, subtaskId, { is_done: newStatus });
+
+    try {
+      // ✅ ใช้ API_URL
+      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks/${subtaskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_done: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update subtask");
+      }
+    } catch (error) {
+      console.error("Error updating subtask:", error);
+      useBoardStore.getState().updateSubtaskInCard(cardId, subtaskId, { is_done: currentStatus });
+    }
   };
+
+  const handleDeleteSubtask = async (cardId: string, subtaskId: string) => {
+    useBoardStore.getState().deleteSubtaskFromCard(cardId, subtaskId);
+
+    try {
+      // ✅ ใช้ API_URL
+      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks/${subtaskId}`, {
+        method: "DELETE",
+        credentials: "include",
+
+
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete subtask");
+      }
+    } catch (error) {
+      console.error("Error deleting subtask:", error);
+    }
+  };
+
+  const handleUpdateSubtaskTitle = async (cardId: string, subtaskId: string, newTitle: string) => {
+    // ถ้าแก้แล้วเป็นค่าว่าง ไม่ต้องเซฟ
+    if (!newTitle.trim()) return;
+
+    // 1. Optimistic Update: เปลี่ยน UI ทันที
+    useBoardStore.getState().updateSubtaskInCard(cardId, subtaskId, { title: newTitle.trim() });
+
+    try {
+      // 2. ยิง API ไปอัปเดตหลังบ้าน (ใช้ PATCH เหมือนเดิม)
+      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks/${subtaskId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update subtask title");
+      }
+    } catch (error) {
+      console.error("Error updating subtask title:", error);
+      // ถ้าพังก็ดึงข้อมูลมาทับใหม่
+      fetchSubtasks(cardId);
+    }
+  };
+
   return {
     handleDragEnd,
     handleAddCard,
@@ -136,5 +199,8 @@ export function useBoardActions(boardId: string) {
     handleUpdateCard,
     handleAddSubtask,
     fetchSubtasks,
+    handleToggleSubtask,
+    handleDeleteSubtask,
+    handleUpdateSubtaskTitle,
   };
 }
