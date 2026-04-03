@@ -72,13 +72,6 @@ func (s *BoardService) UpdateCard(ctx context.Context, arg UpdateCardParams) (db
 	return card, nil
 }
 
-func formatFloatPtr(f *float64) *string {
-    if f == nil {
-        return nil
-    }
-    s := fmt.Sprintf("%.2f", *f)
-    return &s
-}
 
 func (s *BoardService) GetAllUsers(ctx context.Context) ([]db.GetAllUsersRow, error) {
     return s.queries.GetAllUsers(ctx)

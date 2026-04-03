@@ -76,7 +76,7 @@ export function CardDetailModal({
 
   // คำนวณความคืบหน้าของ Subtask
   const totalSubtasks = card.subtasks?.length || 0;
-  const completedSubtasks = card.subtasks?.filter(st => st.is_completed).length || 0;
+  const completedSubtasks = card.subtasks?.filter(st => st.is_done).length || 0;
   const progressPercent = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
 
   return (
@@ -142,11 +142,11 @@ export function CardDetailModal({
               <div key={st.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group">
                 <input 
                   type="checkbox" 
-                  checked={st.is_completed}
+                  checked={st.is_done}
                   readOnly // ปล่อยไว้ก่อน เดี๋ยวเราค่อยมาทำ API สำหรับ Toggle
                   className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                 />
-                <span className={`text-sm flex-1 ${st.is_completed ? "line-through text-slate-400" : "text-slate-700"}`}>
+                <span className={`text-sm flex-1 ${st.is_done ? "line-through text-slate-400" : "text-slate-700"}`}>
                   {st.title}
                 </span>
               </div>
