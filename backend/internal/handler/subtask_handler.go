@@ -48,5 +48,26 @@ func (h *SubtaskHandler) CreateSubtask(w http.ResponseWriter, r *http.Request) {
 		httputil.RespondError(w, http.StatusInternalServerError, "Failed to create subtask")
 		return
 	}
-	httputil.RespondJSON(w, http.StatusCreated, subtask)
+	response := dto.MapToSubtaskResponse(subtask)
+
+	httputil.RespondJSON(w, http.StatusCreated, response)
+}
+
+func (h *SubtaskHandler) GetSubtasks(w http.ResponseWriter, r *http.Request) {
+	cardID := chi.URLParam(r, "cardID")
+	if cardID == "" {
+		httputil.RespondError(w, http.StatusBadRequest, "Missing card ID")
+		return
+	}
+
+	subtasks, err := h.subtaskService.GetSubtasksByCardID(r.Context(), cardID)
+	if err != nil {
+		log.Printf("ERROR GetSubtasks: %v", err)
+		httputil.RespondError(w, http.StatusInternalServerError, "Failed to retrieve subtasks")
+		return
+	}
+
+	response := dto.MapToSubtaskResponseList(subtasks)
+
+	httputil.RespondJSON(w, http.StatusOK, response)
 }

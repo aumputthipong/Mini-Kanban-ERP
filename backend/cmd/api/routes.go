@@ -76,6 +76,7 @@ func setupRoutes(
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
 			r.Route("/{cardID}/subtasks", func(r chi.Router) {
 				r.Post("/", subtaskHandler.CreateSubtask)
+				r.Get("/", subtaskHandler.GetSubtasks)
 			})
 		})
 

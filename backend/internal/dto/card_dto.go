@@ -1,6 +1,5 @@
 package dto
 
-import "time"
 
 type CardResponse struct {
 	ID             string   `json:"id"`
@@ -35,13 +34,4 @@ type UpdateCardRequest struct {
 type SubtaskRequest struct {
 	Title    string  `json:"title"`
 	Position float64 `json:"position"`
-}
-
-type SubtaskResponse struct {
-	ID        string    `json:"id"`
-	CardID    string    `json:"card_id"`
-	Title     string    `json:"title"`
-	IsDone    bool      `json:"is_done"`
-	Position  float64   `json:"position"`
-	CreatedAt time.Time `json:"created_at"`
 }

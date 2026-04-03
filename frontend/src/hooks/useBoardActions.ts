@@ -110,11 +110,31 @@ export function useBoardActions(boardId: string) {
     }
   };
 
+  const fetchSubtasks = async (cardId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cards/${cardId}/subtasks`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch subtasks");
+
+      const data = await response.json();
+
+      // ✅ เรียกใช้ Store เพื่ออัปเดตข้อมูล
+      useBoardStore.getState().setSubtasksToCard(cardId, data);
+
+    } catch (error) {
+      console.error("Error fetching subtasks:", error);
+    }
+  };
   return {
     handleDragEnd,
     handleAddCard,
     handleDeleteCard,
     handleUpdateCard,
     handleAddSubtask,
+    fetchSubtasks,
   };
 }

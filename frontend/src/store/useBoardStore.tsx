@@ -9,6 +9,7 @@ interface BoardState {
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
+  setSubtasksToCard: (cardId: string, subtasks: any[]) => void;
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
@@ -89,6 +90,18 @@ export const useBoardStore = create<BoardState>((set) => ({
         ...col,
         cards: col.cards.map((card) =>
           card.id === updated.id ? { ...card, ...updated } : card,
+        ),
+      })),
+    })),
+
+    // ✨ [เพิ่มใหม่]: Implementation ของ setSubtasksToCard
+  setSubtasksToCard: (cardId, subtasks) =>
+    set((state) => ({
+      columns: state.columns.map((col) => ({
+        ...col,
+        cards: col.cards.map((card) =>
+          // ถ้าเจอการ์ดที่ ID ตรงกัน ให้เอา array ของ subtasks ไปใส่ทับของเดิม
+          card.id === cardId ? { ...card, subtasks: subtasks } : card,
         ),
       })),
     })),
