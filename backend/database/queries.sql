@@ -194,7 +194,17 @@ RETURNING *;
 DELETE FROM card_subtasks
 WHERE id = $1;
 
--- name: UpdateSubtaskDone :exec
-UPDATE card_subtasks 
-SET is_done = $2, updated_at = NOW() 
-WHERE id = $1;
+-- name: UpdateSubtask :one
+UPDATE card_subtasks
+SET
+    title    = COALESCE($2, title),
+    is_done  = COALESCE($3, is_done),
+    position = COALESCE($4, position),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+-- name: GetSubtasksByCardID :many
+SELECT * FROM card_subtasks
+WHERE card_id = $1
+ORDER BY position ASC;

@@ -77,6 +77,7 @@ func setupRoutes(
 			r.Route("/{cardID}/subtasks", func(r chi.Router) {
 				r.Post("/", subtaskHandler.CreateSubtask)
 				r.Get("/", subtaskHandler.GetSubtasks)
+				r.Patch("/{subtaskID}", subtaskHandler.UpdateSubtask)
 			})
 		})
 

@@ -49,3 +49,23 @@ func ToTrashedBoardDTOs(boards []db.GetTrashedBoardsRow) []dto.TrashedBoardDTO {
 //         Priority:     pgutil.TextToPtr(card.Priority),
 //     }
 // }
+
+func ToSubtaskResponse(s db.CardSubtask) dto.SubtaskResponse {
+    return dto.SubtaskResponse{
+        ID:        s.ID,
+        CardID:    s.CardID,
+        Title:     s.Title,
+        IsDone:    s.IsDone,
+        Position:  s.Position,
+        CreatedAt: s.CreatedAt.Time,
+        UpdatedAt: s.UpdatedAt.Time,
+    }
+}
+
+func ToSubtaskResponses(subtasks []db.CardSubtask) []dto.SubtaskResponse {
+    result := make([]dto.SubtaskResponse, len(subtasks))
+    for i, s := range subtasks {
+        result[i] = ToSubtaskResponse(s)
+    }
+    return result
+}

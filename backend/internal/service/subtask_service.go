@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
-	
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,8 +14,6 @@ type SubtaskService struct {
 	pool    *pgxpool.Pool
 }
 
-// NewSubtaskService คือ Constructor สำหรับสร้าง Instance ของ Service
-// ตรวจสอบว่า NewSubtaskService ของคุณหน้าตาเป็นแบบนี้
 func NewSubtaskService(pool *pgxpool.Pool) *SubtaskService {
 	return &SubtaskService{
 		queries: db.New(pool), // สร้าง queries จาก pool ที่ส่งมา
@@ -23,11 +21,8 @@ func NewSubtaskService(pool *pgxpool.Pool) *SubtaskService {
 	}
 }
 
-// โครงร่างฟังก์ชัน CreateSubtask ไว้สำหรับใส่ Business Logic ในภายหลัง
 func (s *SubtaskService) CreateSubtask(ctx context.Context, arg db.CreateSubtaskParams) (db.CardSubtask, error) {
-    // ลองเช็คใน db.CreateSubtaskParams ดูครับว่ามีฟิลด์ไหนที่ลืมใส่หรือเปล่า
-    // เช่น ถ้าใน Schema DB ตั้งไว้ว่า is_completed NOT NULL แต่ไม่ได้ตั้ง DEFAULT false
-    // เราอาจจะต้องส่งเข้าไปใน params ด้วย
+
     subtask, err := s.queries.CreateSubtask(ctx, arg)
     if err != nil {
         return db.CardSubtask{}, fmt.Errorf("db error: %w", err)
@@ -35,21 +30,63 @@ func (s *SubtaskService) CreateSubtask(ctx context.Context, arg db.CreateSubtask
     return subtask, nil
 }
 
-// GetSubtasksByCardID ดึงข้อมูล Subtask ทั้งหมดที่ผูกกับ Card นั้นๆ
 func (s *SubtaskService) GetSubtasksByCardID(ctx context.Context, cardID string) ([]db.CardSubtask, error) {
-	// หมายเหตุ: หาก sqlc ของคุณถูกตั้งค่าให้รับ parameter เป็น type อื่น เช่น pgtype.UUID 
-	// คุณอาจจะต้องแปลง cardID เป็น type นั้นก่อนส่งเข้า s.queries
+
 	subtasks, err := s.queries.GetSubtasksByCardID(ctx, cardID) // หรือส่งค่าที่แปลงแล้วตาม sqlc แจ้ง
 	if err != nil {
 		return nil, fmt.Errorf("get subtasks failed: %w", err)
 	}
-
-	// Best Practice: ป้องกันการส่งค่า null ไปยัง Frontend
-	// หาก query ไม่เจอข้อมูล (เช่น การ์ดเพิ่งสร้างและยังไม่มี Subtask) sqlc จะคืนค่า slice ที่เป็น nil
-	// การคืนค่าเป็น []db.CardSubtask{} (Empty Slice) จะทำให้ Frontend ได้รับเป็น [] แทนที่จะเป็น null ใน JSON
 	if subtasks == nil {
 		return []db.CardSubtask{}, nil
 	}
 
 	return subtasks, nil
+}
+func (s *SubtaskService) UpdateSubtask(ctx context.Context, subtaskID string, req dto.UpdateSubtaskRequest) (db.CardSubtask, error) {
+    
+    // 1. Fetch: ดึงข้อมูล Subtask เดิมจากฐานข้อมูลมาก่อน
+    existing, err := s.queries.GetSubtask(ctx, subtaskID)
+    if err != nil {
+        return db.CardSubtask{}, fmt.Errorf("subtask not found: %w", err)
+    }
+
+    // 2. Merge: ถ้ายูสเซอร์ส่งอะไรมา ก็เอาไปทับของเดิม
+    title := existing.Title
+    if req.Title != nil {
+        title = *req.Title
+    }
+
+    isDone := existing.IsDone
+    if req.IsDone != nil {
+        isDone = *req.IsDone
+    }
+
+    position := existing.Position
+    if req.Position != nil {
+        position = *req.Position
+    }
+
+    // 3. Save: เตรียมข้อมูลเซฟกลับ (ตอนนี้ Type ตรงกับที่ sqlc ต้องการเป๊ะๆ)
+    params := db.UpdateSubtaskParams{
+        ID:       subtaskID, // ส่ง string ตรงๆ ได้เลย!
+        Title:    title,     // ส่ง string ตรงๆ
+        IsDone:   isDone,    // ส่ง bool ตรงๆ
+        Position: position,  // ส่ง float64 ตรงๆ
+    }
+
+    // เซฟลงฐานข้อมูล
+    updatedSubtask, err := s.queries.UpdateSubtask(ctx, params)
+    if err != nil {
+        return db.CardSubtask{}, fmt.Errorf("failed to update subtask in db: %w", err)
+    }
+
+    return updatedSubtask, nil
+}
+// DeleteSubtask ลบข้อมูลออกจากฐานข้อมูล
+func (s *SubtaskService) DeleteSubtask(ctx context.Context, subtaskID string) error {
+	err := s.queries.DeleteSubtask(ctx, subtaskID)
+	if err != nil {
+		return fmt.Errorf("failed to delete subtask: %w", err)
+	}
+	return nil
 }

@@ -517,6 +517,26 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Co
 	return items, nil
 }
 
+const getSubtask = `-- name: GetSubtask :one
+SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks WHERE id = $1
+`
+
+// 🌟 (ถ้าคุณยังไม่มี Query สำหรับ GetSubtask ตัวเดียว ให้เพิ่มอันนี้เข้าไปด้วยครับ)
+func (q *Queries) GetSubtask(ctx context.Context, id string) (CardSubtask, error) {
+	row := q.db.QueryRow(ctx, getSubtask, id)
+	var i CardSubtask
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.Title,
+		&i.IsDone,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getSubtasksByCardID = `-- name: GetSubtasksByCardID :many
 SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks
 WHERE card_id = $1
@@ -841,18 +861,30 @@ func (q *Queries) UpdateSubtask(ctx context.Context, arg UpdateSubtaskParams) (C
 }
 
 const updateSubtaskDone = `-- name: UpdateSubtaskDone :exec
-UPDATE card_subtasks 
-SET is_done = $2, updated_at = NOW() 
+UPDATE card_subtasks
+SET 
+    title = $2,
+    is_done = $3,
+    position = $4,
+    updated_at = NOW()
 WHERE id = $1
+RETURNING id, card_id, title, is_done, position, created_at, updated_at
 `
 
 type UpdateSubtaskDoneParams struct {
-	ID     string
-	IsDone bool
+	ID       string
+	Title    string
+	IsDone   bool
+	Position float64
 }
 
 func (q *Queries) UpdateSubtaskDone(ctx context.Context, arg UpdateSubtaskDoneParams) error {
-	_, err := q.db.Exec(ctx, updateSubtaskDone, arg.ID, arg.IsDone)
+	_, err := q.db.Exec(ctx, updateSubtaskDone,
+		arg.ID,
+		arg.Title,
+		arg.IsDone,
+		arg.Position,
+	)
 	return err
 }
 

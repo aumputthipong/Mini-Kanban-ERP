@@ -252,3 +252,36 @@ func PtrStringToPgDate(s *string) pgtype.Date {
 		Valid: !t.IsZero(),
 	}
 }
+
+func ToPgText(s *string) pgtype.Text {
+	if s == nil {
+		// ถ้าไม่ได้ส่งค่ามา ให้ Valid เป็น false (กลายเป็น NULL ใน SQL)
+		return pgtype.Text{Valid: false}
+	}
+	// ถ้าส่งค่ามา ให้ใส่ค่าและเซ็ต Valid เป็น true
+	return pgtype.Text{String: *s, Valid: true}
+}
+
+// ToPgBool แปลง *bool เป็น pgtype.Bool
+func ToPgBool(b *bool) pgtype.Bool {
+	if b == nil {
+		return pgtype.Bool{Valid: false}
+	}
+	return pgtype.Bool{Bool: *b, Valid: true}
+}
+
+// ToPgFloat8 แปลง *float64 เป็น pgtype.Float8
+func ToPgFloat8(f *float64) pgtype.Float8 {
+	if f == nil {
+		return pgtype.Float8{Valid: false}
+	}
+	return pgtype.Float8{Float64: *f, Valid: true}
+}
+
+// ToPgUUID แปลง string ธรรมดาให้เป็น pgtype.UUID
+// มีประโยชน์มากเวลาเอา ID จาก URL Param มาใช้
+func ToPgUUID(id string) (pgtype.UUID, error) {
+	var uuid pgtype.UUID
+	err := uuid.Scan(id)
+	return uuid, err
+}

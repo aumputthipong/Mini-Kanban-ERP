@@ -41,3 +41,13 @@ func MapToSubtaskResponseList(subtasks []db.CardSubtask) []SubtaskResponse {
 	}
 	return res
 }
+
+type UpdateSubtaskRequest struct {
+    Title    *string  `json:"title"`
+    IsDone   *bool    `json:"is_done"`
+    Position *float64 `json:"position"`
+}
+// type CreateCardRequest struct {
+//     Title    string `json:"title" validate:"required,min=3,max=100"`
+//     ColumnID string `json:"column_id" validate:"required,uuid"`
+// }

@@ -71,3 +71,49 @@ func (h *SubtaskHandler) GetSubtasks(w http.ResponseWriter, r *http.Request) {
 
 	httputil.RespondJSON(w, http.StatusOK, response)
 }
+
+// UpdateSubtask รับ HTTP PATCH request
+func (h *SubtaskHandler) UpdateSubtask(w http.ResponseWriter, r *http.Request) {
+	subtaskID := chi.URLParam(r, "subtaskID")
+	if subtaskID == "" {
+		httputil.RespondError(w, http.StatusBadRequest, "Missing subtask ID")
+		return
+	}
+
+	var req dto.UpdateSubtaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.RespondError(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
+	// เรียก Service เพื่ออัปเดตข้อมูล
+	subtask, err := h.subtaskService.UpdateSubtask(r.Context(), subtaskID, req)
+	if err != nil {
+		// 🌟 [ปรับปรุง]: เพิ่ม Log เพื่อให้คุณอั้มดู Error ง่ายขึ้นเวลาหน้าเว็บยิงมาพัง
+		log.Printf(" ERROR UpdateSubtask: %v", err)
+		httputil.RespondError(w, http.StatusInternalServerError, "Failed to update subtask")
+		return
+	}
+
+	// ใช้ Mapper เพื่อแปลง DB Model เป็น DTO ก่อนส่งกลับ Frontend
+	response := dto.MapToSubtaskResponse(subtask)
+	httputil.RespondJSON(w, http.StatusOK, response)
+}
+
+// DeleteSubtask รับ HTTP DELETE request
+func (h *SubtaskHandler) DeleteSubtask(w http.ResponseWriter, r *http.Request) {
+	subtaskID := chi.URLParam(r, "subtaskID")
+	if subtaskID == "" {
+		httputil.RespondError(w, http.StatusBadRequest, "Missing subtask ID")
+		return
+	}
+
+	err := h.subtaskService.DeleteSubtask(r.Context(), subtaskID)
+	if err != nil {
+		httputil.RespondError(w, http.StatusInternalServerError, "Failed to delete subtask")
+		return
+	}
+
+	// Best Practice สำหรับการลบสำเร็จคือคืนค่า 204 No Content (ไม่มี Body กลับไป)
+	w.WriteHeader(http.StatusNoContent)
+}
