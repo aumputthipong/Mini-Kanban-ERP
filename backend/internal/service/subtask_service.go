@@ -50,7 +50,6 @@ func (s *SubtaskService) UpdateSubtask(ctx context.Context, subtaskID string, re
         return db.CardSubtask{}, fmt.Errorf("subtask not found: %w", err)
     }
 
-    // 2. Merge: ถ้ายูสเซอร์ส่งอะไรมา ก็เอาไปทับของเดิม
     title := existing.Title
     if req.Title != nil {
         title = *req.Title
@@ -66,12 +65,11 @@ func (s *SubtaskService) UpdateSubtask(ctx context.Context, subtaskID string, re
         position = *req.Position
     }
 
-    // 3. Save: เตรียมข้อมูลเซฟกลับ (ตอนนี้ Type ตรงกับที่ sqlc ต้องการเป๊ะๆ)
     params := db.UpdateSubtaskParams{
-        ID:       subtaskID, // ส่ง string ตรงๆ ได้เลย!
-        Title:    title,     // ส่ง string ตรงๆ
-        IsDone:   isDone,    // ส่ง bool ตรงๆ
-        Position: position,  // ส่ง float64 ตรงๆ
+        ID:       subtaskID, 
+        Title:    title,     
+        IsDone:   isDone,    
+        Position: position,  
     }
 
     // เซฟลงฐานข้อมูล
@@ -84,9 +82,33 @@ func (s *SubtaskService) UpdateSubtask(ctx context.Context, subtaskID string, re
 }
 // DeleteSubtask ลบข้อมูลออกจากฐานข้อมูล
 func (s *SubtaskService) DeleteSubtask(ctx context.Context, subtaskID string) error {
+	
+	// ถ้า sqlc ของคุณต้องการ pgtype.UUID ก็ต้องแปลงก่อน
+	// var id pgtype.UUID
+	// if err := id.Scan(subtaskID); err != nil {
+	// 	return fmt.Errorf("invalid subtask UUID format: %w", err)
+	// }
+
+	// เรียกใช้คำสั่ง Delete จาก Database
+	// เปลี่ยนเป็น s.queries.DeleteSubtask(ctx, id) ถ้าใช้ pgtype.UUID
 	err := s.queries.DeleteSubtask(ctx, subtaskID)
 	if err != nil {
 		return fmt.Errorf("failed to delete subtask: %w", err)
 	}
+
 	return nil
+}	
+
+// GetSubtaskByID ดึงข้อมูล Subtask ตัวเดียวตาม ID ที่ส่งมา
+func (s *SubtaskService) GetSubtaskByID(ctx context.Context, subtaskID string) (db.CardSubtask, error) {
+	
+	// หมายเหตุ: ถ้า sqlc ของคุณตั้งค่าให้รับ pgtype.UUID ก็ต้องแปลง string เป็น pgtype.UUID ตรงนี้ก่อนนะครับ
+	
+	subtask, err := s.queries.GetSubtask(ctx, subtaskID)
+	if err != nil {
+		// Best Practice: แจ้ง error ให้ชัดเจนว่าหาไม่เจอ หรือระบบ database มีปัญหา
+		return db.CardSubtask{}, fmt.Errorf("get subtask failed: %w", err)
+	}
+
+	return subtask, nil
 }
