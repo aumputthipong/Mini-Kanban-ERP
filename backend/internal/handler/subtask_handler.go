@@ -89,7 +89,6 @@ func (h *SubtaskHandler) UpdateSubtask(w http.ResponseWriter, r *http.Request) {
 	// เรียก Service เพื่ออัปเดตข้อมูล
 	subtask, err := h.subtaskService.UpdateSubtask(r.Context(), subtaskID, req)
 	if err != nil {
-		// 🌟 [ปรับปรุง]: เพิ่ม Log เพื่อให้คุณอั้มดู Error ง่ายขึ้นเวลาหน้าเว็บยิงมาพัง
 		log.Printf(" ERROR UpdateSubtask: %v", err)
 		httputil.RespondError(w, http.StatusInternalServerError, "Failed to update subtask")
 		return
@@ -102,18 +101,47 @@ func (h *SubtaskHandler) UpdateSubtask(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSubtask รับ HTTP DELETE request
 func (h *SubtaskHandler) DeleteSubtask(w http.ResponseWriter, r *http.Request) {
+	// 1. ดึง ID จาก URL
 	subtaskID := chi.URLParam(r, "subtaskID")
 	if subtaskID == "" {
 		httputil.RespondError(w, http.StatusBadRequest, "Missing subtask ID")
 		return
 	}
 
+	// 2. เรียก Service เพื่อลบข้อมูล
 	err := h.subtaskService.DeleteSubtask(r.Context(), subtaskID)
 	if err != nil {
+		log.Printf("ERROR DeleteSubtask: %v", err)
 		httputil.RespondError(w, http.StatusInternalServerError, "Failed to delete subtask")
 		return
 	}
 
-	// Best Practice สำหรับการลบสำเร็จคือคืนค่า 204 No Content (ไม่มี Body กลับไป)
+	// 3. Best Practice สำหรับการ Delete คือคืนค่า 204 No Content
+	// หมายความว่า "ทำตามคำสั่งสำเร็จแล้ว และไม่มีข้อมูลอะไรจะส่งกลับไปให้ดูนะ"
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetSubtask รับ HTTP GET request เพื่อดึงข้อมูล Subtask ตาม ID
+func (h *SubtaskHandler) GetSubtask(w http.ResponseWriter, r *http.Request) {
+	// 1. ดึง ID จาก URL parameter
+	subtaskID := chi.URLParam(r, "subtaskID")
+	if subtaskID == "" {
+		httputil.RespondError(w, http.StatusBadRequest, "Missing subtask ID")
+		return
+	}
+
+	// 2. เรียก Service เพื่อค้นหาข้อมูล
+	subtask, err := h.subtaskService.GetSubtaskByID(r.Context(), subtaskID)
+	if err != nil {
+		log.Printf("ERROR GetSubtask: %v", err)
+		// Best Practice: ถ้าดึงข้อมูลแค่ตัวเดียวแล้วหาไม่เจอ ควรตอบกลับเป็น 404 Not Found
+		httputil.RespondError(w, http.StatusNotFound, "Subtask not found")
+		return
+	}
+
+	// 3. ใช้ Mapper ที่เราสร้างไว้ใน DTO เพื่อแปลงหน้าตา JSON ให้ถูกต้อง (snake_case)
+	response := dto.MapToSubtaskResponse(subtask)
+
+	// 4. ส่งข้อมูลกลับเป็น JSON ด้วย Status 200 OK
+	httputil.RespondJSON(w, http.StatusOK, response)
 }

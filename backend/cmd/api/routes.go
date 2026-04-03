@@ -77,13 +77,16 @@ func setupRoutes(
 			r.Route("/{cardID}/subtasks", func(r chi.Router) {
 				r.Post("/", subtaskHandler.CreateSubtask)
 				r.Get("/", subtaskHandler.GetSubtasks)
+				r.Get("/{subtaskID}", subtaskHandler.GetSubtask)
 				r.Patch("/{subtaskID}", subtaskHandler.UpdateSubtask)
+				r.Delete("/{subtaskID}", subtaskHandler.DeleteSubtask)
 			})
 		})
 
 		r.Route("/api/trash", func(r chi.Router) {
 			r.Get("/", httputil.MakeHandler(boardHandler.GetTrash))
 			r.Delete("/{boardID}", httputil.MakeHandler(boardHandler.HardDelete))
+
 			// r.Patch("/{boardID}",    boardHandler.RestoreBoard)
 		})
 
