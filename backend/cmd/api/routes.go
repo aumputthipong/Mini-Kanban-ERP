@@ -74,7 +74,7 @@ func setupRoutes(
 			r.Patch("/{cardID}", httputil.MakeHandler(boardHandler.UpdateCard))
 			r.Get("/{cardID}", httputil.MakeHandler(boardHandler.GetCard))
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
-			r.Route("/cards/{cardId}/subtasks", func(r chi.Router) {
+			r.Route("/{cardID}/subtasks", func(r chi.Router) {
 				r.Post("/", subtaskHandler.CreateSubtask)
 			})
 		})

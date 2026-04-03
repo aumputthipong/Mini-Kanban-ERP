@@ -49,6 +49,6 @@ export interface Subtask {
   id: string;
   card_id: string;
   title: string;
-  is_completed: boolean;
+  is_done: boolean;
   position: number;
 }

@@ -83,7 +83,7 @@ export function useBoardActions(boardId: string) {
       const currentSubtasks = targetCard.subtasks || [];
       const newPosition = currentSubtasks.length + 1;
       // 2. ยิง HTTP POST ไปยัง API ที่เราเพิ่งสร้าง
-      const response = await fetch(`${API_URL}/api/cards/${cardId}/subtasks`, {
+      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -69,8 +69,9 @@ func run(ctx context.Context, cfg config) error {
 
 	boardService := service.NewBoardService(pool, queries)
 	authService := service.NewAuthService(queries)
-	
-	subtaskHandler := handler.NewSubtaskHandler(queries)
+	subtaskService := service.NewSubtaskService(pool)
+
+	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
 	authHandler := handler.NewAuthHandler(authService)
 
