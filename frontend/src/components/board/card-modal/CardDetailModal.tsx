@@ -75,7 +75,6 @@ export function CardDetailModal({
   } = useBoardActions(boardId);
   const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false);
 
-  // ✅ 2. useEffect ทำงานดึงข้อมูลตามปกติ
   useEffect(() => {
     if (isOpen && card?.id) {
       const loadData = async () => {
