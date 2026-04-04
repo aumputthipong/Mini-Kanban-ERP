@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { API_URL } from "@/lib/constants";
+import { apiClient } from "@/lib/apiClient";
 
 export default function RegisterPage() {
   const router  = useRouter();
@@ -14,33 +15,24 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+  e.preventDefault();
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      const res = await fetch(`${API_URL}/auth/register`, {
-        method:      "POST",
-        headers:     { "Content-Type": "application/json" },
-        credentials: "include",
-        body:        JSON.stringify(form),
-      });
+  try {
+    await apiClient("/auth/register", {
+      method: "POST",
+      data: form,
+    });
 
-      if (res.status === 409) {
-        setError("Email already in use.");
-        return;
-      }
-      if (!res.ok) throw new Error("Registration failed.");
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+    router.push("/dashboard");
+    router.refresh();
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Registration failed.");
+  } finally {
+    setIsLoading(false);
+  }
+};
   const set = (field: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
