@@ -1,21 +1,28 @@
 // app/(project)/layout.tsx
 import { Sidebar } from "@/components/layout/Sidebar";
 import { apiFetch } from "@/lib/api";
+import { apiClient } from "@/lib/apiClient";
 import { API_URL } from "@/lib/constants";
 import { Board } from "@/types/board";
+import { cookies } from "next/headers";
 
 
-async function getBoards(): Promise<Board[]> {
-  const boards = await apiFetch<Board[]>("/boards");
+export async function getBoards(): Promise<Board[]> {
   try {
-    const res = await fetch(`${API_URL}/boards`, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
+    // ใน Server Component ควรสกัด Cookie ส่งไปเองด้วยเสมอเพื่อยืนยันตัวตน
+    const cookieStore = await cookies();
+    
+    return await apiClient<Board[]>("/boards", {
+      next: { revalidate: 60 },
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    });
+  } catch (err) {
+    console.error("Failed to fetch boards:", err);
     return [];
   }
 }
-
 
 export default async function ProjectLayout({ children }: { children: React.ReactNode }) {
   const boards = await getBoards();
