@@ -8,27 +8,28 @@ export function CreateBoardButton() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
 
-  const handleCreateBoard = async () => {
+const handleCreateBoard = async () => {
     const title = prompt("Enter new project name:");
-    if (!title) return;
+    
+    // เพิ่ม .trim() เพื่อป้องกันผู้ใช้กรอกแค่ช่องว่าง (Spacebar)
+    if (!title || !title.trim()) return;
 
     setIsCreating(true);
 
     try {
-      const response = await fetch(`${API_URL}/boards`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ title: title }),
+      // apiClient จะเปลี่ยนเป็น POST อัตโนมัติเมื่อมีการส่ง data
+      // และเราสามารถระบุ Type ให้ผลลัพธ์ที่ตอบกลับมาได้เลย
+      const newBoard = await apiClient<{ id: string }>("/boards", {
+        data: { title: title.trim() },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Redirect ผู้ใช้ไปยังหน้าบอร์ดที่เพิ่งสร้างเสร็จทันที
-        router.push(`/board/${data.id}`);
-      }
+      // Redirect ผู้ใช้ไปยังหน้าบอร์ดที่เพิ่งสร้างเสร็จทันที
+      router.push(`/board/${newBoard.id}`);
+      
     } catch (error) {
       console.error("Failed to create board:", error);
+      // แนะนำทางเลือก: ควรมี UI แจ้งเตือนผู้ใช้ เช่น alert หรือ Toast
+      alert(error instanceof Error ? error.message : "Failed to create project");
     } finally {
       setIsCreating(false);
     }
