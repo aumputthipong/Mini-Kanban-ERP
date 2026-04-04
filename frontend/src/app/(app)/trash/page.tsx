@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { Trash2 } from "lucide-react";
 import { TrashTable } from "@/components/trash/TrashTable";
 import { API_URL } from "@/lib/constants";
+import { apiClient } from "@/lib/apiClient";
 
 // กำหนด Type เป็นตัวพิมพ์เล็กทั้งหมดตามที่ API ฝั่ง Go ส่งมา
 export interface TrashedBoard {
@@ -10,26 +11,18 @@ export interface TrashedBoard {
   deleted_at: string;
 }
 
-async function getTrashedBoards(): Promise<TrashedBoard[]> {
+export async function getTrashedBoards(): Promise<TrashedBoard[]> {
   try {
     const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
 
-    const res = await fetch(`${API_URL}/trash`, {
+    return await apiClient<TrashedBoard[]>("/trash", {
       cache: "no-store",
       headers: {
-        Cookie: cookieString,
+        Cookie: cookieStore.toString(),
       },
     });
-
-    if (!res.ok) {
-      console.error("API Error:", res.status, res.statusText);
-      return [];
-    }
-    
-    return await res.json();
   } catch (err) {
-    console.error("Fetch Error:", err);
+    console.error("Fetch Trashed Boards Error:", err);
     return [];
   }
 }
