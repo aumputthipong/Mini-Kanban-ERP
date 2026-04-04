@@ -1,5 +1,6 @@
 "use client";
 
+import { apiClient } from "@/lib/apiClient";
 import { API_URL } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
