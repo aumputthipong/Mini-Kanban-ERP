@@ -1,5 +1,6 @@
 // src/app/(project)/layout.tsx
 import { Sidebar } from "@/components/layout/Sidebar";
+import { apiClient } from "@/lib/apiClient";
 import { API_URL } from "@/lib/constants";
 import type { Board } from "@/types/board";
 import { cookies } from "next/headers"; // 1. นำเข้า cookies
@@ -7,29 +8,21 @@ import { cookies } from "next/headers"; // 1. นำเข้า cookies
 async function getBoards(): Promise<Board[]> {
   try {
     const cookieStore = await cookies();
-    const allCookies = cookieStore.toString();
 
-    const res = await fetch(`${API_URL}/boards`, { 
-      cache: 'no-store', 
+    // เรียกใช้ apiClient พร้อมแนบ Cookie และตั้งค่า cache
+    const boards = await apiClient<Board[]>("/boards", {
+      cache: "no-store", 
       headers: {
-        "Cookie": allCookies,
-        "Content-Type": "application/json",
-      }
+        Cookie: cookieStore.toString(),
+      },
     });
-    console.log("This is ",res )
 
-    if (!res.ok) {
-      console.error(`Fetch boards failed: ${res.status}`);
-      return [];
-    }
-    
-    return await res.json();
+    return boards;
   } catch (error) {
-    console.error("Network error fetching boards:", error);
+    console.error("Network error fetching boards in layout:", error);
     return [];
   }
 }
-
 export default async function ProjectLayout({ children }: { children: React.ReactNode }) {
   const boards = await getBoards();
   return (
