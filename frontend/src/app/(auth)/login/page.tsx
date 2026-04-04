@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {  Loader2 } from "lucide-react";
 import { API_URL } from "@/lib/constants";
+import { apiClient } from "@/lib/apiClient";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,34 +15,27 @@ export default function LoginPage() {
   const [error, setError]         = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method:      "POST",
-        headers:     { "Content-Type": "application/json" },
-        credentials: "include", // สำคัญ — ให้ browser รับ cookie จาก Go
-        body:        JSON.stringify({ email, password }),
-      });
+  try {
+    await apiClient("/auth/login", {
+      method: "POST",
+      data: { email, password },
+    });
 
-      if (res.status === 401) {
-        setError("Invalid email or password.");
-        return;
-      }
-      if (!res.ok) throw new Error("Login failed.");
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+    // เมื่อ Login สำเร็จ ให้พาไปหน้าหลัก
+    router.push("/dashboard");
+    router.refresh();
+  } catch (err) {
+    // หากรหัสผิด apiClient จะ throw Error พร้อมข้อความจาก Backend กลับมา
+    setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
     <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
       <div className="mb-6">
