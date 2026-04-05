@@ -206,6 +206,15 @@ SELECT category
 FROM columns
 WHERE id = $1;
 
+-- name: GetColumnByBoardAndCategory :one
+-- ใช้หา DONE column หรือ TODO column ของ board นั้นๆ
+-- ORDER BY position เพื่อได้ column แรกสุดของ category นั้น
+SELECT id, position
+FROM columns
+WHERE board_id = $1 AND category = $2
+ORDER BY position ASC
+LIMIT 1;
+
 -- name: GetSubtask :one
 SELECT * FROM card_subtasks WHERE id = $1 LIMIT 1;
 

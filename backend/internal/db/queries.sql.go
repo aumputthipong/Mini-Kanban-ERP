@@ -491,6 +491,33 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([
 	return items, nil
 }
 
+const getColumnByBoardAndCategory = `-- name: GetColumnByBoardAndCategory :one
+SELECT id, position
+FROM columns
+WHERE board_id = $1 AND category = $2
+ORDER BY position ASC
+LIMIT 1
+`
+
+type GetColumnByBoardAndCategoryParams struct {
+	BoardID  string
+	Category string
+}
+
+type GetColumnByBoardAndCategoryRow struct {
+	ID       string
+	Position float64
+}
+
+// ใช้หา DONE column หรือ TODO column ของ board นั้นๆ
+// ORDER BY position เพื่อได้ column แรกสุดของ category นั้น
+func (q *Queries) GetColumnByBoardAndCategory(ctx context.Context, arg GetColumnByBoardAndCategoryParams) (GetColumnByBoardAndCategoryRow, error) {
+	row := q.db.QueryRow(ctx, getColumnByBoardAndCategory, arg.BoardID, arg.Category)
+	var i GetColumnByBoardAndCategoryRow
+	err := row.Scan(&i.ID, &i.Position)
+	return i, err
+}
+
 const getColumnCategory = `-- name: GetColumnCategory :one
 SELECT category
 FROM columns

@@ -81,6 +81,8 @@ func (c *Client) ReadPump() {
 			c.handleCardDeleted(wsMsg.Payload, message)
 		case "CARD_UPDATED":
 			c.handleCardUpdated(wsMsg.Payload, message)
+		case "CARD_DONE_TOGGLED":
+			c.handleCardDoneToggled(wsMsg.Payload)
 		default:
 			log.Printf("Unknown message type: %s", wsMsg.Type)
 		}
@@ -127,15 +129,33 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 		ColumnID:    newColumnIDStr,
 		Position:    position,
 		IsDone:      isDone,
-		CompletedAt: util.TimeToTimestamptz(completedAt), // *time.Time → pgtype.Timestamptz
+		CompletedAt: util.TimeToTimestamptz(completedAt),
 		ID:          cardIDStr,
 	}); err != nil {
 		log.Printf("Failed to update card position and status: %v", err)
 		return
 	}
 
-	log.Printf("Moved card [%s] to column [%s] at position [%f]", cardIDStr, newColumnIDStr, position)
-	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+	// broadcast payload ที่ server คำนวณ is_done + completed_at แล้ว
+	// ไม่ใช้ rawMsg เพราะ frontend ไม่รู้ว่า server set is_done เป็นอะไร
+	broadcastMsg := WSMessage{
+		Type: "CARD_MOVED",
+		Payload: map[string]interface{}{
+			"card_id":      cardIDStr,
+			"new_column_id": newColumnIDStr,
+			"position":     position,
+			"is_done":      isDone,
+			"completed_at": completedAt, // *time.Time, nil ถ้า not done
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal CARD_MOVED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Moved card [%s] to column [%s] at position [%f] (isDone=%v)", cardIDStr, newColumnIDStr, position, isDone)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 
 func (c *Client) handleCardCreated(payload map[string]interface{}) {
@@ -308,6 +328,88 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 
 	log.Printf("Updated card [%s] successfully", cardIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+}
+
+// handleCardDoneToggled จัดการ event CARD_DONE_TOGGLED จาก frontend
+// payload: { card_id, board_id, is_done }
+// logic:
+//   is_done=true  → ย้าย card ไป DONE column (category='DONE') + set completed_at
+//   is_done=false → ย้าย card กลับ TODO column (category='TODO') + clear completed_at
+func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
+	cardIDStr, ok1 := payload["card_id"].(string)
+	boardIDStr, ok2 := payload["board_id"].(string)
+	isDone, ok3 := payload["is_done"].(bool)
+	if !ok1 || !ok2 || !ok3 {
+		log.Println("Invalid payload for CARD_DONE_TOGGLED")
+		return
+	}
+
+	if _, err := uuid.Parse(cardIDStr); err != nil {
+		log.Printf("Invalid card ID: %s", cardIDStr)
+		return
+	}
+	if _, err := uuid.Parse(boardIDStr); err != nil {
+		log.Printf("Invalid board ID: %s", boardIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	// หา target column จาก category
+	targetCategory := "TODO"
+	if isDone {
+		targetCategory = "DONE"
+	}
+
+	targetCol, err := c.hub.queries.GetColumnByBoardAndCategory(ctx, db.GetColumnByBoardAndCategoryParams{
+		BoardID:  boardIDStr,
+		Category: targetCategory,
+	})
+	if err != nil {
+		log.Printf("Failed to find %s column for board [%s]: %v", targetCategory, boardIDStr, err)
+		return
+	}
+
+	// กำหนด completed_at
+	var completedAt *time.Time
+	if isDone {
+		now := time.Now()
+		completedAt = &now
+	}
+
+	// ย้าย card ไป column ใหม่ พร้อม set is_done + completed_at
+	// position = 0 (วางหัว column) ให้ user drag เรียงเองทีหลัง
+	if err := c.hub.queries.UpdateCardColumn(ctx, db.UpdateCardColumnParams{
+		ColumnID:    targetCol.ID,
+		Position:    0,
+		IsDone:      isDone,
+		CompletedAt: util.TimeToTimestamptz(completedAt),
+		ID:          cardIDStr,
+	}); err != nil {
+		log.Printf("Failed to toggle card done [%s]: %v", cardIDStr, err)
+		return
+	}
+
+	// broadcast ในรูปแบบ CARD_MOVED เพื่อให้ frontend ใช้ handler เดียวกัน
+	broadcastMsg := WSMessage{
+		Type: "CARD_MOVED",
+		Payload: map[string]interface{}{
+			"card_id":       cardIDStr,
+			"new_column_id": targetCol.ID,
+			"position":      0,
+			"is_done":       isDone,
+			"completed_at":  completedAt,
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal CARD_DONE_TOGGLED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Toggled card [%s] done=%v → column [%s]", cardIDStr, isDone, targetCol.ID)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 
 func (c *Client) handleSubtaskUpdate(payload map[string]interface{}, rawMsg []byte) {
