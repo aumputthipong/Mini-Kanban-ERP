@@ -6,11 +6,11 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/go-chi/chi/v5"
@@ -23,81 +23,58 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error 
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	colUUID, err := uuid.Parse(req.ColumnID)
-	if err != nil {
+	// validate UUID format ของ column_id
+	if _, err := uuid.Parse(req.ColumnID); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid column ID", err)
 	}
 
-	card, err := h.boardService.CreateCard(r.Context(), db.CreateCardParams{
-		ColumnID: colUUID.String(),
-		Title:    req.Title,
-		Position: 0,
-		DueDate:  util.PtrStringToPgDate(req.DueDate),
-		Priority: req.Priority,
-	})
+	// ดึง userID จาก context (set โดย middleware)
+	userIDStr, _ := r.Context().Value(middleware.UserIDKey).(string)
 
+	card, err := h.boardService.CreateCard(r.Context(), db.CreateCardParams{
+		ColumnID:   req.ColumnID,
+		Title:      req.Title,
+		Position:   0,
+		DueDate:    util.PtrStringToTimePtr(req.DueDate), // *string → *time.Time
+		AssigneeID: req.AssigneeID,                       // *string ส่งตรงได้เลย
+		Priority:   req.Priority,
+		CreatedBy:  util.StringToPtr(userIDStr), // string → *string
+	})
 	if err != nil {
 		log.Printf("Error creating card: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create card", err)
 	}
 
-	// ตอบกลับผลลัพธ์
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(card); err != nil {
-		return err
-	}
-	return nil
+	return json.NewEncoder(w).Encode(card)
 }
+
 func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error {
-
 	cardIDStr := r.PathValue("cardID")
-	if cardIDStr == "" {
-		return httputil.NewAPIError(http.StatusBadRequest, "Card ID is required", nil)
-	}
-
-	cardUUID, err := uuid.Parse(cardIDStr)
-	if err != nil {
+	if _, err := uuid.Parse(cardIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
-	// 2. ถอดรหัส JSON
 	var req dto.UpdateCardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	// 3. แปลงข้อมูล Title (*string -> string)
+	// Title เป็น *string ใน request แต่ UpdateCardParams.Title เป็น string (NOT NULL)
+	// ถ้าไม่ส่ง title มา ใช้ค่าว่าง (COALESCE ใน SQL จะใช้ค่าเดิม)
 	var title string
 	if req.Title != nil {
-		title = *req.Title // ดึงค่า String ออกมาจาก Pointer
+		title = *req.Title
 	}
 
-	// 4. แปลงข้อมูล DueDate (*string -> *time.Time)
-	var dueDate *time.Time
-	if req.DueDate != nil && *req.DueDate != "" {
-		// สมมติว่าหน้าเว็บส่งมาในรูปแบบ ISO 8601 (เช่น "2026-04-01T15:00:00Z")
-		// หากหน้าเว็บส่งมาแค่ "2026-04-01" ให้เปลี่ยนเวลาอ้างอิงเป็น time.DateOnly
-		parsedTime, err := time.Parse(time.RFC3339, *req.DueDate)
-		if err != nil {
-			return httputil.NewAPIError(http.StatusBadRequest, "Invalid due_date format", err)
-		}
-		dueDate = &parsedTime
-	}
-	var assigneeID *uuid.UUID
-	if req.AssigneeID != nil && *req.AssigneeID != "" {
-		parsedUUID, err := uuid.Parse(*req.AssigneeID)
-		if err != nil {
-			return httputil.NewAPIError(http.StatusBadRequest, "Invalid assignee_id format", err)
-		}
-		assigneeID = &parsedUUID
-	}
 	card, err := h.boardService.UpdateCard(r.Context(), service.UpdateCardParams{
-		ID:          cardUUID,
-		Title:       title,
-		Description: req.Description,
-		DueDate:     dueDate,
-		AssigneeID:  assigneeID,
-		Priority:    req.Priority,
+		ID:             cardIDStr,
+		Title:          title,
+		Description:    req.Description,
+		DueDate:        util.PtrStringToTimePtr(req.DueDate), // *string → *time.Time
+		AssigneeID:     req.AssigneeID,                       // *string ส่งตรงได้เลย
+		Priority:       req.Priority,
+		EstimatedHours: req.EstimatedHours,
 	})
 	if err != nil {
 		log.Printf("UpdateCard error: %v", err)
@@ -109,34 +86,20 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
-	// 1. อ่านค่า cardID จาก URL
 	cardIDStr := chi.URLParam(r, "cardID")
-
-	// 2. แปลง String เป็น UUID (Best Practice: ตรวจสอบ Format ก่อนไปตี Database)
-	cardID, err := uuid.Parse(cardIDStr)
-	if err != nil {
+	if _, err := uuid.Parse(cardIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID format", err)
 	}
 
-	// 3. เรียกใช้ Service เพื่อดึงข้อมูล (ส่ง context ไปด้วยเสมอ)
-	card, err := h.boardService.GetCard(r.Context(), cardID)
+	card, err := h.boardService.GetCard(r.Context(), cardIDStr)
 	if err != nil {
-		// Best Practice: แยกประเภทของ Error เพื่อส่ง HTTP Status ให้ถูกต้อง
 		if errors.Is(err, sql.ErrNoRows) {
-			// ถ้าหาไม่เจอ ให้ส่ง 404 Not Found
 			return httputil.NewAPIError(http.StatusNotFound, "Card not found", nil)
 		}
-		// ถ้าเป็น Error อื่นๆ จากระบบ ให้ส่ง 500
 		return httputil.NewAPIError(http.StatusInternalServerError, "Internal server error", err)
 	}
 
-	// 4. ตั้งค่า Header ว่าข้อมูลที่จะส่งกลับไปเป็น JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	// 5. แปลง Struct card เป็น JSON แล้วส่งกลับ
-	if err := json.NewEncoder(w).Encode(card); err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to encode response", err)
-	}
-	return nil
+	return json.NewEncoder(w).Encode(card)
 }

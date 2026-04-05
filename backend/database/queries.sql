@@ -36,15 +36,21 @@ INSERT INTO columns (id, board_id, title, position, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, board_id, title, position;
 
+
 -- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, column_id, title, description, position, due_date, assignee_id, priority;
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by;
 
 -- name: UpdateCardColumn :exec
 UPDATE cards
-SET column_id = $1, position = $2, updated_at = NOW()
-WHERE id = $3;
+SET 
+    column_id = $1,
+    position = $2,
+    is_done = $3,
+    completed_at = $4,
+    updated_at = NOW()
+WHERE id = $5;
 
 -- name: DeleteCard :exec
 DELETE FROM cards WHERE id = $1;
@@ -194,17 +200,18 @@ RETURNING *;
 DELETE FROM card_subtasks
 WHERE id = $1;
 
--- name: UpdateSubtask :one
+
+-- name: GetColumnCategory :one
+SELECT category
+FROM columns
+WHERE id = $1;
+
+-- name: GetSubtask :one
+SELECT * FROM card_subtasks WHERE id = $1 LIMIT 1;
+
+-- name: UpdateSubtaskDone :exec
 UPDATE card_subtasks
 SET
-    title    = COALESCE($2, title),
-    is_done  = COALESCE($3, is_done),
-    position = COALESCE($4, position),
+    is_done = $2,
     updated_at = CURRENT_TIMESTAMP
-WHERE id = $1
-RETURNING *;
-
--- name: GetSubtasksByCardID :many
-SELECT * FROM card_subtasks
-WHERE card_id = $1
-ORDER BY position ASC;
+WHERE id = $1;

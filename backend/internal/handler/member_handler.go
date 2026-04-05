@@ -11,14 +11,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) error{
-	boardIDStr := chi.URLParam(r, "boardID")
-	var boardUUID uuid.UUID
-	if err := boardUUID.Scan(boardIDStr); err != nil {
+func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
 	}
 
-	members, err := h.boardService.GetBoardMembers(r.Context(), boardUUID)
+	members, err := h.boardService.GetBoardMembers(r.Context(), boardID)
 	if err != nil {
 		log.Printf("GetBoardMembers error: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch members", err)
@@ -40,9 +39,8 @@ func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) e
 }
 
 func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) error {
-	boardIDStr := chi.URLParam(r, "boardID")
-	var boardUUID uuid.UUID
-	if err := boardUUID.Scan(boardIDStr); err != nil {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
 	}
 
@@ -56,12 +54,12 @@ func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) er
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role", nil)
 	}
 
-	var userUUID uuid.UUID
-	if err := userUUID.Scan(req.UserID); err != nil {
+	// validate UUID format ของ userID
+	if _, err := uuid.Parse(req.UserID); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid user ID", err)
 	}
 
-	if err := h.boardService.AddBoardMember(r.Context(), boardUUID, userUUID, req.Role); err != nil {
+	if err := h.boardService.AddBoardMember(r.Context(), boardID, req.UserID, req.Role); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to add member", err)
 	}
 
@@ -69,19 +67,18 @@ func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func (h *BoardHandler) RemoveBoardMember(w http.ResponseWriter, r *http.Request) error{
-	boardIDStr := chi.URLParam(r, "boardID")
-	userIDStr := chi.URLParam(r, "userID")
-
-	var boardUUID, userUUID uuid.UUID
-	if err := boardUUID.Scan(boardIDStr); err != nil {
+func (h *BoardHandler) RemoveBoardMember(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
 	}
-	if err := userUUID.Scan(userIDStr); err != nil {
+
+	userIDStr := chi.URLParam(r, "userID")
+	if _, err := uuid.Parse(userIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid user ID", err)
 	}
 
-	if err := h.boardService.RemoveBoardMember(r.Context(), boardUUID, userUUID); err != nil {
+	if err := h.boardService.RemoveBoardMember(r.Context(), boardID, userIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to remove member", err)
 	}
 
@@ -90,14 +87,13 @@ func (h *BoardHandler) RemoveBoardMember(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) error {
-	boardIDStr := chi.URLParam(r, "boardID")
-	userIDStr := chi.URLParam(r, "userID")
-
-	var boardUUID, userUUID uuid.UUID
-	if err := boardUUID.Scan(boardIDStr); err != nil {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
 	}
-	if err := userUUID.Scan(userIDStr); err != nil {
+
+	userIDStr := chi.URLParam(r, "userID")
+	if _, err := uuid.Parse(userIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid user ID", err)
 	}
 
@@ -111,7 +107,7 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role — cannot change to owner", nil)
 	}
 
-	if err := h.boardService.UpdateMemberRole(r.Context(), boardUUID, userUUID, req.Role); err != nil {
+	if err := h.boardService.UpdateMemberRole(r.Context(), boardID, userIDStr, req.Role); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update role", err)
 	}
 
@@ -119,7 +115,7 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request)error {
+func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) error {
 	users, err := h.boardService.GetAllUsers(r.Context())
 	if err != nil {
 		log.Printf("GetAllUsers error: %v", err)

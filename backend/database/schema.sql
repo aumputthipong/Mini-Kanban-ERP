@@ -26,23 +26,25 @@ CREATE TABLE columns (
     board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     position DOUBLE PRECISION NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'TODO',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE cards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
-    assignee_id UUID REFERENCES users(id) ON DELETE
-    SET NULL,
-        -- คนรับผิดชอบงาน
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        estimated_hours DECIMAL(5, 2) DEFAULT 0.00,
-        priority VARCHAR(20) DEFAULT NULL,
-        due_date DATE,
-        position DOUBLE PRECISION NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    assignee_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    estimated_hours DECIMAL(5, 2) DEFAULT 0.00,
+    priority VARCHAR(20) DEFAULT NULL,
+    due_date DATE,
+    position DOUBLE PRECISION NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    is_done BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 -- 5. ตาราง Time_Logs (บันทึกเวลาทำงาน - หัวใจของการคำนวณ Costing)
 CREATE TABLE time_logs (

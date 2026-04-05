@@ -3,18 +3,16 @@ package websocket
 
 import (
 	"context"
-
 	"encoding/json"
-	
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-
 )
 
 const (
@@ -38,6 +36,7 @@ type Client struct {
 	conn    *websocket.Conn
 	send    chan []byte
 	boardID string
+	userID  string
 }
 
 type WSMessage struct {
@@ -97,12 +96,12 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 		return
 	}
 
-	var cardUUID, colUUID uuid.UUID
-	if err := cardUUID.Scan(cardIDStr); err != nil {
+	// validate UUID format (ไม่ต้องแปลงเป็น uuid.UUID แค่ตรวจว่า valid)
+	if _, err := uuid.Parse(cardIDStr); err != nil {
 		log.Printf("Invalid card ID: %s", cardIDStr)
 		return
 	}
-	if err := colUUID.Scan(newColumnIDStr); err != nil {
+	if _, err := uuid.Parse(newColumnIDStr); err != nil {
 		log.Printf("Invalid column ID: %s", newColumnIDStr)
 		return
 	}
@@ -110,12 +109,28 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	// ตรวจสอบ category ของ column เพื่อกำหนด isDone
+	category, err := c.hub.queries.GetColumnCategory(ctx, newColumnIDStr)
+	if err != nil {
+		log.Printf("Failed to get column category: %v", err)
+		return
+	}
+
+	isDone := category == "DONE"
+	var completedAt *time.Time
+	if isDone {
+		now := time.Now()
+		completedAt = &now
+	}
+
 	if err := c.hub.queries.UpdateCardColumn(ctx, db.UpdateCardColumnParams{
-		ColumnID: colUUID.String(),
-		Position: position,
-		ID:       cardUUID.String(),
+		ColumnID:    newColumnIDStr,
+		Position:    position,
+		IsDone:      isDone,
+		CompletedAt: util.TimeToTimestamptz(completedAt), // *time.Time → pgtype.Timestamptz
+		ID:          cardIDStr,
 	}); err != nil {
-		log.Printf("Failed to update card position: %v", err)
+		log.Printf("Failed to update card position and status: %v", err)
 		return
 	}
 
@@ -124,58 +139,61 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 }
 
 func (c *Client) handleCardCreated(payload map[string]interface{}) {
-    columnIDStr, ok1 := payload["column_id"].(string)
-    title, ok2 := payload["title"].(string)
-    if !ok1 || !ok2 {
-        log.Println("Invalid payload for CARD_CREATED")
-        return
-    }
+	columnIDStr, ok1 := payload["column_id"].(string)
+	title, ok2 := payload["title"].(string)
+	if !ok1 || !ok2 {
+		log.Println("Invalid payload for CARD_CREATED")
+		return
+	}
 
-    var colUUID uuid.UUID
-    if err := colUUID.Scan(columnIDStr); err != nil {
-        log.Printf("Invalid column ID: %s", columnIDStr)
-        return
-    }
+	// validate UUID format
+	if _, err := uuid.Parse(columnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", columnIDStr)
+		return
+	}
+	if _, err := uuid.Parse(c.userID); err != nil {
+		log.Printf("Invalid creator ID: %s", c.userID)
+		return
+	}
 
-    ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-    defer cancel()
-    priority, _ := payload["priority"].(string)
-    
-    // 1. เรียก CreateCard 
-    newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
-        ColumnID: colUUID.String(),
-        Title:    title,
-        Position: 0,
-        // ✅ เปลี่ยนมาใช้ StringToPtr เพื่อคืนค่ากลับเป็น *string
-        Priority: util.StringToPtr(priority), 
-    })
-    if err != nil {
-        log.Printf("Failed to create card: %v", err)
-        return
-    }
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
 
-    // 2. จัดเตรียมข้อมูลสำหรับส่งผ่าน WebSocket (Broadcast)
-    broadcastMsg := WSMessage{
-        Type: "CARD_CREATED",
-        Payload: map[string]interface{}{
-            "id":        newCard.ID,
-            "column_id": newCard.ColumnID,
-            "title":     newCard.Title,
-            "position":  newCard.Position,
-            // ✅ newCard.Priority เป็น *string อยู่แล้ว ส่งเข้า JSON ได้เลย
-            // ถ้ามันเป็น nil ตัว JSON Marshal จะแปลงเป็น null ให้เอง (Frontend ชอบมาก)
-            "priority":  newCard.Priority, 
-        },
-    }
+	priority, _ := payload["priority"].(string)
 
-    msgBytes, err := json.Marshal(broadcastMsg)
-    if err != nil {
-        log.Printf("Failed to marshal CARD_CREATED broadcast: %v", err)
-        return
-    }
+	// FIX: CreatedBy เป็น *string ใน sqlc ตอนนี้ ส่ง &c.userID ได้โดยตรง
+	// บัคเดิม: ใช้ uuid.UUID (google) ซึ่งเป็น [16]byte แต่ sqlc ต้องการ pgtype.UUID ซึ่งเป็น struct ต่างชนิด
+	newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
+		ColumnID:  columnIDStr,
+		Title:     title,
+		Position:  0,
+		Priority:  util.StringToPtr(priority),
+		CreatedBy: &c.userID, // *string — ถูกต้อง ไม่ต้องแปลงผ่าน uuid.UUID อีกต่อไป
+	})
+	if err != nil {
+		log.Printf("Failed to create card: %v", err)
+		return
+	}
 
-    // 3. ส่งข้อความกระจายให้ทุกคนที่เชื่อมต่อ WebSocket ใน Board นี้
-    c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+	broadcastMsg := WSMessage{
+		Type: "CARD_CREATED",
+		Payload: map[string]interface{}{
+			"id":         newCard.ID,
+			"column_id":  newCard.ColumnID,
+			"title":      newCard.Title,
+			"position":   newCard.Position,
+			"priority":   newCard.Priority,
+			"created_by": newCard.CreatedBy,
+		},
+	}
+
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal CARD_CREATED broadcast: %v", err)
+		return
+	}
+
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 
 func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte) {
@@ -185,8 +203,7 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 		return
 	}
 
-	var cardUUID uuid.UUID
-	if err := cardUUID.Scan(cardIDStr); err != nil {
+	if _, err := uuid.Parse(cardIDStr); err != nil {
 		log.Printf("Invalid card ID: %s", cardIDStr)
 		return
 	}
@@ -194,7 +211,7 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	if err := c.hub.queries.DeleteCard(ctx, cardUUID.String()); err != nil {
+	if err := c.hub.queries.DeleteCard(ctx, cardIDStr); err != nil {
 		log.Printf("Failed to delete card: %v", err)
 		return
 	}
@@ -243,12 +260,14 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
 		log.Println("Upgrade error:", err)
 		return
 	}
+	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 
 	client := &Client{
 		hub:     hub,
 		conn:    conn,
 		send:    make(chan []byte, 256),
 		boardID: boardID,
+		userID:  userID,
 	}
 	client.hub.register <- client
 
@@ -263,7 +282,6 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 		return
 	}
 
-	// ดึงข้อมูลจาก payload (ใช้การเช็คแบบสั้น)
 	title, _ := payload["title"].(string)
 	description, _ := payload["description"].(string)
 	dueDate, _ := payload["due_date"].(string)
@@ -274,77 +292,56 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	// เรียก UpdateCard ด้วย Helper ที่เราสร้างไว้
 	_, err := c.hub.queries.UpdateCard(ctx, db.UpdateCardParams{
-		ID:             cardIDStr, // ส่ง string ได้เลยเพราะ override แล้ว
+		ID:             cardIDStr,
 		Title:          title,
-		Description:    util.StringToPtr(description),      
-		DueDate:        util.StringToPgDate(dueDate),       
-		AssigneeID:     util.StringToPgUUID(assigneeID),   
-		Priority:       util.StringToPtr(priority),         
+		Description:    util.StringToPtr(description),
+		DueDate:        util.StringToTimePtr(dueDate),   // string → *time.Time
+		AssigneeID:     util.StringToPtr(assigneeID),    // string → *string
+		Priority:       util.StringToPtr(priority),
 		EstimatedHours: util.FloatToPgNumeric(estimatedHours),
 	})
-
 	if err != nil {
 		log.Printf("Failed to update card [%s]: %v", cardIDStr, err)
 		return
 	}
 
 	log.Printf("Updated card [%s] successfully", cardIDStr)
-	
-	// ส่ง Message เดิมออกไปให้ทุกคนใน Board
-	c.hub.broadcast <- BroadcastMessage{
-		BoardID: c.boardID, 
-		Message: rawMsg,
-	}
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 }
-// ตัวอย่างใน handleSubtaskUpdated (โครงสร้างคล้าย handleCardUpdated)
+
 func (c *Client) handleSubtaskUpdate(payload map[string]interface{}, rawMsg []byte) {
 	subtaskID, _ := payload["subtask_id"].(string)
 	isDone, _ := payload["is_done"].(bool)
 	title, _ := payload["title"].(string)
-	
-	// ดึงค่า position ถ้าไม่มีให้เริ่มที่ 0 (หรือดึงจาก DB มาก่อนถ้าจำเป็นต้องแม่นยำ)
-	position, _ := payload["position"].(float64) 
+	position, _ := payload["position"].(float64)
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	// เรียกใช้ UpdateSubtask โดยใช้ Helper
 	_, err := c.hub.queries.UpdateSubtask(ctx, db.UpdateSubtaskParams{
 		ID:       subtaskID,
-		Title:    title,               // ถ้าใน params เป็น string
-		// หรือ Title: util.ToNullString(title), // ถ้าใน params เป็น sql.NullString
+		Title:    title,
 		IsDone:   isDone,
-		Position: position,            // ส่ง float64 เข้าไป (ห้ามใส่ nil)
+		Position: position,
 	})
-
 	if err != nil {
 		log.Printf("Error updating subtask [%s]: %v", subtaskID, err)
 		return
 	}
 
-	// กระจายข่าว
-	c.hub.broadcast <- BroadcastMessage{
-		BoardID: c.boardID,
-		Message: rawMsg,
-	}
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 }
 
-// สมมติชื่อฟังก์ชันใน client.go
 func (c *Client) handleSubtaskToggle(payload map[string]interface{}, rawMsg []byte) {
 	subtaskID, _ := payload["subtask_id"].(string)
 	isDone, _ := payload["is_done"].(bool)
 
-	// 1. สั่ง Database ให้ Update
+	// UpdateSubtaskDone มีอยู่จริงแล้วหลังเพิ่ม query ใน queries.sql
 	_ = c.hub.queries.UpdateSubtaskDone(context.Background(), db.UpdateSubtaskDoneParams{
 		ID:     subtaskID,
 		IsDone: isDone,
 	})
 
-	// 2. ตะโกนบอกทุกคนในบอร์ด (Broadcast)
-	c.hub.broadcast <- BroadcastMessage{
-		BoardID: c.boardID,
-		Message: rawMsg, // ส่งก้อนเดิมนั่นแหละให้คนอื่นไปอัปเดต UI ตาม
-	}
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 }

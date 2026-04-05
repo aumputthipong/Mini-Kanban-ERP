@@ -10,13 +10,18 @@ import (
 )
 
 func DecodeJSON(r *http.Request, v interface{}) error {
-    return json.NewDecoder(r.Body).Decode(v)
+	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func GetUUIDParam(r *http.Request, key string) (uuid.UUID, error) {
-    paramStr := chi.URLParam(r, key)
-    if paramStr == "" {
-        return uuid.Nil, errors.New("missing parameter")
-    }
-    return uuid.Parse(paramStr)
+// GetUUIDParam ตรวจสอบว่า URL param เป็น UUID ที่ valid แล้วคืนค่าเป็น string
+// ใช้ uuid.Parse เพื่อ validate format แต่คืนเป็น string เพราะ sqlc ใช้ string สำหรับ ID
+func GetUUIDParam(r *http.Request, key string) (string, error) {
+	paramStr := chi.URLParam(r, key)
+	if paramStr == "" {
+		return "", errors.New("missing parameter: " + key)
+	}
+	if _, err := uuid.Parse(paramStr); err != nil {
+		return "", errors.New("invalid UUID format for parameter: " + key)
+	}
+	return paramStr, nil
 }

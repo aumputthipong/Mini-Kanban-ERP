@@ -1,4 +1,4 @@
-// internal/db/models.go หรือ internal/mapper/board.go
+// internal/mapper/board.go
 package mapper
 
 import (
@@ -6,66 +6,55 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
-	// "github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 )
 
 func ToTrashedBoardDTO(b db.GetTrashedBoardsRow) dto.TrashedBoardDTO {
-    var deletedAt time.Time
-    if b.DeletedAt.Valid {
-        deletedAt = b.DeletedAt.Time
-    }
-    return dto.TrashedBoardDTO{
-        ID:        b.ID,
-        Title:     b.Title,
-        DeletedAt: deletedAt,
-    }
+	// DeletedAt ยังเป็น pgtype.Timestamptz เพราะ schema ใช้ TIMESTAMP WITH TIME ZONE
+	// ต้องเช็ค .Valid ก่อนดึงค่า
+	var deletedAt time.Time
+	if b.DeletedAt.Valid {
+		deletedAt = b.DeletedAt.Time
+	}
+	return dto.TrashedBoardDTO{
+		ID:        b.ID,
+		Title:     b.Title,
+		DeletedAt: deletedAt,
+	}
 }
 
 func ToTrashedBoardDTOs(boards []db.GetTrashedBoardsRow) []dto.TrashedBoardDTO {
-    result := make([]dto.TrashedBoardDTO, len(boards))
-    for i, b := range boards {
-        result[i] = ToTrashedBoardDTO(b)
-    }
-    return result
+	result := make([]dto.TrashedBoardDTO, len(boards))
+	for i, b := range boards {
+		result[i] = ToTrashedBoardDTO(b)
+	}
+	return result
 }
 
-// func ToBoardSummaryDTO(b db.GetAllBoardsRow) dto.BoardSummaryDTO {
-//     return dto.BoardSummaryDTO{
-//         ID:    b.ID.String(),
-//         Title: b.Title,
-//     }
-// }
-
-// func ToCardDTO(card service.CardData) dto.CardDTO {
-//     return dto.CardDTO{
-//         ID:           card.ID.String(),
-//         ColumnID:     card.ColumnID.String(),
-//         Title:        card.Title,
-//         Description:  pgutil.TextToPtr(card.Description),
-//         Position:     card.Position,
-//         DueDate:      pgutil.DateToPtr(card.DueDate),
-//         AssigneeID:   pgutil.UUIDToPtr(card.AssigneeID),
-//         AssigneeName: pgutil.TextToPtr(card.AssigneeName),
-//         Priority:     pgutil.TextToPtr(card.Priority),
-//     }
-// }
-
 func ToSubtaskResponse(s db.CardSubtask) dto.SubtaskResponse {
-    return dto.SubtaskResponse{
-        ID:        s.ID,
-        CardID:    s.CardID,
-        Title:     s.Title,
-        IsDone:    s.IsDone,
-        Position:  s.Position,
-        CreatedAt: s.CreatedAt.Time,
-        UpdatedAt: s.UpdatedAt.Time,
-    }
+	// CreatedAt และ UpdatedAt เป็น *time.Time (nullable TIMESTAMPTZ)
+	// ใช้ deref ด้วย zero value ถ้า nil
+	var createdAt, updatedAt time.Time
+	if s.CreatedAt != nil {
+		createdAt = *s.CreatedAt
+	}
+	if s.UpdatedAt != nil {
+		updatedAt = *s.UpdatedAt
+	}
+	return dto.SubtaskResponse{
+		ID:        s.ID,
+		CardID:    s.CardID,
+		Title:     s.Title,
+		IsDone:    s.IsDone,
+		Position:  s.Position,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}
 }
 
 func ToSubtaskResponses(subtasks []db.CardSubtask) []dto.SubtaskResponse {
-    result := make([]dto.SubtaskResponse, len(subtasks))
-    for i, s := range subtasks {
-        result[i] = ToSubtaskResponse(s)
-    }
-    return result
+	result := make([]dto.SubtaskResponse, len(subtasks))
+	for i, s := range subtasks {
+		result[i] = ToSubtaskResponse(s)
+	}
+	return result
 }

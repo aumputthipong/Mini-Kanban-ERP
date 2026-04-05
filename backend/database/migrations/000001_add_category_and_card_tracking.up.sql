@@ -1,0 +1,10 @@
+ALTER TABLE cards
+DROP COLUMN IF EXISTS created_by,
+DROP COLUMN IF EXISTS completed_at,
+DROP COLUMN IF EXISTS is_done;
+
+ALTER TABLE columns
+DROP CONSTRAINT IF EXISTS chk_column_category;
+
+ALTER TABLE columns
+DROP COLUMN IF EXISTS category;
