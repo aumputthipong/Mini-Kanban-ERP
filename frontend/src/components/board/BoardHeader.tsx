@@ -52,9 +52,9 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
             </Link>
 
             <Link
-              href={basePath}
+              href={`${basePath}/tasks`}
               className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                pathname === basePath
+                 pathname.includes("/tasks")
                   ? "border-indigo-600 text-indigo-700"
                   : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
               }`}
@@ -63,7 +63,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
               Board
             </Link>
             <Link
-              href={`${basePath}/members`}
+              href={`${basePath}/member`}
               className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                  pathname.includes("/members")
                   ? "border-indigo-600 text-indigo-700"
@@ -96,13 +96,14 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
           </Link>
         </div>
       </div>
-
-      <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/50 mt-1">
-        <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-          <Filter size={14} />
-          Filters
-        </button>
-      </div>
+{pathname === `${basePath}/tasks` && (
+        <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/50 mt-1">
+          <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+            <Filter size={14} />
+            Filters
+          </button>
+        </div>
+      )}
     </header>
   );
 }

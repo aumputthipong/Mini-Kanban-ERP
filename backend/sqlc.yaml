@@ -1,18 +1,70 @@
 version: "2"
 sql:
-  - schema: "database/schema.sql" 
+  - schema: "database/schema.sql"
     queries: "database/queries.sql"
     engine: "postgresql"
     gen:
-      go: 
+      go:
         package: "db"
         out: "internal/db"
         sql_package: "pgx/v5"
         emit_pointers_for_null_types: true
         overrides:
+          # NOT NULL uuid → string
           - db_type: "uuid"
+            nullable: false
             go_type: "string"
-          - db_type: "timestamp"
-            go_type: "time.Time"
+          # nullable uuid → *string (nil = NULL ใน DB)
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          # NOT NULL date → time.Time
+          - db_type: "date"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          # nullable date → *time.Time
+          - db_type: "date"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          # NOT NULL timestamptz → time.Time
           - db_type: "timestamptz"
-            go_type: "time.Time"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          # nullable timestamptz → *time.Time
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "timestamp"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamp"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "timestamp with time zone"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamp with time zone"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true

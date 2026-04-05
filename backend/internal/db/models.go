@@ -5,6 +5,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -28,13 +30,16 @@ type BoardMember struct {
 type Card struct {
 	ID             string
 	ColumnID       string
-	AssigneeID     pgtype.UUID
+	AssigneeID     *string
 	Title          string
 	Description    *string
 	EstimatedHours pgtype.Numeric
 	Priority       *string
-	DueDate        pgtype.Date
+	DueDate        *time.Time
 	Position       float64
+	CompletedAt    pgtype.Timestamptz
+	CreatedBy      *string
+	IsDone         bool
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }
@@ -45,8 +50,8 @@ type CardSubtask struct {
 	Title     string
 	IsDone    bool
 	Position  float64
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt *time.Time
+	UpdatedAt *time.Time
 }
 
 type Column struct {
@@ -54,6 +59,7 @@ type Column struct {
 	BoardID   string
 	Title     string
 	Position  float64
+	Category  string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }

@@ -41,13 +41,12 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) error {
-	// ใช้ httputil.GetUUIDParam แทน uuid.Scan เดิม
-	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
-	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardUUID)
+	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
 	}
@@ -58,90 +57,85 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) erro
 
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateBoardRequest
-	// ใช้ decodeJSON แทน json.NewDecoder
 	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
 	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userIDStr == "" {
 		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
 	}
-
-	ownerUUID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	// validate UUID format ของ userID จาก token
+	if _, err := uuid.Parse(userIDStr); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid user ID in token", err)
 	}
 
-	boardID, err := h.boardService.CreateBoard(r.Context(), req.Title, ownerUUID)
+	boardID, err := h.boardService.CreateBoard(r.Context(), req.Title, userIDStr)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create board", err)
 	}
 
-	httputil.RespondJSON(w, http.StatusCreated, map[string]string{"id": boardID.String()})
+	httputil.RespondJSON(w, http.StatusCreated, map[string]string{"id": boardID})
 	return nil
 }
 
-func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error{
-	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
+func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
-	return httputil.NewAPIError(http.StatusInternalServerError, "Invalid or missing board ID", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid or missing board ID", err)
 	}
 
 	var req dto.UpdateBoardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Invalid request body", err)
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	updatedBoard, err := h.boardService.UpdateBoard(r.Context(), boardUUID, req.Title, req.Budget)
+	updatedBoard, err := h.boardService.UpdateBoard(r.Context(), boardID, req.Title, req.Budget)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update board", err)
 	}
 
 	httputil.RespondJSON(w, http.StatusOK, updatedBoard)
-    return nil
+	return nil
 }
 
 func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error {
-
-	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
-	if err := h.boardService.MoveBoardToTrash(r.Context(), boardUUID); err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError,"Failed to move board to trash" , err)
+	if err := h.boardService.MoveBoardToTrash(r.Context(), boardID); err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to move board to trash", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-    return nil
+	return nil
 }
 
-func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error{
+func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error {
 	boards, err := h.boardService.GetTrashedBoards(r.Context())
 	if err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError,"Failed to get trash", err)
-
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to get trash", err)
 	}
 
-	httputil.RespondJSON(w, http.StatusOK,  mapper.ToTrashedBoardDTOs(boards))
-    return nil
+	httputil.RespondJSON(w, http.StatusOK, mapper.ToTrashedBoardDTOs(boards))
+	return nil
 }
 
-func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error{
-	// ของเดิมมีบักไม่ได้เช็ค Error ตอน Scan ตอนนี้แก้ให้ปลอดภัยแล้ว
-	boardUUID, err := httputil.GetUUIDParam(r, "boardID")
+func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
 	}
 
-	if err := h.boardService.HardDeleteBoard(r.Context(), boardUUID); err != nil {
+	if err := h.boardService.HardDeleteBoard(r.Context(), boardID); err != nil {
 		log.Printf("HardDelete error: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Delete failed", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-    return nil
+	return nil
 }
 
 func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
@@ -150,19 +144,19 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 		cards := make([]dto.CardResponse, 0, len(col.Cards))
 		for _, card := range col.Cards {
 			cards = append(cards, dto.CardResponse{
-				ID:           card.ID.String(),
-				ColumnID:     card.ColumnID.String(),
+				ID:           card.ID,       // string โดยตรง ไม่ต้องแปลง
+				ColumnID:     card.ColumnID, // string โดยตรง
 				Title:        card.Title,
 				Description:  card.Description,
 				Position:     card.Position,
 				DueDate:      timePtrToStrPtr(card.DueDate),
-				AssigneeID:   uuidPtrToStrPtr(card.AssigneeID),
+				AssigneeID:   card.AssigneeID,  // *string โดยตรง ไม่ต้องแปลงจาก uuid อีกต่อไป
 				AssigneeName: card.AssigneeName,
 				Priority:     card.Priority,
 			})
 		}
 		result = append(result, dto.ColumnResponse{
-			ID:       col.ID.String(),
+			ID:       col.ID, // string โดยตรง
 			Title:    col.Title,
 			Position: col.Position,
 			Cards:    cards,
@@ -171,20 +165,11 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 	return result
 }
 
+// timePtrToStrPtr แปลง *time.Time เป็น *string สำหรับ JSON response
 func timePtrToStrPtr(t *time.Time) *string {
 	if t == nil {
 		return nil
 	}
-	// แปลงรูปแบบเวลาเป็นมาตรฐาน ISO 8601 (RFC3339)
-	val := t.Format("2006-01-02T15:04:05Z07:00") 
-	return &val
-}
-
-// Helper แปลง *uuid.UUID เป็น *string สำหรับ JSON
-func uuidPtrToStrPtr(u *uuid.UUID) *string {
-	if u == nil {
-		return nil
-	}
-	val := u.String()
+	val := t.Format("2006-01-02T15:04:05Z07:00")
 	return &val
 }

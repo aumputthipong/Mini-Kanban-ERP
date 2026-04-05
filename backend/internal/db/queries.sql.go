@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -55,18 +56,19 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 }
 
 const createCard = `-- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, column_id, title, description, position, due_date, assignee_id, priority
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by
 `
 
 type CreateCardParams struct {
 	ColumnID   string
 	Title      string
 	Position   float64
-	DueDate    pgtype.Date
-	AssigneeID pgtype.UUID
+	DueDate    *time.Time
+	AssigneeID *string
 	Priority   *string
+	CreatedBy  *string
 }
 
 type CreateCardRow struct {
@@ -75,9 +77,10 @@ type CreateCardRow struct {
 	Title       string
 	Description *string
 	Position    float64
-	DueDate     pgtype.Date
-	AssigneeID  pgtype.UUID
+	DueDate     *time.Time
+	AssigneeID  *string
 	Priority    *string
+	CreatedBy   *string
 }
 
 func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateCardRow, error) {
@@ -88,6 +91,7 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 		arg.DueDate,
 		arg.AssigneeID,
 		arg.Priority,
+		arg.CreatedBy,
 	)
 	var i CreateCardRow
 	err := row.Scan(
@@ -99,6 +103,7 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 		&i.DueDate,
 		&i.AssigneeID,
 		&i.Priority,
+		&i.CreatedBy,
 	)
 	return i, err
 }
@@ -398,7 +403,7 @@ func (q *Queries) GetBoardMembers(ctx context.Context, boardID string) ([]GetBoa
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, created_at, updated_at FROM cards 
+SELECT id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, created_at, updated_at FROM cards 
 WHERE id = $1 LIMIT 1
 `
 
@@ -415,6 +420,9 @@ func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
 		&i.Priority,
 		&i.DueDate,
 		&i.Position,
+		&i.CompletedAt,
+		&i.CreatedBy,
+		&i.IsDone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -445,9 +453,9 @@ type GetCardsByColumnIDsRow struct {
 	Title          string
 	Description    *string
 	Position       float64
-	DueDate        pgtype.Date
+	DueDate        *time.Time
 	EstimatedHours pgtype.Numeric
-	AssigneeID     pgtype.UUID
+	AssigneeID     *string
 	Priority       *string
 	AssigneeName   *string
 }
@@ -483,6 +491,19 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([
 	return items, nil
 }
 
+const getColumnCategory = `-- name: GetColumnCategory :one
+SELECT category
+FROM columns
+WHERE id = $1
+`
+
+func (q *Queries) GetColumnCategory(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getColumnCategory, id)
+	var category string
+	err := row.Scan(&category)
+	return category, err
+}
+
 const getColumnsByBoardID = `-- name: GetColumnsByBoardID :many
 SELECT id, board_id, title, position, created_at, updated_at
 FROM columns 
@@ -490,15 +511,24 @@ WHERE board_id = $1
 ORDER BY position ASC
 `
 
-func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Column, error) {
+type GetColumnsByBoardIDRow struct {
+	ID        string
+	BoardID   string
+	Title     string
+	Position  float64
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]GetColumnsByBoardIDRow, error) {
 	rows, err := q.db.Query(ctx, getColumnsByBoardID, boardID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Column
+	var items []GetColumnsByBoardIDRow
 	for rows.Next() {
-		var i Column
+		var i GetColumnsByBoardIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.BoardID,
@@ -518,10 +548,9 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Co
 }
 
 const getSubtask = `-- name: GetSubtask :one
-SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks WHERE id = $1
+SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks WHERE id = $1 LIMIT 1
 `
 
-// 🌟 (ถ้าคุณยังไม่มี Query สำหรับ GetSubtask ตัวเดียว ให้เพิ่มอันนี้เข้าไปด้วยครับ)
 func (q *Queries) GetSubtask(ctx context.Context, id string) (CardSubtask, error) {
 	row := q.db.QueryRow(ctx, getSubtask, id)
 	var i CardSubtask
@@ -765,15 +794,15 @@ SET
     estimated_hours  = COALESCE($7, estimated_hours),
     updated_at       = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, created_at, updated_at
+RETURNING id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, created_at, updated_at
 `
 
 type UpdateCardParams struct {
 	ID             string
 	Title          string
 	Description    *string
-	DueDate        pgtype.Date
-	AssigneeID     pgtype.UUID
+	DueDate        *time.Time
+	AssigneeID     *string
 	Priority       *string
 	EstimatedHours pgtype.Numeric
 }
@@ -799,6 +828,9 @@ func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, e
 		&i.Priority,
 		&i.DueDate,
 		&i.Position,
+		&i.CompletedAt,
+		&i.CreatedBy,
+		&i.IsDone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -807,18 +839,31 @@ func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, e
 
 const updateCardColumn = `-- name: UpdateCardColumn :exec
 UPDATE cards
-SET column_id = $1, position = $2, updated_at = NOW()
-WHERE id = $3
+SET 
+    column_id = $1,
+    position = $2,
+    is_done = $3,
+    completed_at = $4,
+    updated_at = NOW()
+WHERE id = $5
 `
 
 type UpdateCardColumnParams struct {
-	ColumnID string
-	Position float64
-	ID       string
+	ColumnID    string
+	Position    float64
+	IsDone      bool
+	CompletedAt pgtype.Timestamptz
+	ID          string
 }
 
 func (q *Queries) UpdateCardColumn(ctx context.Context, arg UpdateCardColumnParams) error {
-	_, err := q.db.Exec(ctx, updateCardColumn, arg.ColumnID, arg.Position, arg.ID)
+	_, err := q.db.Exec(ctx, updateCardColumn,
+		arg.ColumnID,
+		arg.Position,
+		arg.IsDone,
+		arg.CompletedAt,
+		arg.ID,
+	)
 	return err
 }
 
@@ -862,29 +907,19 @@ func (q *Queries) UpdateSubtask(ctx context.Context, arg UpdateSubtaskParams) (C
 
 const updateSubtaskDone = `-- name: UpdateSubtaskDone :exec
 UPDATE card_subtasks
-SET 
-    title = $2,
-    is_done = $3,
-    position = $4,
-    updated_at = NOW()
+SET
+    is_done = $2,
+    updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, card_id, title, is_done, position, created_at, updated_at
 `
 
 type UpdateSubtaskDoneParams struct {
-	ID       string
-	Title    string
-	IsDone   bool
-	Position float64
+	ID     string
+	IsDone bool
 }
 
 func (q *Queries) UpdateSubtaskDone(ctx context.Context, arg UpdateSubtaskDoneParams) error {
-	_, err := q.db.Exec(ctx, updateSubtaskDone,
-		arg.ID,
-		arg.Title,
-		arg.IsDone,
-		arg.Position,
-	)
+	_, err := q.db.Exec(ctx, updateSubtaskDone, arg.ID, arg.IsDone)
 	return err
 }
 

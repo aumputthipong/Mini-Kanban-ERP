@@ -30,7 +30,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {boards.map((board: any) => (
             // ใช้ Component <Link> ของ Next.js เพื่อให้เปลี่ยนหน้าโดยไม่ต้องโหลดเว็บใหม่ (SPA Routing)
-            <Link key={board.id} href={`/board/${board.id}`}>
+            <Link key={board.id} href={`/board/${board.id}/tasks`}>
               <div
                 className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 
                   hover:shadow-md hover:-translate-y-1 hover:border-blue-300 
