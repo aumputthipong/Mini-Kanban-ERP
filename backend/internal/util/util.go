@@ -67,6 +67,15 @@ func PtrFloatToPgNumeric(f *float64) pgtype.Numeric {
 	return n
 }
 
+// TimestamptzToTimePtr แปลง pgtype.Timestamptz → *time.Time
+// ใช้ตอนอ่านค่าจาก DB สำหรับ field ที่ยังเป็น pgtype (TIMESTAMP WITH TIME ZONE)
+func TimestamptzToTimePtr(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	return &t.Time
+}
+
 // TimeToTimestamptz แปลง *time.Time เป็น pgtype.Timestamptz
 // ใช้กับ field ที่ยังเป็น pgtype.Timestamptz (เช่น completed_at ที่ใช้ TIMESTAMP WITH TIME ZONE ใน schema)
 func TimeToTimestamptz(t *time.Time) pgtype.Timestamptz {

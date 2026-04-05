@@ -144,15 +144,17 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 		cards := make([]dto.CardResponse, 0, len(col.Cards))
 		for _, card := range col.Cards {
 			cards = append(cards, dto.CardResponse{
-				ID:           card.ID,       // string โดยตรง ไม่ต้องแปลง
-				ColumnID:     card.ColumnID, // string โดยตรง
+				ID:           card.ID,
+				ColumnID:     card.ColumnID,
 				Title:        card.Title,
 				Description:  card.Description,
 				Position:     card.Position,
 				DueDate:      timePtrToStrPtr(card.DueDate),
-				AssigneeID:   card.AssigneeID,  // *string โดยตรง ไม่ต้องแปลงจาก uuid อีกต่อไป
+				AssigneeID:   card.AssigneeID,
 				AssigneeName: card.AssigneeName,
 				Priority:     card.Priority,
+				IsDone:       card.IsDone,
+				CompletedAt:  timePtrToStrPtr(card.CompletedAt),
 			})
 		}
 		result = append(result, dto.ColumnResponse{
