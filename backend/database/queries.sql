@@ -10,7 +10,7 @@ WHERE board_id = $1
 ORDER BY position ASC;
 
 -- name: GetCardsByColumnIDs :many
-SELECT 
+SELECT
     c.id,
     c.column_id,
     c.title,
@@ -20,6 +20,8 @@ SELECT
     c.estimated_hours,
     c.assignee_id,
     c.priority,
+    c.is_done,
+    c.completed_at,
     u.full_name AS assignee_name
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id

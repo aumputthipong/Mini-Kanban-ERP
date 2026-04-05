@@ -11,12 +11,15 @@ export interface Card {
   priority: "low" | "medium" | "high" | null;
   estimated_hours: number | null;
   subtasks?: Subtask[];
+  is_done: boolean;
+  completed_at:string |null;
 }
 
 export interface Column {
   id: string;
   title: string;
   position: number;
+  category: `TODO`|`DONE`;
   cards: Card[];
 }
 

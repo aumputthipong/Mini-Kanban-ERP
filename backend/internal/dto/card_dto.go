@@ -13,6 +13,8 @@ type CardResponse struct {
 	AssigneeID     *string  `json:"assignee_id"`
 	AssigneeName   *string  `json:"assignee_name"`
 	Priority       *string  `json:"priority"`
+	IsDone         bool     `json:"is_done"`
+	CompletedAt    *string  `json:"completed_at"`
 }
 
 type CreateCardRequest struct {

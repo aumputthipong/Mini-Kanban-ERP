@@ -5,7 +5,7 @@ import { create } from "zustand";
 interface BoardState {
   columns: Column[];
   setColumns: (columns: Column[]) => void;
-  moveCard: (cardId: string, fromColumnId: string, toColumnId: string) => void;
+  moveCard: (cardId: string, fromColumnId: string, toColumnId: string, position: number) => void;
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
@@ -143,4 +143,7 @@ export const useBoardStore = create<BoardState>((set) => ({
         }),
       })),
     })),
+
+    
 }));
+

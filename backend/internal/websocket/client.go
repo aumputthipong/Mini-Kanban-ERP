@@ -343,7 +343,6 @@ func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
 		log.Println("Invalid payload for CARD_DONE_TOGGLED")
 		return
 	}
-
 	if _, err := uuid.Parse(cardIDStr); err != nil {
 		log.Printf("Invalid card ID: %s", cardIDStr)
 		return

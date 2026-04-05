@@ -36,6 +36,8 @@ type CardData struct {
 	AssigneeID   *string
 	AssigneeName *string
 	Priority     *string
+	IsDone       bool
+	CompletedAt  *time.Time
 }
 
 func NewBoardService(pool *pgxpool.Pool, queries *db.Queries) *BoardService {
@@ -169,10 +171,12 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			Title:        card.Title,
 			Description:  card.Description,
 			Position:     card.Position,
-			DueDate:      card.DueDate,      // *time.Time จาก sqlc โดยตรง
-			AssigneeID:   card.AssigneeID,   // *string จาก sqlc โดยตรง
+			DueDate:      card.DueDate,
+			AssigneeID:   card.AssigneeID,
 			AssigneeName: card.AssigneeName,
 			Priority:     card.Priority,
+			IsDone:       card.IsDone,
+			CompletedAt:  util.TimestamptzToTimePtr(card.CompletedAt),
 		})
 	}
 
