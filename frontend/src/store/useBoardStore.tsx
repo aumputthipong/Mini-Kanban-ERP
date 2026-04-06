@@ -5,7 +5,7 @@ import { create } from "zustand";
 interface BoardState {
   columns: Column[];
   setColumns: (columns: Column[]) => void;
-  moveCard: (cardId: string, fromColumnId: string, toColumnId: string, position: number) => void;
+  moveCard: (cardId: string, toColumnId: string, position?: number, isDone?: boolean, completedAt?: string | null) => void;
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
@@ -19,35 +19,41 @@ export const useBoardStore = create<BoardState>((set) => ({
   columns: [],
   setColumns: (columns) => set({ columns }),
 
-  moveCard: (cardId, fromColumnId, toColumnId) =>
+  moveCard: (cardId, toColumnId, _position, isDone, completedAt) =>
     set((state) => {
-      if (fromColumnId === toColumnId) return state; // ถ้าวางที่เดิม ไม่ต้องทำอะไร
+      const newColumns = state.columns.map((col) => ({
+        ...col,
+        cards: [...col.cards],
+      }));
 
-      // สร้าง Copy ของ State เดิม เพื่อป้องกันการแก้ค่าตรงๆ (Immutability Best Practice)
-      const newColumns = [...state.columns];
+      // ค้นหา card จากทุก column
+      let fromColIndex = -1;
+      let cardIndex = -1;
+      for (let i = 0; i < newColumns.length; i++) {
+        const idx = newColumns[i].cards.findIndex((c) => c.id === cardId);
+        if (idx !== -1) {
+          fromColIndex = i;
+          cardIndex = idx;
+          break;
+        }
+      }
 
-      // หา Index ของคอลัมน์ต้นทางและปลายทาง
-      const fromColIndex = newColumns.findIndex((c) => c.id === fromColumnId);
+      if (fromColIndex === -1) return state;
+
       const toColIndex = newColumns.findIndex((c) => c.id === toColumnId);
+      if (toColIndex === -1) return state;
 
-      if (fromColIndex === -1 || toColIndex === -1) return state;
-
-      // หา Index ของการ์ดที่ถูกลาก
-      const cardIndex = newColumns[fromColIndex].cards.findIndex(
-        (c) => c.id === cardId,
-      );
-      if (cardIndex === -1) return state;
-
-      // 1. ดึงการ์ดออกจากคอลัมน์เดิม (splice จะตัดเอาตัวนั้นออกมา)
+      // ดึงการ์ดออกจาก column เดิม
       const [movedCard] = newColumns[fromColIndex].cards.splice(cardIndex, 1);
 
-      // 2. อัปเดต ID คอลัมน์ของการ์ดให้เป็นอันใหม่
+      // อัปเดต fields
       movedCard.column_id = toColumnId;
+      if (isDone !== undefined) movedCard.is_done = isDone;
+      if (completedAt !== undefined) movedCard.completed_at = completedAt ?? null;
 
-      // 3. เอาการ์ดไปต่อท้ายในคอลัมน์ใหม่
+      // เอาการ์ดไปต่อท้ายใน column ใหม่
       newColumns[toColIndex].cards.push(movedCard);
 
-      // คืนค่า State ใหม่ให้ React เอาไปวาดหน้าจอใหม่
       return { columns: newColumns };
     }),
 

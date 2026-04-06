@@ -19,7 +19,7 @@ export function useBoardActions(boardId: string) {
 
     if (!oldColumnId || newColumnId === oldColumnId) return;
 
-    moveCard(cardId, oldColumnId, newColumnId);
+    moveCard(cardId, newColumnId);
 
     const targetColumn = columns.find((c) => c.id === newColumnId);
     const newPosition = targetColumn ? targetColumn.cards.length + 1 : 1;
@@ -31,6 +31,17 @@ export function useBoardActions(boardId: string) {
         old_column_id: oldColumnId,
         new_column_id: newColumnId,
         position: newPosition,
+      },
+    });
+  };
+
+  const handleToggleDone = (card: Card) => {
+    sendMessage({
+      type: "CARD_DONE_TOGGLED",
+      payload: {
+        card_id: card.id,
+        board_id: boardId,
+        is_done: !card.is_done,
       },
     });
   };
@@ -197,6 +208,7 @@ export function useBoardActions(boardId: string) {
     handleAddCard,
     handleDeleteCard,
     handleUpdateCard,
+    handleToggleDone,
     handleAddSubtask,
     fetchSubtasks,
     handleToggleSubtask,
