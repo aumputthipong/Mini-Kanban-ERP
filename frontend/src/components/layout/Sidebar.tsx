@@ -65,8 +65,7 @@ export function Sidebar({ boards }: SidebarProps) {
           
           <div className="space-y-1">
             {boards.map((board) => {
-              const href = `/board/${board.id}`;
-              // เช็ค isActive แค่ถ้า pathname เริ่มต้นด้วย URL บอร์ดนั้น (ครอบคลุมทั้งหน้า overview, settings)
+              const href = `/board/${board.id}/tasks`;
               const isActive = pathname.startsWith(href); 
               
               return (

@@ -13,14 +13,11 @@ export const useWebSocket = (url: string) => {
   const isConnecting = useRef(false);
 
   useEffect(() => {
-    // 1. Guard ป้องกัน URL ไม่พร้อม
     if (!url || url.endsWith('undefined') || url.endsWith('null') || url.endsWith('/')) {
       return;
     }
 
-    let isCancelled = false; // Flag พระเอกของเรา
-
-    console.log("🎯 Attempting to connect WebSocket to:", url);
+    let isCancelled = false; 
     isConnecting.current = true;
 
     const socket = new WebSocket(url);
@@ -31,7 +28,6 @@ export const useWebSocket = (url: string) => {
         socket.close();
         return;
       }
-      console.log('✅ Connected to Go WebSocket');
       isConnecting.current = false;
     };
 
@@ -42,8 +38,8 @@ export const useWebSocket = (url: string) => {
         console.log('Message from server:', parsedData);
 
         if (parsedData.type === 'CARD_MOVED') {
-          const { card_id, old_column_id, new_column_id } = parsedData.payload;
-          useBoardStore.getState().moveCard(card_id, old_column_id, new_column_id);
+          const { card_id, new_column_id, position, is_done, completed_at } = parsedData.payload;
+          useBoardStore.getState().moveCard(card_id, new_column_id, position, is_done, completed_at);
         }
 
         if (parsedData.type === 'CARD_CREATED') {
@@ -97,10 +93,13 @@ export const useWebSocket = (url: string) => {
   }, [url]);
 
   const sendMessage = useCallback((message: WebSocketMessage) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify(message));
+    const ws = socketRef.current;
+    const state = ws ? ws.readyState : -1;
+    console.log('[WS sendMessage] type:', message.type, '| readyState:', state, '(0=CONNECTING,1=OPEN,2=CLOSING,3=CLOSED)');
+    if (ws && state === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not connected');
+      console.warn('[WS sendMessage] NOT sent — socket not open');
     }
   }, []);
 

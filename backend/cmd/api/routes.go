@@ -31,15 +31,6 @@ func setupRoutes(
 		fmt.Fprint(w, "API is running")
 	})
 
-	r.Get("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
-		boardID := chi.URLParam(r, "boardID")
-		if boardID == "" {
-			http.Error(w, "Board ID is required", http.StatusBadRequest)
-			return
-		}
-		websocket.ServeWs(hub, w, r, boardID)
-	})
-
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/register", httputil.MakeHandler(authHandler.Register))
 		r.Post("/login", httputil.MakeHandler(authHandler.Login))
@@ -50,6 +41,15 @@ func setupRoutes(
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
+
+		r.Get("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+			boardID := chi.URLParam(r, "boardID")
+			if boardID == "" {
+				http.Error(w, "Board ID is required", http.StatusBadRequest)
+				return
+			}
+			websocket.ServeWs(hub, w, r, boardID)
+		})
 
 		r.Get("/api/auth/me", authHandler.Me)
 		r.Get("/api/users", httputil.MakeHandler(boardHandler.GetAllUsers))

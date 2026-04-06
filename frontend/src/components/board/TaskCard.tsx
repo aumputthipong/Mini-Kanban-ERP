@@ -12,7 +12,6 @@ import {
 import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
-import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -31,9 +30,7 @@ export function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // 1. ดึงข้อมูล columns จาก Store เพื่อใช้หา target column
-  const moveCard = useBoardStore((state) => state.moveCard);
-  const { handleAddSubtask } = useBoardActions(boardId);
+  const { handleAddSubtask, handleToggleDone } = useBoardActions(boardId);
 
   const totalSubtasks = card.subtasks?.length || 0;
   const completedSubtasks =
@@ -45,35 +42,6 @@ export function TaskCard({
       data: { currentColumnId: card.column_id },
     });
 
-  // 2. ฟังก์ชันจัดการ Toggle Done
-  const handleToggleDone = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const columns = useBoardStore.getState().columns;
-    if (card.is_done) {
-      const todoCol = columns.find((col) => col.category === "TODO");
-      if (todoCol) {
-        const minPos =
-          todoCol.cards.length > 0
-            ? Math.min(...todoCol.cards.map((c) => c.position)) - 1000
-            : 0;
-
-        // ส่งพารามิเตอร์ 4 ตัวให้ครบ
-        moveCard(card.id, card.column_id, todoCol.id, minPos);
-      }
-    } else {
-      // ✅ ย้ายไป DONE
-      const doneCol = columns.find((col) => col.category === "DONE");
-      if (doneCol) {
-        const maxPos =
-          doneCol.cards.length > 0
-            ? Math.max(...doneCol.cards.map((c) => c.position)) + 1000
-            : 0;
-
-        // ส่งพารามิเตอร์ 4 ตัวให้ครบ
-        moveCard(card.id, card.column_id, doneCol.id, maxPos);
-      }
-    }
-  };
   const style = transform
     ? { transform: CSS.Translate.toString(transform) }
     : undefined;
@@ -97,7 +65,7 @@ export function TaskCard({
         <div className="flex items-start gap-3">
           {/* 3. ปุ่ม Checkbox สำหรับ Toggle */}
           <button
-            onClick={handleToggleDone}
+            onClick={(e) => { e.stopPropagation(); handleToggleDone(card); }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`mt-0.5 transition-colors ${
               card.is_done
