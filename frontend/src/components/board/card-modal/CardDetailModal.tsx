@@ -74,11 +74,11 @@ export function CardDetailModal({
   } = useBoardActions(boardId);
 
   // sync subtasks เมื่อเปิด modal (กรณีที่ข้อมูล stale หรือสร้างใหม่ผ่าน WS)
-  useEffect(() => {
-    if (isOpen && card?.id) {
-      fetchSubtasks(card.id);
-    }
-  }, [isOpen, card?.id]);
+useEffect(() => {
+  if (isOpen && card?.id) {
+    fetchSubtasks(card.id); 
+  }
+}, [isOpen, card?.id]);
 
   const handleSave = () => {
     if (!validate()) return;

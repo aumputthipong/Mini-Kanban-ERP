@@ -330,11 +330,7 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 }
 
-// handleCardDoneToggled จัดการ event CARD_DONE_TOGGLED จาก frontend
-// payload: { card_id, board_id, is_done }
-// logic:
-//   is_done=true  → ย้าย card ไป DONE column (category='DONE') + set completed_at
-//   is_done=false → ย้าย card กลับ TODO column (category='TODO') + clear completed_at
+
 func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
 	cardIDStr, ok1 := payload["card_id"].(string)
 	boardIDStr, ok2 := payload["board_id"].(string)

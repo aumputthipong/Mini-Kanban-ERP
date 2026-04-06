@@ -10,10 +10,12 @@ export interface Card {
   assignee_name: string | null;
   priority: "low" | "medium" | "high" | null;
   estimated_hours: number | null;
-  subtasks?: Subtask[];
   is_done: boolean;
   completed_at: string | null;
   created_by: string | null;
+  total_subtasks: number;      // เพิ่ม — มาจาก COUNT
+  completed_subtasks: number;      // เพิ่ม — มาจาก COUNT
+  subtasks?: Subtask[];
 }
 
 export interface Column {
@@ -36,16 +38,16 @@ export interface CreateCardPayload {
 }
 
 export interface BoardMember {
-  id:        string;
-  role:      "owner" | "manager" | "member";
-  user_id:   string;
-  email:     string;
+  id: string;
+  role: "owner" | "manager" | "member";
+  user_id: string;
+  email: string;
   full_name: string;
 }
 
 export interface User {
-  id:        string;
-  email:     string;
+  id: string;
+  email: string;
   full_name: string;
 }
 

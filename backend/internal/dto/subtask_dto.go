@@ -18,8 +18,6 @@ type SubtaskResponse struct {
 
 // MapToSubtaskResponse แปลง db.CardSubtask → SubtaskResponse
 func MapToSubtaskResponse(subtask db.CardSubtask) SubtaskResponse {
-	// CreatedAt/UpdatedAt เป็น *time.Time หลังจาก sqlc generate ใหม่
-	// ใช้ zero value ถ้า nil (column มี DEFAULT จึงไม่ควรเป็น nil ในทางปฏิบัติ)
 	var createdAt, updatedAt time.Time
 	if subtask.CreatedAt != nil {
 		createdAt = *subtask.CreatedAt

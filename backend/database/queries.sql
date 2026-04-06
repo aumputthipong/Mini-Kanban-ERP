@@ -23,12 +23,15 @@ SELECT
     c.is_done,
     c.completed_at,
     c.created_by,
-    u.full_name AS assignee_name
+    u.full_name AS assignee_name,
+    COUNT(cs.id) AS total_subtasks,
+    COUNT(cs.id) FILTER (WHERE cs.is_done) AS completed_subtasks
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
+LEFT JOIN card_subtasks cs ON cs.card_id = c.id
 WHERE c.column_id = ANY($1::uuid[])
+GROUP BY c.id, u.full_name
 ORDER BY c.position ASC;
-
 -- name: CreateBoard :one
 INSERT INTO boards (id, title, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)

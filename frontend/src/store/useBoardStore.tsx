@@ -8,12 +8,22 @@ interface BoardState {
   setColumns: (columns: Column[]) => void;
   setCurrentUser: (userId: string) => void;
   setBoardMembers: (members: BoardMember[]) => void;
-  moveCard: (cardId: string, toColumnId: string, position?: number, isDone?: boolean, completedAt?: string | null) => void;
+  moveCard: (
+    cardId: string,
+    toColumnId: string,
+    position?: number,
+    isDone?: boolean,
+    completedAt?: string | null,
+  ) => void;
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
   setSubtasksToCard: (cardId: string, subtasks: any[]) => void;
-  updateSubtaskInCard: (cardId: string, subtaskId: string, updatedData: any) => void;
+  updateSubtaskInCard: (
+    cardId: string,
+    subtaskId: string,
+    updatedData: any,
+  ) => void;
   deleteSubtaskFromCard: (cardId: string, subtaskId: string) => void;
 }
 
@@ -56,7 +66,8 @@ export const useBoardStore = create<BoardState>((set) => ({
       // อัปเดต fields
       movedCard.column_id = toColumnId;
       if (isDone !== undefined) movedCard.is_done = isDone;
-      if (completedAt !== undefined) movedCard.completed_at = completedAt ?? null;
+      if (completedAt !== undefined)
+        movedCard.completed_at = completedAt ?? null;
 
       // เอาการ์ดไปต่อท้ายใน column ใหม่
       newColumns[toColIndex].cards.push(movedCard);
@@ -104,38 +115,62 @@ export const useBoardStore = create<BoardState>((set) => ({
       columns: state.columns.map((col) => ({
         ...col,
         cards: col.cards.map((card) =>
-          card.id === updated.id ? { ...card, ...updated } : card,
+          card.id === updated.id
+            ? {
+                ...card,
+                ...updated,
+                total_subtasks: updated.total_subtasks ?? card.total_subtasks,
+                completed_subtasks:
+                  updated.completed_subtasks ?? card.completed_subtasks,
+                subtasks: updated.subtasks ?? card.subtasks,
+              }
+            : card,
         ),
       })),
     })),
 
-    // ✨ [เพิ่มใหม่]: Implementation ของ setSubtasksToCard
+  // ✨ [เพิ่มใหม่]: Implementation ของ setSubtasksToCard
   setSubtasksToCard: (cardId, subtasks) =>
     set((state) => ({
       columns: state.columns.map((col) => ({
         ...col,
         cards: col.cards.map((card) =>
-          // ถ้าเจอการ์ดที่ ID ตรงกัน ให้เอา array ของ subtasks ไปใส่ทับของเดิม
-          card.id === cardId ? { ...card, subtasks: subtasks } : card,
+          card.id === cardId
+            ? {
+                ...card,
+                subtasks,
+                total_subtasks: subtasks.length,
+                completed_subtasks: subtasks.filter((st: any) => st.is_done).length,
+              }
+            : card,
         ),
       })),
     })),
 
-    updateSubtaskInCard: (cardId, subtaskId, updatedData) =>
+  updateSubtaskInCard: (cardId, subtaskId, updatedData) =>
     set((state) => ({
       columns: state.columns.map((col) => ({
         ...col,
         cards: col.cards.map((card) => {
-          if (card.id === cardId && card.subtasks) {
-            return {
-              ...card,
-              subtasks: card.subtasks.map((st) =>
-                // ถ้าเจอ subtask ที่ตรงกัน ให้เอา data ใหม่ไปทับ
-                st.id === subtaskId ? { ...st, ...updatedData } : st
-              ),
-            };
+          if (card.id !== cardId) return card;
+          const newSubtasks = card.subtasks
+            ? card.subtasks.map((st) =>
+                st.id === subtaskId ? { ...st, ...updatedData } : st,
+              )
+            : card.subtasks;
+          // อัปเดต completed_subtasks count ถ้ามีการเปลี่ยน is_done
+          let completedDelta = 0;
+          if (updatedData.is_done !== undefined && card.subtasks) {
+            const old = card.subtasks.find((st) => st.id === subtaskId);
+            if (old && old.is_done !== updatedData.is_done) {
+              completedDelta = updatedData.is_done ? 1 : -1;
+            }
           }
-          return card;
+          return {
+            ...card,
+            subtasks: newSubtasks,
+            completed_subtasks: card.completed_subtasks + completedDelta,
+          };
         }),
       })),
     })),
@@ -145,18 +180,16 @@ export const useBoardStore = create<BoardState>((set) => ({
       columns: state.columns.map((col) => ({
         ...col,
         cards: col.cards.map((card) => {
-          if (card.id === cardId && card.subtasks) {
-            return {
-              ...card,
-              // กรองเอาตัวที่ถูกลบออกไป
-              subtasks: card.subtasks.filter((st) => st.id !== subtaskId),
-            };
-          }
-          return card;
+          if (card.id !== cardId || !card.subtasks) return card;
+          const removed = card.subtasks.find((st) => st.id === subtaskId);
+          return {
+            ...card,
+            subtasks: card.subtasks.filter((st) => st.id !== subtaskId),
+            total_subtasks: card.total_subtasks - 1,
+            completed_subtasks:
+              card.completed_subtasks - (removed?.is_done ? 1 : 0),
+          };
         }),
       })),
     })),
-
-    
 }));
-

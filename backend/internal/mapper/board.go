@@ -6,6 +6,7 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 )
 
 func ToTrashedBoardDTO(b db.GetTrashedBoardsRow) dto.TrashedBoardDTO {
@@ -57,4 +58,55 @@ func ToSubtaskResponses(subtasks []db.CardSubtask) []dto.SubtaskResponse {
 		result[i] = ToSubtaskResponse(s)
 	}
 	return result
+}
+
+
+func timePtrToString(t *time.Time) *string {
+    if t == nil {
+        return nil
+    }
+    s := t.Format("2006-01-02")
+    return &s
+}
+
+func ToCardResponse(card service.CardData) dto.CardResponse {
+    return dto.CardResponse{
+        ID:                card.ID,
+        ColumnID:          card.ColumnID,
+        Title:             card.Title,
+        Description:       card.Description,
+        Position:          card.Position,
+        DueDate:           timePtrToString(card.DueDate),
+        EstimatedHours:    card.EstimatedHours,
+        AssigneeID:        card.AssigneeID,
+        AssigneeName:      card.AssigneeName,
+        Priority:          card.Priority,
+        IsDone:            card.IsDone,
+        CompletedAt:       timePtrToString(card.CompletedAt),
+        CreatedBy:         card.CreatedBy,
+        TotalSubtasks:     card.TotalSubtasks,
+        CompletedSubtasks: card.CompletedSubtasks,
+    }
+}
+
+func ToColumnResponse(col service.ColumnData) dto.ColumnResponse {
+    cards := make([]dto.CardResponse, 0, len(col.Cards))
+    for _, card := range col.Cards {
+        cards = append(cards, ToCardResponse(card))
+    }
+    return dto.ColumnResponse{
+        ID:       col.ID,
+        Title:    col.Title,
+        Position: col.Position,
+        Category: col.Category,
+        Cards:    cards,
+    }
+}
+
+func ToColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
+    result := make([]dto.ColumnResponse, 0, len(columns))
+    for _, col := range columns {
+        result = append(result, ToColumnResponse(col))
+    }
+    return result
 }

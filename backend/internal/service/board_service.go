@@ -36,20 +36,22 @@ type SubtaskData struct {
 }
 
 type CardData struct {
-	ID             string
-	ColumnID       string
-	Title          string
-	Description    *string
-	Position       float64
-	DueDate        *time.Time
-	EstimatedHours *float64
-	AssigneeID     *string
-	AssigneeName   *string
-	Priority       *string
-	IsDone         bool
-	CompletedAt    *time.Time
-	CreatedBy      *string
-	Subtasks       []SubtaskData
+	ID                string
+	ColumnID          string
+	Title             string
+	Description       *string
+	Position          float64
+	DueDate           *time.Time
+	EstimatedHours    *float64
+	AssigneeID        *string
+	AssigneeName      *string
+	Priority          *string
+	IsDone            bool
+	CompletedAt       *time.Time
+	CreatedBy         *string
+	Subtasks          []SubtaskData
+	TotalSubtasks     int64
+	CompletedSubtasks int64
 }
 
 func NewBoardService(pool *pgxpool.Pool, queries *db.Queries) *BoardService {
@@ -118,7 +120,7 @@ func (s *BoardService) GetAllBoards(ctx context.Context) ([]db.GetAllActiveBoard
 	return s.queries.GetAllActiveBoards(ctx)
 }
 
-func (s *BoardService) GetColumnsByBoardID(ctx context.Context, boardID string) ([]db.GetColumnsByBoardIDRow, error) {
+func (s *BoardService) GetColumnsByBoardID(ctx context.Context, boardID string) ([]db.Column, error) {
 	return s.queries.GetColumnsByBoardID(ctx, boardID)
 }
 
@@ -159,6 +161,9 @@ func (s *BoardService) UpdateBoard(ctx context.Context, id string, title *string
 
 // GetBoardWithCards ดึง columns, cards และ subtasks ทั้งหมดของ board ใน 3 queries
 func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([]ColumnData, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	columns, err := s.queries.GetColumnsByBoardID(ctx, boardID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch columns: %w", err)
@@ -174,51 +179,26 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 		return nil, fmt.Errorf("fetch cards: %w", err)
 	}
 
-	// รวบรวม card IDs เพื่อ fetch subtasks bulk
-	cardIDs := make([]string, 0, len(cards))
-	for _, c := range cards {
-		cardIDs = append(cardIDs, c.ID)
-	}
+	// ลบส่วน fetch subtasks ออกทั้งหมด — ไม่ต้องการแล้ว
 
-	// ถ้าไม่มี card เลย ไม่ต้อง query subtasks
-	var subtasks []db.CardSubtask
-	if len(cardIDs) > 0 {
-		subtasks, err = s.queries.GetSubtasksByCardIDs(ctx, cardIDs)
-		if err != nil {
-			return nil, fmt.Errorf("fetch subtasks: %w", err)
-		}
-	}
-
-	// จัดกลุ่ม subtasks ตาม card ID
-	subtasksByCard := make(map[string][]SubtaskData)
-	for _, st := range subtasks {
-		subtasksByCard[st.CardID] = append(subtasksByCard[st.CardID], SubtaskData{
-			ID:       st.ID,
-			CardID:   st.CardID,
-			Title:    st.Title,
-			IsDone:   st.IsDone,
-			Position: st.Position,
-		})
-	}
-
-	// จัดกลุ่ม cards ตาม column
 	cardsByColumn := make(map[string][]CardData)
 	for _, card := range cards {
 		cardsByColumn[card.ColumnID] = append(cardsByColumn[card.ColumnID], CardData{
-			ID:             card.ID,
-			ColumnID:       card.ColumnID,
-			Title:          card.Title,
-			Description:    card.Description,
-			Position:       card.Position,
-			DueDate:        card.DueDate,
-			EstimatedHours: util.PgNumericToFloat64Ptr(card.EstimatedHours),
-			AssigneeID:     card.AssigneeID,
-			AssigneeName:   card.AssigneeName,
-			Priority:       card.Priority,
-			IsDone:         card.IsDone,
-			CompletedAt:    util.TimestamptzToTimePtr(card.CompletedAt),
-			CreatedBy:      card.CreatedBy,
-			Subtasks:       subtasksByCard[card.ID],
+			ID:                card.ID,
+			ColumnID:          card.ColumnID,
+			Title:             card.Title,
+			Description:       card.Description,
+			Position:          card.Position,
+			DueDate:           card.DueDate,
+			EstimatedHours:    util.PgNumericToFloat64Ptr(card.EstimatedHours),
+			AssigneeID:        card.AssigneeID,
+			AssigneeName:      card.AssigneeName,
+			Priority:          card.Priority,
+			IsDone:            card.IsDone,
+			CompletedAt:       util.TimestamptzToTimePtr(card.CompletedAt),
+			CreatedBy:         card.CreatedBy,
+			TotalSubtasks:     card.TotalSubtasks,
+			CompletedSubtasks: card.CompletedSubtasks,
 		})
 	}
 
