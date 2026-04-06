@@ -20,7 +20,7 @@ export interface Column {
   id: string;
   title: string;
   position: number;
-  category: `TODO`|`DONE`;
+  category: "TODO" | "DONE";
   cards: Card[];
 }
 

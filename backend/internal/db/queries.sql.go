@@ -638,6 +638,40 @@ func (q *Queries) GetSubtasksByCardID(ctx context.Context, cardID string) ([]Car
 	return items, nil
 }
 
+const getSubtasksByCardIDs = `-- name: GetSubtasksByCardIDs :many
+SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks
+WHERE card_id = ANY($1::uuid[])
+ORDER BY card_id, position ASC
+`
+
+func (q *Queries) GetSubtasksByCardIDs(ctx context.Context, cardIDs []string) ([]CardSubtask, error) {
+	rows, err := q.db.Query(ctx, getSubtasksByCardIDs, cardIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CardSubtask
+	for rows.Next() {
+		var i CardSubtask
+		if err := rows.Scan(
+			&i.ID,
+			&i.CardID,
+			&i.Title,
+			&i.IsDone,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTrashedBoards = `-- name: GetTrashedBoards :many
 SELECT id, title, deleted_at 
 FROM boards 

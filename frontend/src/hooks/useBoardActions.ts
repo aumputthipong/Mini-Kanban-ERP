@@ -144,6 +144,7 @@ export function useBoardActions(boardId: string) {
       // ✅ ใช้ API_URL
       const response = await fetch(`${API_URL}/cards/${cardId}/subtasks/${subtaskId}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_done: newStatus }),
       });

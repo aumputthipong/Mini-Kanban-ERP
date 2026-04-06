@@ -184,6 +184,11 @@ SELECT * FROM card_subtasks
 WHERE card_id = $1
 ORDER BY position ASC;
 
+-- name: GetSubtasksByCardIDs :many
+SELECT * FROM card_subtasks
+WHERE card_id = ANY($1::uuid[])
+ORDER BY card_id, position ASC;
+
 -- name: CreateSubtask :one
 INSERT INTO card_subtasks (card_id, title, position)
 VALUES ($1, $2, $3)
