@@ -1,7 +1,7 @@
 "use client";
 
 import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { formatThaiDate, getOverdueText } from "@/ีutils/date_helper";
+import { formatThaiDate, getDaysRemainingText, getOverdueText } from "@/ีutils/date_helper";
 import {
   AlertCircle,
   Clock,
@@ -11,22 +11,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-// Helper ฟังก์ชันสำหรับคำนวณและแปลงวันที่เหลือให้อ่านง่าย
-// Best Practice: ควรแยก Logic การคำนวณวันเวลาออกจากส่วน UI เพื่อให้อ่านโค้ดง่าย
-const getDaysRemainingText = (dueDateStr: string) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const dueDate = new Date(dueDateStr);
-  dueDate.setHours(0, 0, 0, 0);
-
-  const diffTime = dueDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Due today";
-  if (diffDays === 1) return "Due tomorrow";
-  return `In ${diffDays} days`;
-};
 
 export function BoardDashboard() {
   const stats = useDashboardStats();
@@ -181,8 +165,6 @@ export function BoardDashboard() {
               ))}
             </div>
           </div>
-
-
         </div>
 
         {/* คอลัมน์ขวา: Active Workload (โค้ดชุดเดิม) */}

@@ -74,10 +74,17 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
               Members
             </Link>
             {/* Calendar (ยังกดไม่ได้ ให้แสดงเป็นสีเทา) */}
-            <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-300 cursor-not-allowed">
+             <Link
+              href={`${basePath}/calendar`}
+              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                pathname.includes("/calendar")
+                  ? "border-indigo-600 text-indigo-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+              }`}
+            >
               <CalendarDays size={16} />
               Calendar
-            </div>
+            </Link>
           </nav>
         </div>
 

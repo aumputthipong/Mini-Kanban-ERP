@@ -22,3 +22,18 @@ export const formatThaiDate = (dateStr: string) => {
     day: "numeric",
   });
 };
+
+export const getDaysRemainingText = (dueDateStr: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dueDate = new Date(dueDateStr);
+  dueDate.setHours(0, 0, 0, 0);
+
+  const diffTime = dueDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Due today";
+  if (diffDays === 1) return "Due tomorrow";
+  return `In ${diffDays} days`;
+};
