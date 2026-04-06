@@ -109,6 +109,7 @@ export function useBoardActions(boardId: string) {
       updateCard({
         ...targetCard,
         subtasks: [...currentSubtasks, newSubtask],
+        total_subtasks: targetCard.total_subtasks + 1,
       });
 
     } catch (error) {
@@ -118,7 +119,6 @@ export function useBoardActions(boardId: string) {
 
   const fetchSubtasks = async (cardId: string) => {
     try {
-      // ✅ ใช้ API_URL เพื่อความสม่ำเสมอ
       const response = await fetch(`${API_URL}/cards/${cardId}/subtasks`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -133,7 +133,7 @@ export function useBoardActions(boardId: string) {
     } catch (error) {
       console.error("Error fetching subtasks:", error);
     }
-  }; // ✅ ปิดปีกกานี้ให้เรียบร้อยแล้วครับ!
+  }; 
 
   const handleToggleSubtask = async (cardId: string, subtaskId: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;

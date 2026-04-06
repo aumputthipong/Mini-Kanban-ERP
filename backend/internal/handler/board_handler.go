@@ -41,18 +41,18 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) error {
-	boardID, err := httputil.GetUUIDParam(r, "boardID")
-	if err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
-	}
+    boardID, err := httputil.GetUUIDParam(r, "boardID")
+    if err != nil {
+        return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+    }
 
-	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
-	if err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
-	}
+    columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
+    if err != nil {
+        return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
+    }
 
-	httputil.RespondJSON(w, http.StatusOK, toColumnResponses(columns))
-	return nil
+    httputil.RespondJSON(w, http.StatusOK, mapper.ToColumnResponses(columns)) // เปลี่ยนตรงนี้
+    return nil
 }
 
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
@@ -143,31 +143,22 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 	for _, col := range columns {
 		cards := make([]dto.CardResponse, 0, len(col.Cards))
 		for _, card := range col.Cards {
-			subtasks := make([]dto.SubtaskInCardResponse, 0, len(card.Subtasks))
-			for _, st := range card.Subtasks {
-				subtasks = append(subtasks, dto.SubtaskInCardResponse{
-					ID:       st.ID,
-					CardID:   st.CardID,
-					Title:    st.Title,
-					IsDone:   st.IsDone,
-					Position: st.Position,
-				})
-			}
 			cards = append(cards, dto.CardResponse{
-				ID:             card.ID,
-				ColumnID:       card.ColumnID,
-				Title:          card.Title,
-				Description:    card.Description,
-				Position:       card.Position,
-				DueDate:        timePtrToStrPtr(card.DueDate),
-				EstimatedHours: card.EstimatedHours,
-				AssigneeID:     card.AssigneeID,
-				AssigneeName:   card.AssigneeName,
-				Priority:       card.Priority,
-				IsDone:         card.IsDone,
-				CompletedAt:    timePtrToStrPtr(card.CompletedAt),
-				CreatedBy:      card.CreatedBy,
-				Subtasks:       subtasks,
+				ID:                card.ID,
+				ColumnID:          card.ColumnID,
+				Title:             card.Title,
+				Description:       card.Description,
+				Position:          card.Position,
+				DueDate:           timePtrToStrPtr(card.DueDate),
+				EstimatedHours:    card.EstimatedHours,
+				AssigneeID:        card.AssigneeID,
+				AssigneeName:      card.AssigneeName,
+				Priority:          card.Priority,
+				IsDone:            card.IsDone,
+				CompletedAt:       timePtrToStrPtr(card.CompletedAt),
+				CreatedBy:         card.CreatedBy,
+				TotalSubtasks:     card.TotalSubtasks,
+				CompletedSubtasks: card.CompletedSubtasks,
 			})
 		}
 		result = append(result, dto.ColumnResponse{

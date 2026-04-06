@@ -443,27 +443,33 @@ SELECT
     c.is_done,
     c.completed_at,
     c.created_by,
-    u.full_name AS assignee_name
+    u.full_name AS assignee_name,
+    COUNT(cs.id) AS total_subtasks,
+    COUNT(cs.id) FILTER (WHERE cs.is_done) AS completed_subtasks
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
+LEFT JOIN card_subtasks cs ON cs.card_id = c.id
 WHERE c.column_id = ANY($1::uuid[])
+GROUP BY c.id, u.full_name
 ORDER BY c.position ASC
 `
 
 type GetCardsByColumnIDsRow struct {
-	ID             string
-	ColumnID       string
-	Title          string
-	Description    *string
-	Position       float64
-	DueDate        *time.Time
-	EstimatedHours pgtype.Numeric
-	AssigneeID     *string
-	Priority       *string
-	IsDone         bool
-	CompletedAt    pgtype.Timestamptz
-	CreatedBy      *string
-	AssigneeName   *string
+	ID                string
+	ColumnID          string
+	Title             string
+	Description       *string
+	Position          float64
+	DueDate           *time.Time
+	EstimatedHours    pgtype.Numeric
+	AssigneeID        *string
+	Priority          *string
+	IsDone            bool
+	CompletedAt       pgtype.Timestamptz
+	CreatedBy         *string
+	AssigneeName      *string
+	TotalSubtasks     int64
+	CompletedSubtasks int64
 }
 
 func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([]GetCardsByColumnIDsRow, error) {
@@ -489,6 +495,8 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([
 			&i.CompletedAt,
 			&i.CreatedBy,
 			&i.AssigneeName,
+			&i.TotalSubtasks,
+			&i.CompletedSubtasks,
 		); err != nil {
 			return nil, err
 		}
@@ -547,25 +555,15 @@ WHERE board_id = $1
 ORDER BY position ASC
 `
 
-type GetColumnsByBoardIDRow struct {
-	ID        string
-	BoardID   string
-	Title     string
-	Position  float64
-	Category  string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-}
-
-func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]GetColumnsByBoardIDRow, error) {
+func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Column, error) {
 	rows, err := q.db.Query(ctx, getColumnsByBoardID, boardID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetColumnsByBoardIDRow
+	var items []Column
 	for rows.Next() {
-		var i GetColumnsByBoardIDRow
+		var i Column
 		if err := rows.Scan(
 			&i.ID,
 			&i.BoardID,
@@ -644,8 +642,8 @@ WHERE card_id = ANY($1::uuid[])
 ORDER BY card_id, position ASC
 `
 
-func (q *Queries) GetSubtasksByCardIDs(ctx context.Context, cardIDs []string) ([]CardSubtask, error) {
-	rows, err := q.db.Query(ctx, getSubtasksByCardIDs, cardIDs)
+func (q *Queries) GetSubtasksByCardIDs(ctx context.Context, dollar_1 []string) ([]CardSubtask, error) {
+	rows, err := q.db.Query(ctx, getSubtasksByCardIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}

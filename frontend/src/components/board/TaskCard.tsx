@@ -2,12 +2,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import {
-  Calendar,
-  CheckCircle2,
-  Circle,
-  Clock,
-} from "lucide-react";
+import { Calendar, CheckCircle2, Circle, Clock } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
@@ -30,12 +25,12 @@ export function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const { handleAddSubtask, handleToggleDone, handleToggleSubtask } = useBoardActions(boardId);
+  const { handleAddSubtask, handleToggleDone, handleToggleSubtask } =
+    useBoardActions(boardId);
   const canEdit = useCanEdit(card);
 
-  const totalSubtasks = card.subtasks?.length || 0;
-  const completedSubtasks =
-    card.subtasks?.filter((st) => st.is_done).length || 0;
+  const totalSubtasks = card.total_subtasks ?? 0;
+  const completedSubtasks = card.completed_subtasks ?? 0;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -66,7 +61,10 @@ export function TaskCard({
         <div className="flex items-start gap-3">
           {/* 3. ปุ่ม Checkbox สำหรับ Toggle */}
           <button
-            onClick={(e) => { e.stopPropagation(); handleToggleDone(card); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleDone(card);
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`mt-0.5 transition-colors ${
               card.is_done
@@ -104,19 +102,29 @@ export function TaskCard({
         {/* Subtasks inline */}
         {totalSubtasks > 0 && (
           <div className="flex flex-col gap-1 pl-7">
-            {/* Progress bar */}
             <div className="flex items-center gap-2 mb-1">
               <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
                 <div
-                  className={`h-1 rounded-full transition-all duration-300 ${completedSubtasks === totalSubtasks ? "bg-emerald-500" : "bg-blue-400"}`}
-                  style={{ width: `${totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100)}%` }}
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    completedSubtasks === totalSubtasks
+                      ? "bg-emerald-500"
+                      : "bg-blue-400"
+                  }`}
+                  style={{
+                    width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%`,
+                  }}
                 />
               </div>
-              <span className={`text-[10px] font-semibold ${completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"}`}>
+              <span
+                className={`text-[10px] font-semibold ${
+                  completedSubtasks === totalSubtasks
+                    ? "text-emerald-500"
+                    : "text-slate-400"
+                }`}
+              >
                 {completedSubtasks}/{totalSubtasks}
               </span>
             </div>
-
             {/* Subtask rows */}
             {card.subtasks?.map((st) => (
               <div
@@ -128,10 +136,14 @@ export function TaskCard({
                 <input
                   type="checkbox"
                   checked={st.is_done}
-                  onChange={() => handleToggleSubtask(card.id, st.id, st.is_done)}
+                  onChange={() =>
+                    handleToggleSubtask(card.id, st.id, st.is_done)
+                  }
                   className="rounded border-slate-300 text-blue-500 focus:ring-blue-400 cursor-pointer"
                 />
-                <span className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}>
+                <span
+                  className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}
+                >
                   {st.title}
                 </span>
               </div>
