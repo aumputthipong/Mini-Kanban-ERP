@@ -1,19 +1,20 @@
+"use client";
+
+import { use } from "react";
 import { BoardDashboard } from "@/components/board/dashboard/BoardDashboard";
-import { Filter } from "lucide-react";
 
-// Next.js Metadata (Optional: สำหรับตั้งชื่อ Title บน Tab Browser)
-export const metadata = {
-  title: "Overview | Project Board",
-};
+interface PageProps {
+  params: Promise<{ boardId: string }>;
+}
 
-export default function OverviewPage() {
+export default function OverviewPage({ params }: PageProps) {
+  const { boardId } = use(params);
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-in-out">
-      {/* ดึง Component Dashboard มาแสดง */}
-        <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
-          
-      <BoardDashboard />
-   </div>
+      <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm">
+        <BoardDashboard boardId={boardId} />
+      </div>
     </div>
   );
 }

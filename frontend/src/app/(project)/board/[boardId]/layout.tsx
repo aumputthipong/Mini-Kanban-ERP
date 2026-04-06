@@ -17,8 +17,23 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
   // จัดการสถานะ Loading ระดับ Layout
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-slate-500">Loading board...</p>
+      <main className="min-h-screen bg-[#fafafa] px-8 py-6 animate-pulse">
+        {/* Header skeleton */}
+        <div className="h-14 bg-white rounded-xl border border-slate-200 mb-6 w-full" />
+        {/* Content skeleton */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5">
+          <div className="h-28 bg-slate-100 rounded-xl" />
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-slate-100 rounded-xl" />
+            ))}
+          </div>
+          <div className="h-20 bg-slate-100 rounded-xl" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="h-56 bg-slate-100 rounded-xl" />
+            <div className="h-56 bg-slate-100 rounded-xl" />
+          </div>
+        </div>
       </main>
     );
   }

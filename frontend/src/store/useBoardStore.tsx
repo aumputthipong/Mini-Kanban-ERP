@@ -5,9 +5,11 @@ interface BoardState {
   columns: Column[];
   currentUserId: string;
   boardMembers: BoardMember[];
+  isLoading: boolean;
   setColumns: (columns: Column[]) => void;
   setCurrentUser: (userId: string) => void;
   setBoardMembers: (members: BoardMember[]) => void;
+  setLoading: (v: boolean) => void;
   moveCard: (
     cardId: string,
     toColumnId: string,
@@ -32,9 +34,11 @@ export const useBoardStore = create<BoardState>((set) => ({
   columns: [],
   currentUserId: "",
   boardMembers: [],
+  isLoading: false,
   setColumns: (columns) => set({ columns }),
   setCurrentUser: (userId) => set({ currentUserId: userId }),
   setBoardMembers: (members) => set({ boardMembers: members }),
+  setLoading: (v) => set({ isLoading: v }),
 
   moveCard: (cardId, toColumnId, _position, isDone, completedAt) =>
     set((state) => {

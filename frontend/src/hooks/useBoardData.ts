@@ -4,7 +4,7 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { API_URL } from "@/lib/constants";
 
 export function useBoardData(boardId: string) {
-  const { setColumns, setCurrentUser, setBoardMembers } = useBoardStore();
+  const { setColumns, setCurrentUser, setBoardMembers, setLoading } = useBoardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,6 +13,7 @@ export function useBoardData(boardId: string) {
 
     const fetchAll = async () => {
       setIsLoading(true);
+      setLoading(true);
       setError(null);
       try {
         const [boardRes, meRes, membersRes] = await Promise.all([
@@ -36,6 +37,7 @@ export function useBoardData(boardId: string) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setIsLoading(false);
+        setLoading(false);
       }
     };
 

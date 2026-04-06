@@ -24,6 +24,7 @@ export function useDashboardStats() {
         dueSoonCards: [],
         insights: ["No tasks in this project yet. Create a task to see insights."],
         workload: [],
+        columnStats: columns.map((col) => ({ id: col.id, title: col.title, category: col.category, count: 0 })),
       };
     }
 
@@ -114,6 +115,14 @@ export function useDashboardStats() {
       insights.push(`Hidden bottleneck: ${staleCount} tasks haven't seen any movement in over 7 days.`);
     }
 
+    // สถิติการ์ดแต่ละ column สำหรับ Bottleneck Analysis
+    const columnStats = columns.map((col) => ({
+      id: col.id,
+      title: col.title,
+      category: col.category,
+      count: col.cards.length,
+    }));
+
     return {
       totalCards,
       progress,
@@ -122,6 +131,7 @@ export function useDashboardStats() {
       dueSoonCards,
       insights,
       workload: Object.values(assigneeCount).sort((a, b) => b.count - a.count),
+      columnStats,
     };
   }, [columns]);
 }
