@@ -2,20 +2,29 @@ package dto
 
 import "time"
 
+type SubtaskInCardResponse struct {
+	ID       string  `json:"id"`
+	CardID   string  `json:"card_id"`
+	Title    string  `json:"title"`
+	IsDone   bool    `json:"is_done"`
+	Position float64 `json:"position"`
+}
+
 type CardResponse struct {
-	ID             string   `json:"id"`
-	ColumnID       string   `json:"column_id"`
-	Title          string   `json:"title"`
-	Description    *string  `json:"description"`
-	Position       float64  `json:"position"`
-	DueDate        *string  `json:"due_date"`
-	EstimatedHours *float64 `json:"estimated_hours"`
-	AssigneeID     *string  `json:"assignee_id"`
-	AssigneeName   *string  `json:"assignee_name"`
-	Priority       *string  `json:"priority"`
-	IsDone         bool     `json:"is_done"`
-	CompletedAt    *string  `json:"completed_at"`
-	CreatedBy      *string  `json:"created_by"`
+	ID             string                  `json:"id"`
+	ColumnID       string                  `json:"column_id"`
+	Title          string                  `json:"title"`
+	Description    *string                 `json:"description"`
+	Position       float64                 `json:"position"`
+	DueDate        *string                 `json:"due_date"`
+	EstimatedHours *float64                `json:"estimated_hours"`
+	AssigneeID     *string                 `json:"assignee_id"`
+	AssigneeName   *string                 `json:"assignee_name"`
+	Priority       *string                 `json:"priority"`
+	IsDone         bool                    `json:"is_done"`
+	CompletedAt    *string                 `json:"completed_at"`
+	CreatedBy      *string                 `json:"created_by"`
+	Subtasks       []SubtaskInCardResponse `json:"subtasks"`
 }
 
 type CreateCardRequest struct {

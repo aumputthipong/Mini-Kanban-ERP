@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -65,6 +67,23 @@ func PtrFloatToPgNumeric(f *float64) pgtype.Numeric {
 	var n pgtype.Numeric
 	n.Scan(fmt.Sprintf("%f", *f))
 	return n
+}
+
+// PgNumericToFloat64Ptr แปลง pgtype.Numeric → *float64 (คืน nil ถ้า invalid)
+func PgNumericToFloat64Ptr(n pgtype.Numeric) *float64 {
+	if !n.Valid || n.NaN || n.Int == nil {
+		return nil
+	}
+	// ใช้ fmt.Sprintf ผ่าน pgtype เพื่อหลีกเลี่ยง nil pointer
+	text := fmt.Sprintf("%d", n.Int)
+	base, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return nil
+	}
+	if n.Exp != 0 {
+		base = base * math.Pow10(int(n.Exp))
+	}
+	return &base
 }
 
 // TimestamptzToTimePtr แปลง pgtype.Timestamptz → *time.Time

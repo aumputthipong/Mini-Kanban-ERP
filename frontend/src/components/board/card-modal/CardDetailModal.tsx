@@ -66,24 +66,17 @@ export function CardDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
-
-
   const {
     fetchSubtasks,
     handleToggleSubtask,
     handleDeleteSubtask,
     handleUpdateSubtaskTitle,
   } = useBoardActions(boardId);
-  const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false);
 
+  // sync subtasks เมื่อเปิด modal (กรณีที่ข้อมูล stale หรือสร้างใหม่ผ่าน WS)
   useEffect(() => {
     if (isOpen && card?.id) {
-      const loadData = async () => {
-        setIsLoadingSubtasks(true);
-        await fetchSubtasks(card.id);
-        setIsLoadingSubtasks(false);
-      };
-      loadData();
+      fetchSubtasks(card.id);
     }
   }, [isOpen, card?.id]);
 

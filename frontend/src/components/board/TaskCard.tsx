@@ -5,9 +5,8 @@ import { useDraggable } from "@dnd-kit/core";
 import {
   Calendar,
   CheckCircle2,
-  CheckSquare,
   Circle,
-  Trash2,
+  Clock,
 } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
@@ -31,7 +30,7 @@ export function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const { handleAddSubtask, handleToggleDone } = useBoardActions(boardId);
+  const { handleAddSubtask, handleToggleDone, handleToggleSubtask } = useBoardActions(boardId);
   const canEdit = useCanEdit(card);
 
   const totalSubtasks = card.subtasks?.length || 0;
@@ -102,22 +101,68 @@ export function TaskCard({
           </div>
         </div>
 
-        {/* Footer ของ Card */}
-        {(card.due_date || totalSubtasks > 0) && (
-          <div className="flex items-center gap-3 pl-7">
-            {" "}
-            {/* pl-7 เพื่อให้เยื้องตรงกับ Title */}
-            {totalSubtasks > 0 && (
-              <span
-                className={`flex items-center gap-1 text-xs font-medium 
-                ${completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"}`}
-              >
-                <CheckSquare size={12} />
+        {/* Subtasks inline */}
+        {totalSubtasks > 0 && (
+          <div className="flex flex-col gap-1 pl-7">
+            {/* Progress bar */}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
+                <div
+                  className={`h-1 rounded-full transition-all duration-300 ${completedSubtasks === totalSubtasks ? "bg-emerald-500" : "bg-blue-400"}`}
+                  style={{ width: `${totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100)}%` }}
+                />
+              </div>
+              <span className={`text-[10px] font-semibold ${completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"}`}>
                 {completedSubtasks}/{totalSubtasks}
               </span>
-            )}
-            {card.is_done && card.completed_at && (
-              <span className="text-[10px] text-slate-400 italic">Done</span>
+            </div>
+
+            {/* Subtask rows */}
+            {card.subtasks?.map((st) => (
+              <div
+                key={st.id}
+                className="flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={st.is_done}
+                  onChange={() => handleToggleSubtask(card.id, st.id, st.is_done)}
+                  className="rounded border-slate-300 text-blue-500 focus:ring-blue-400 cursor-pointer"
+                />
+                <span className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}>
+                  {st.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer — due date, estimated hours, assignee */}
+        {(card.due_date || card.estimated_hours || card.assignee_id) && (
+          <div className="flex items-center justify-between pl-7 pt-1">
+            <div className="flex items-center gap-2">
+              {card.due_date && (
+                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                  <Calendar size={10} />
+                  {card.due_date.slice(0, 10)}
+                </span>
+              )}
+              {card.estimated_hours != null && (
+                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                  <Clock size={10} />
+                  {card.estimated_hours}h
+                </span>
+              )}
+            </div>
+            {card.assignee_name && (
+              <div
+                className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                title={card.assignee_name}
+              >
+                {card.assignee_name.charAt(0).toUpperCase()}
+              </div>
             )}
           </div>
         )}
