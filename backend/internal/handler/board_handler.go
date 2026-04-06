@@ -155,12 +155,14 @@ func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
 				Priority:     card.Priority,
 				IsDone:       card.IsDone,
 				CompletedAt:  timePtrToStrPtr(card.CompletedAt),
+				CreatedBy:    card.CreatedBy,
 			})
 		}
 		result = append(result, dto.ColumnResponse{
-			ID:       col.ID, // string โดยตรง
+			ID:       col.ID,
 			Title:    col.Title,
 			Position: col.Position,
+			Category: col.Category,
 			Cards:    cards,
 		})
 	}

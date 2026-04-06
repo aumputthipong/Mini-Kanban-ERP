@@ -7,6 +7,7 @@ type ColumnResponse struct {
 	ID       string         `json:"id"`
 	Title    string         `json:"title"`
 	Position float64        `json:"position"`
+	Category string         `json:"category"`
 	Cards    []CardResponse `json:"cards"`
 }
 

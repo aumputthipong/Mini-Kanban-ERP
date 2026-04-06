@@ -23,6 +23,7 @@ type ColumnData struct {
 	ID       string
 	Title    string
 	Position float64
+	Category string
 	Cards    []CardData
 }
 
@@ -38,6 +39,7 @@ type CardData struct {
 	Priority     *string
 	IsDone       bool
 	CompletedAt  *time.Time
+	CreatedBy    *string
 }
 
 func NewBoardService(pool *pgxpool.Pool, queries *db.Queries) *BoardService {
@@ -177,6 +179,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			Priority:     card.Priority,
 			IsDone:       card.IsDone,
 			CompletedAt:  util.TimestamptzToTimePtr(card.CompletedAt),
+			CreatedBy:    card.CreatedBy,
 		})
 	}
 
@@ -186,6 +189,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			ID:       col.ID,
 			Title:    col.Title,
 			Position: col.Position,
+			Category: col.Category,
 			Cards:    cardsByColumn[col.ID],
 		})
 	}

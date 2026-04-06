@@ -39,8 +39,8 @@ interface CardDetailModalProps {
   onClose: () => void;
   onUpdated: (cardId: string, form: FormState) => void;
   onDelete: (cardId: string) => void;
-  // เพิ่ม Prop สำหรับรับฟังก์ชัน Add Subtask
   onAddSubtask?: (cardId: string, title: string) => void;
+  canEdit: boolean;
 }
 
 export function CardDetailModal({
@@ -51,6 +51,7 @@ export function CardDetailModal({
   onUpdated,
   onDelete,
   onAddSubtask,
+  canEdit,
 }: CardDetailModalProps) {
   const {
     form,
@@ -121,16 +122,22 @@ export function CardDetailModal({
             <Folder size={24} />
           </div>
           <div className="flex-1 relative">
-            <input
-              type="text"
-              value={form.title}
-              onChange={handleChange("title")}
-              placeholder="Enter card title..."
-              className="w-full text-2xl font-extrabold text-slate-800 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-all cursor-text placeholder:text-slate-300 pr-10"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
-              <Pencil size={18} />
-            </div>
+            {canEdit ? (
+              <>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={handleChange("title")}
+                  placeholder="Enter card title..."
+                  className="w-full text-2xl font-extrabold text-slate-800 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-all cursor-text placeholder:text-slate-300 pr-10"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
+                  <Pencil size={18} />
+                </div>
+              </>
+            ) : (
+              <p className="text-2xl font-extrabold text-slate-800 px-3 py-0.5">{form.title}</p>
+            )}
           </div>
         </div>
       </DialogTitle>
@@ -143,6 +150,7 @@ export function CardDetailModal({
           assigneeName={assigneeName}
           onChange={handleChange}
           error={error}
+          canEdit={canEdit}
         />
 
         {/* --- ส่วน Subtasks --- */}
@@ -186,27 +194,29 @@ export function CardDetailModal({
           </div>
 
           {/* ฟอร์มเพิ่ม Subtask */}
-          <form
-            onSubmit={handleAddSubtaskSubmit}
-            className="flex items-center gap-2 px-2"
-          >
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={newSubtaskTitle}
-                onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                placeholder="Add a new subtask..."
-                className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!newSubtaskTitle.trim()}
-              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          {canEdit && (
+            <form
+              onSubmit={handleAddSubtaskSubmit}
+              className="flex items-center gap-2 px-2"
             >
-              <Plus size={18} />
-            </button>
-          </form>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                  placeholder="Add a new subtask..."
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!newSubtaskTitle.trim()}
+                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Plus size={18} />
+              </button>
+            </form>
+          )}
         </div>
       </DialogContent>
 
@@ -216,13 +226,17 @@ export function CardDetailModal({
         sx={{ justifyContent: "space-between", padding: "16px" }}
         className="border-t border-slate-100"
       >
-        <button
-          onClick={handleDelete}
-          disabled={isSaving}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-        >
-          <Trash2 size={16} /> <span>Delete</span>
-        </button>
+        {canEdit ? (
+          <button
+            onClick={handleDelete}
+            disabled={isSaving}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            <Trash2 size={16} /> <span>Delete</span>
+          </button>
+        ) : (
+          <div />
+        )}
 
         <div className="flex items-center gap-2">
           <Button
@@ -231,25 +245,27 @@ export function CardDetailModal({
             disabled={isSaving}
             sx={{ textTransform: "none", fontWeight: 600, color: "#64748b" }}
           >
-            Cancel
+            {canEdit ? "Cancel" : "Close"}
           </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={isSaving || !isDirty}
-            startIcon={
-              isSaving ? <Loader2 size={14} className="animate-spin" /> : null
-            }
-            disableElevation
-            sx={{
-              textTransform: "none",
-              fontWeight: 600,
-              bgcolor: "#0f172a",
-              "&:hover": { bgcolor: "#334155" },
-            }}
-          >
-            Save changes
-          </Button>
+          {canEdit && (
+            <Button
+              onClick={handleSave}
+              variant="contained"
+              disabled={isSaving || !isDirty}
+              startIcon={
+                isSaving ? <Loader2 size={14} className="animate-spin" /> : null
+              }
+              disableElevation
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                bgcolor: "#0f172a",
+                "&:hover": { bgcolor: "#334155" },
+              }}
+            >
+              Save changes
+            </Button>
+          )}
         </div>
       </DialogActions>
     </Dialog>

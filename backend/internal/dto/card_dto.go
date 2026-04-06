@@ -15,6 +15,7 @@ type CardResponse struct {
 	Priority       *string  `json:"priority"`
 	IsDone         bool     `json:"is_done"`
 	CompletedAt    *string  `json:"completed_at"`
+	CreatedBy      *string  `json:"created_by"`
 }
 
 type CreateCardRequest struct {

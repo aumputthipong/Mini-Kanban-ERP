@@ -442,6 +442,7 @@ SELECT
     c.priority,
     c.is_done,
     c.completed_at,
+    c.created_by,
     u.full_name AS assignee_name
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
@@ -461,6 +462,7 @@ type GetCardsByColumnIDsRow struct {
 	Priority       *string
 	IsDone         bool
 	CompletedAt    pgtype.Timestamptz
+	CreatedBy      *string
 	AssigneeName   *string
 }
 
@@ -485,6 +487,7 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([
 			&i.Priority,
 			&i.IsDone,
 			&i.CompletedAt,
+			&i.CreatedBy,
 			&i.AssigneeName,
 		); err != nil {
 			return nil, err
@@ -538,9 +541,9 @@ func (q *Queries) GetColumnCategory(ctx context.Context, id string) (string, err
 }
 
 const getColumnsByBoardID = `-- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, created_at, updated_at
-FROM columns 
-WHERE board_id = $1 
+SELECT id, board_id, title, position, category, created_at, updated_at
+FROM columns
+WHERE board_id = $1
 ORDER BY position ASC
 `
 
@@ -549,6 +552,7 @@ type GetColumnsByBoardIDRow struct {
 	BoardID   string
 	Title     string
 	Position  float64
+	Category  string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -567,6 +571,7 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Ge
 			&i.BoardID,
 			&i.Title,
 			&i.Position,
+			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

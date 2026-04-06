@@ -12,7 +12,8 @@ export interface Card {
   estimated_hours: number | null;
   subtasks?: Subtask[];
   is_done: boolean;
-  completed_at:string |null;
+  completed_at: string | null;
+  created_by: string | null;
 }
 
 export interface Column {

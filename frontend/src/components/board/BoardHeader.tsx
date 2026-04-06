@@ -54,7 +54,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
             <Link
               href={`${basePath}/tasks`}
               className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                 pathname.includes("/tasks")
+                pathname.includes("/tasks")
                   ? "border-indigo-600 text-indigo-700"
                   : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
               }`}
@@ -63,15 +63,15 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
               Board
             </Link>
             <Link
-              href={`${basePath}/member`}
+              href={`${basePath}/members`}
               className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                 pathname.includes("/members")
+                pathname.includes("/members")
                   ? "border-indigo-600 text-indigo-700"
                   : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
               }`}
             >
               <User size={16} />
-             Members
+              Members
             </Link>
             {/* Calendar (ยังกดไม่ได้ ให้แสดงเป็นสีเทา) */}
             <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-slate-300 cursor-not-allowed">
@@ -96,7 +96,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
           </Link>
         </div>
       </div>
-{pathname === `${basePath}/tasks` && (
+      {pathname === `${basePath}/tasks` && (
         <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/50 mt-1">
           <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
             <Filter size={14} />
