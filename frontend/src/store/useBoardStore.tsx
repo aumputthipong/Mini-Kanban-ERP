@@ -1,10 +1,13 @@
-import { Card, Column } from "@/types/board";
+import { BoardMember, Card, Column } from "@/types/board";
 import { create } from "zustand";
 
-// 2. กำหนดว่าใน Store นี้จะมีข้อมูลและฟังก์ชันอะไรให้เรียกใช้บ้าง
 interface BoardState {
   columns: Column[];
+  currentUserId: string;
+  boardMembers: BoardMember[];
   setColumns: (columns: Column[]) => void;
+  setCurrentUser: (userId: string) => void;
+  setBoardMembers: (members: BoardMember[]) => void;
   moveCard: (cardId: string, toColumnId: string, position?: number, isDone?: boolean, completedAt?: string | null) => void;
   addCardToStore: (newCard: any) => void;
   removeCardFromStore: (cardId: string) => void;
@@ -17,7 +20,11 @@ interface BoardState {
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
 export const useBoardStore = create<BoardState>((set) => ({
   columns: [],
+  currentUserId: "",
+  boardMembers: [],
   setColumns: (columns) => set({ columns }),
+  setCurrentUser: (userId) => set({ currentUserId: userId }),
+  setBoardMembers: (members) => set({ boardMembers: members }),
 
   moveCard: (cardId, toColumnId, _position, isDone, completedAt) =>
     set((state) => {

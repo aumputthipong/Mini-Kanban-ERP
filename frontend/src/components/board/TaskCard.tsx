@@ -13,6 +13,7 @@ import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
 import { useBoardActions } from "@/hooks/useBoardActions";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";
 
 interface CardProps {
@@ -31,6 +32,7 @@ export function TaskCard({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const { handleAddSubtask, handleToggleDone } = useBoardActions(boardId);
+  const canEdit = useCanEdit(card);
 
   const totalSubtasks = card.subtasks?.length || 0;
   const completedSubtasks =
@@ -135,6 +137,7 @@ export function TaskCard({
           setIsDetailOpen(false);
         }}
         onAddSubtask={handleAddSubtask}
+        canEdit={canEdit}
       />
     </>
   );

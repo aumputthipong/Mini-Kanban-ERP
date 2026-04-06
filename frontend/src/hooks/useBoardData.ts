@@ -4,25 +4,34 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { API_URL } from "@/lib/constants";
 
 export function useBoardData(boardId: string) {
-  const { setColumns } = useBoardStore();
+  const { setColumns, setCurrentUser, setBoardMembers } = useBoardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!boardId) return;
-    
-    const fetchBoardData = async () => {
+
+    const fetchAll = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_URL}/boards/${boardId}`, {
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to load board (${response.status})`);
-        }
-        const data = await response.json();
-        setColumns(data);
+        const [boardRes, meRes, membersRes] = await Promise.all([
+          fetch(`${API_URL}/boards/${boardId}`, { credentials: "include" }),
+          fetch(`${API_URL}/auth/me`, { credentials: "include" }),
+          fetch(`${API_URL}/boards/${boardId}/members`, { credentials: "include" }),
+        ]);
+
+        if (!boardRes.ok) throw new Error(`Failed to load board (${boardRes.status})`);
+
+        const [boardData, meData, membersData] = await Promise.all([
+          boardRes.json(),
+          meRes.ok ? meRes.json() : Promise.resolve(null),
+          membersRes.ok ? membersRes.json() : Promise.resolve([]),
+        ]);
+
+        setColumns(boardData);
+        if (meData?.user_id) setCurrentUser(meData.user_id);
+        setBoardMembers(membersData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -30,8 +39,8 @@ export function useBoardData(boardId: string) {
       }
     };
 
-    fetchBoardData();
-  }, [boardId, setColumns]);
+    fetchAll();
+  }, [boardId]);
 
   return { isLoading, error };
 }

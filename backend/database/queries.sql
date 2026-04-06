@@ -4,9 +4,9 @@ FROM boards
 ORDER BY created_at DESC;
 
 -- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, created_at, updated_at
-FROM columns 
-WHERE board_id = $1 
+SELECT id, board_id, title, position, category, created_at, updated_at
+FROM columns
+WHERE board_id = $1
 ORDER BY position ASC;
 
 -- name: GetCardsByColumnIDs :many
@@ -22,6 +22,7 @@ SELECT
     c.priority,
     c.is_done,
     c.completed_at,
+    c.created_by,
     u.full_name AS assignee_name
 FROM cards c
 LEFT JOIN users u ON c.assignee_id = u.id
