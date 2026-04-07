@@ -1,4 +1,5 @@
 "use client";
+
 import { use, useState, useRef } from "react";
 import { KanbanBoard } from "@/components/board/KanbanBoard";
 import { useBoardActions } from "@/hooks/useBoardActions";
@@ -22,10 +23,7 @@ function AddColumnButton({ onAdd }: { onAdd: (title: string) => void }) {
   if (!editing) {
     return (
       <button
-        onClick={() => {
-          setEditing(true);
-          setTimeout(() => inputRef.current?.focus(), 0);
-        }}
+        onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}
         className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
       >
         <Plus size={14} /> Add column
@@ -42,27 +40,15 @@ function AddColumnButton({ onAdd }: { onAdd: (title: string) => void }) {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") submit();
-          if (e.key === "Escape") {
-            setValue("");
-            setEditing(false);
-          }
+          if (e.key === "Escape") { setValue(""); setEditing(false); }
         }}
         placeholder="Column name..."
         className="text-sm border border-blue-400 rounded-lg px-3 py-1.5 outline-none ring-2 ring-blue-100 w-40"
       />
-      <button
-        onClick={submit}
-        className="text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-3 py-1.5 font-medium transition-colors"
-      >
+      <button onClick={submit} className="text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-3 py-1.5 font-medium transition-colors">
         Add
       </button>
-      <button
-        onClick={() => {
-          setValue("");
-          setEditing(false);
-        }}
-        className="text-xs border border-slate-200 hover:bg-slate-50 rounded-lg px-3 py-1.5 text-slate-600 transition-colors"
-      >
+      <button onClick={() => { setValue(""); setEditing(false); }} className="text-xs border border-slate-200 hover:bg-slate-50 rounded-lg px-3 py-1.5 text-slate-600 transition-colors">
         Cancel
       </button>
     </div>
@@ -73,17 +59,14 @@ function BoardToolbar({ boardId }: { boardId: string }) {
   const { handleAddColumn } = useBoardActions(boardId);
 
   return (
-    <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/50 mt-1">
-      {" "}
-      <div className="flex items-center gap-3 px-8 py-3 border-b border-slate-100 bg-slate-50/50 mb-4">
-        <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-          <Filter size={14} />
-          Filters
-        </button>
-        <div className="w-px h-5 bg-slate-200" />
-        <AddColumnButton onAdd={handleAddColumn} />
-      </div>
-    </div>
+<div className="-mx-8 flex items-center gap-3 px-8 h-14 bg-slate-50 border-b border-slate-200 mb-6">
+  <button className="flex items-center justify-center gap-2 px-3 h-9 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+    <Filter size={14} />
+    Filters
+  </button>
+    <div className="w-px h-5 bg-slate-300 mx-1" />
+    <AddColumnButton onAdd={handleAddColumn} />
+</div>
   );
 }
 
@@ -91,11 +74,9 @@ export default function KanbanPage({ params }: PageProps) {
   const { boardId } = use(params);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 -mx-8 -mt-2">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <BoardToolbar boardId={boardId} />
-      <div className="px-8">
-        <KanbanBoard boardId={boardId} />
-      </div>
+      <KanbanBoard boardId={boardId} />
     </div>
   );
 }
