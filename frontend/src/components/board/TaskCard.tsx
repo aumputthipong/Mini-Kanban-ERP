@@ -53,11 +53,11 @@ export function TaskCard({
         {...attributes}
         onClick={() => setIsDetailOpen(true)}
         className={`group relative p-4 rounded-xl border flex flex-col gap-3
-    ${card.is_done ? "bg-slate-50/50 border-slate-200 opacity-80" : "bg-white border-slate-200"}
-    ${
-      isDragging
-        ? "shadow-2xl rotate-2 cursor-grabbing z-50 ring-2 ring-blue-500 opacity-80"
-        : "shadow-sm cursor-grab hover:shadow-md hover:border-blue-300 transition-all duration-200"
+    ${isDragging
+        ? "opacity-0 pointer-events-none"
+        : card.is_done
+          ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
+          : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300 transition-all duration-200"
     }`}
       >
         {/* DEBUG: แสดง position — ลบทิ้งเมื่อ debug เสร็จ */}

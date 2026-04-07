@@ -1,5 +1,5 @@
 // hooks/useBoardActions.ts
-import { DragEndEvent } from "@dnd-kit/core";
+import { DragEndEvent, DragOverEvent } from "@dnd-kit/core";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { API_URL, WS_URL } from "@/lib/constants";
@@ -11,61 +11,80 @@ export function useBoardActions(boardId: string) {
   const { columns, moveCard, updateCard } = useBoardStore();
   const { sendMessage } = useWebSocket(`${WS_URL}/${boardId}`);
 
+  // helper: แปลง over.id → { overColumnId, overCardId }
+  const resolveOver = (overId: string): { overColumnId: string; overCardId: string | null } | null => {
+    if (columns.some((c) => c.id === overId)) {
+      return { overColumnId: overId, overCardId: null };
+    }
+    const overCol = columns.find((col) => col.cards.some((c) => c.id === overId));
+    if (!overCol) return null;
+    return { overColumnId: overCol.id, overCardId: overId };
+  };
+
+  // helper: คำนวณ position ที่จะแทรก
+  const calcPosition = (overColumnId: string, overCardId: string | null, excludeCardId: string): number => {
+    const targetColumn = columns.find((c) => c.id === overColumnId);
+    if (!targetColumn) return POSITION_GAP;
+
+    const sortedCards = [...targetColumn.cards]
+      .filter((c) => c.id !== excludeCardId)
+      .sort((a, b) => a.position - b.position);
+
+    if (overCardId) {
+      const overIdx = sortedCards.findIndex((c) => c.id === overCardId);
+      const prevPos = overIdx > 0 ? sortedCards[overIdx - 1].position : 0;
+      const nextPos = sortedCards[overIdx]?.position ?? prevPos + POSITION_GAP * 2;
+      return (prevPos + nextPos) / 2;
+    }
+    const lastCard = sortedCards[sortedCards.length - 1];
+    return lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
+  };
+
+  // onDragOver — ย้ายการ์ดเข้า SortableContext ของ column ปลายทางระหว่าง drag
+  // (visual only, ยังไม่ส่ง WS)
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeCardId = active.id as string;
+    // หา column ปัจจุบันของการ์ดจาก store (อาจถูกย้ายโดย onDragOver ก่อนหน้าแล้ว)
+    const currentCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
+    if (!currentCol) return;
+
+    const resolved = resolveOver(over.id as string);
+    if (!resolved) return;
+    const { overColumnId, overCardId } = resolved;
+
+    // ถ้าอยู่ column เดิมอยู่แล้ว → ปล่อยให้ SortableContext จัดการเอง
+    if (currentCol.id === overColumnId) return;
+
+    const tempPosition = calcPosition(overColumnId, overCardId, activeCardId);
+    moveCard(activeCardId, overColumnId, tempPosition);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const activeCardId = active.id as string;
-    const activeColumnId = active.data.current?.currentColumnId as string;
-    if (!activeColumnId) return;
+    // ใช้ active.data.current เพื่อเก็บ original column ไว้ส่ง WS เท่านั้น
+    const originalColumnId = active.data.current?.currentColumnId as string;
 
-    // ตรวจว่า over.id คือ column หรือ card
-    const isOverColumn = columns.some((c) => c.id === over.id);
-    let overColumnId: string;
-    let overCardId: string | null = null;
+    const resolved = resolveOver(over.id as string);
+    if (!resolved) return;
+    const { overColumnId, overCardId } = resolved;
 
-    if (isOverColumn) {
-      overColumnId = over.id as string;
-    } else {
-      const overCol = columns.find((col) =>
-        col.cards.some((c) => c.id === over.id),
-      );
-      if (!overCol) return;
-      overColumnId = overCol.id;
-      overCardId = over.id as string;
-    }
+    // คำนวณ position สุดท้าย (ใช้ state ปัจจุบันซึ่ง onDragOver อาจย้ายการ์ดมาแล้ว)
+    const newPosition = calcPosition(overColumnId, overCardId, activeCardId);
 
-    const targetColumn = columns.find((c) => c.id === overColumnId);
-    if (!targetColumn) return;
-
-    // การ์ดที่เหลือใน target column (ไม่นับตัวที่กำลัง drag)
-    const sortedCards = [...targetColumn.cards]
-      .filter((c) => c.id !== activeCardId)
-      .sort((a, b) => a.position - b.position);
-
-    let newPosition: number;
-
-    if (overCardId) {
-      // วางบนการ์ดใบหนึ่ง → แทรกก่อนการ์ดนั้น
-      const overIdx = sortedCards.findIndex((c) => c.id === overCardId);
-      const prevPos = overIdx > 0 ? sortedCards[overIdx - 1].position : 0;
-      const nextPos =
-        sortedCards[overIdx]?.position ?? prevPos + POSITION_GAP * 2;
-      newPosition = (prevPos + nextPos) / 2;
-    } else {
-      // วางบน column area → ต่อท้าย
-      const lastCard = sortedCards[sortedCards.length - 1];
-      newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
-    }
-
-    // Optimistic update
+    // Final optimistic update (แก้ position จาก temp เป็น final)
     moveCard(activeCardId, overColumnId, newPosition);
 
     sendMessage({
       type: "CARD_MOVED",
       payload: {
         card_id: activeCardId,
-        old_column_id: activeColumnId,
+        old_column_id: originalColumnId,
         new_column_id: overColumnId,
         position: newPosition,
       },
@@ -249,6 +268,7 @@ export function useBoardActions(boardId: string) {
 
   return {
     handleDragEnd,
+    handleDragOver,
     handleAddCard,
     handleDeleteCard,
     handleUpdateCard,
