@@ -53,7 +53,7 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
       <div className="relative z-10 flex flex-col h-full">
         <BoardHeader title="Project Board" />
         
-        <div className="flex-1 px-8 pb-8 pt-2">
+        <div className="flex-1 px-8 pb-8">
           {children}
         </div>
       </div>

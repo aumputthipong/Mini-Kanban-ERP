@@ -24,7 +24,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
   const basePath = `/board/${boardId}`;
 
   return (
-    <header className="bg-white border-b border-slate-200 w-full mb-6 z-10 relative">
+    <header className="bg-white border-b border-slate-200 w-full z-10 relative">
       <div className="flex items-center justify-between px-6 pt-4">
         {/* ฝั่งซ้าย: โลโก้ + Tabs */}
         <div className="flex items-center">
