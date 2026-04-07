@@ -1,6 +1,7 @@
 // components/kanban/TaskCard.tsx
 "use client";
 
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { Calendar, CheckCircle2, Circle, Clock } from "lucide-react";
 import { useState } from "react";
@@ -18,7 +19,7 @@ interface CardProps {
   onSaveCard: (cardId: string, form: FormState) => void;
 }
 
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   card,
   boardId,
   onDeleteCard,
@@ -204,4 +205,4 @@ export function TaskCard({
       />
     </>
   );
-}
+});
