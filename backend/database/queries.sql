@@ -43,6 +43,11 @@ VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, board_id, title, position;
 
 
+-- name: GetMaxPositionInColumn :one
+SELECT COALESCE(MAX(position), 0)
+FROM cards
+WHERE column_id = $1;
+
 -- name: CreateCard :one
 INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

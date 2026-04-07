@@ -5,31 +5,68 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { API_URL, WS_URL } from "@/lib/constants";
 import type { Card, Subtask } from "@/types/board";
 
+const POSITION_GAP = 65536;
+
 export function useBoardActions(boardId: string) {
   const { columns, moveCard, updateCard } = useBoardStore();
   const { sendMessage } = useWebSocket(`${WS_URL}/${boardId}`);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over || active.id === over.id) return;
 
-    const cardId = active.id as string;
-    const newColumnId = over.id as string;
-    const oldColumnId = active.data.current?.currentColumnId;
+    const activeCardId = active.id as string;
+    const activeColumnId = active.data.current?.currentColumnId as string;
+    if (!activeColumnId) return;
 
-    if (!oldColumnId || newColumnId === oldColumnId) return;
+    // ตรวจว่า over.id คือ column หรือ card
+    const isOverColumn = columns.some((c) => c.id === over.id);
+    let overColumnId: string;
+    let overCardId: string | null = null;
 
-    moveCard(cardId, newColumnId);
+    if (isOverColumn) {
+      overColumnId = over.id as string;
+    } else {
+      const overCol = columns.find((col) =>
+        col.cards.some((c) => c.id === over.id),
+      );
+      if (!overCol) return;
+      overColumnId = overCol.id;
+      overCardId = over.id as string;
+    }
 
-    const targetColumn = columns.find((c) => c.id === newColumnId);
-    const newPosition = targetColumn ? targetColumn.cards.length + 1 : 1;
+    const targetColumn = columns.find((c) => c.id === overColumnId);
+    if (!targetColumn) return;
+
+    // การ์ดที่เหลือใน target column (ไม่นับตัวที่กำลัง drag)
+    const sortedCards = [...targetColumn.cards]
+      .filter((c) => c.id !== activeCardId)
+      .sort((a, b) => a.position - b.position);
+
+    let newPosition: number;
+
+    if (overCardId) {
+      // วางบนการ์ดใบหนึ่ง → แทรกก่อนการ์ดนั้น
+      const overIdx = sortedCards.findIndex((c) => c.id === overCardId);
+      const prevPos = overIdx > 0 ? sortedCards[overIdx - 1].position : 0;
+      const nextPos =
+        sortedCards[overIdx]?.position ?? prevPos + POSITION_GAP * 2;
+      newPosition = (prevPos + nextPos) / 2;
+    } else {
+      // วางบน column area → ต่อท้าย
+      const lastCard = sortedCards[sortedCards.length - 1];
+      newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
+    }
+
+    // Optimistic update
+    moveCard(activeCardId, overColumnId, newPosition);
 
     sendMessage({
       type: "CARD_MOVED",
       payload: {
-        card_id: cardId,
-        old_column_id: oldColumnId,
-        new_column_id: newColumnId,
+        card_id: activeCardId,
+        old_column_id: activeColumnId,
+        new_column_id: overColumnId,
         position: newPosition,
       },
     });
@@ -47,9 +84,15 @@ export function useBoardActions(boardId: string) {
   };
 
   const handleAddCard = (columnId: string, title: string) => {
+    // คำนวณ position = lastCard.position + GAP (ต่อท้าย column)
+    const col = columns.find((c) => c.id === columnId);
+    const sorted = col ? [...col.cards].sort((a, b) => a.position - b.position) : [];
+    const lastCard = sorted[sorted.length - 1];
+    const newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
+
     sendMessage({
       type: "CARD_CREATED",
-      payload: { column_id: columnId, title },
+      payload: { column_id: columnId, title, position: newPosition },
     });
   };
 

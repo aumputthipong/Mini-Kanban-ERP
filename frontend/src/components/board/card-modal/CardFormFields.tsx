@@ -3,6 +3,7 @@ import { Calendar, Clock, User } from "lucide-react";
 import { Chip } from "@mui/material";
 import type { BoardMember } from "@/types/board";
 import { FormState } from "./CardDetailModal";
+import { formatThaiDate } from "@/ีutils/date_helper";
 
 const PRIORITY_OPTIONS = ["low", "medium", "high"] as const;
 const priorityColor: Record<string, "success" | "warning" | "error" | "default"> = {
@@ -103,7 +104,7 @@ export function CardFormFields({ form, members, assigneeName, onChange, error, c
               </div>
             </>
           ) : (
-            <p className="text-sm text-slate-600 px-1 py-2">{form.due_date || "—"}</p>
+            <p className="text-sm text-slate-600 px-1 py-2">{formatThaiDate(form.due_date) || "—"}</p>
           )}
         </div>
 

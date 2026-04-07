@@ -55,6 +55,19 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 	return i, err
 }
 
+const getMaxPositionInColumn = `-- name: GetMaxPositionInColumn :one
+SELECT COALESCE(MAX(position), 0)
+FROM cards
+WHERE column_id = $1
+`
+
+func (q *Queries) GetMaxPositionInColumn(ctx context.Context, columnID string) (float64, error) {
+	row := q.db.QueryRow(ctx, getMaxPositionInColumn, columnID)
+	var position float64
+	err := row.Scan(&position)
+	return position, err
+}
+
 const createCard = `-- name: CreateCard :one
 INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

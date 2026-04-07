@@ -181,12 +181,24 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 
 	priority, _ := payload["priority"].(string)
 
+	// คำนวณ position: ถ้า frontend ส่งมา ใช้เลยได้ ถ้าไม่ส่ง ให้ query max แล้ว +65536
+	const positionGap = 65536.0
+	position, _ := payload["position"].(float64)
+	if position <= 0 {
+		maxPos, err := c.hub.queries.GetMaxPositionInColumn(ctx, columnIDStr)
+		if err == nil {
+			position = maxPos + positionGap
+		} else {
+			position = positionGap
+		}
+	}
+
 	// FIX: CreatedBy เป็น *string ใน sqlc ตอนนี้ ส่ง &c.userID ได้โดยตรง
 	// บัคเดิม: ใช้ uuid.UUID (google) ซึ่งเป็น [16]byte แต่ sqlc ต้องการ pgtype.UUID ซึ่งเป็น struct ต่างชนิด
 	newCard, err := c.hub.queries.CreateCard(ctx, db.CreateCardParams{
 		ColumnID:  columnIDStr,
 		Title:     title,
-		Position:  0,
+		Position:  position,
 		Priority:  util.StringToPtr(priority),
 		CreatedBy: &c.userID, // *string — ถูกต้อง ไม่ต้องแปลงผ่าน uuid.UUID อีกต่อไป
 	})
