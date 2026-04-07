@@ -41,16 +41,22 @@ function DragPreview({ card }: { card: Card }) {
 
 export function KanbanBoard({ boardId }: { boardId: string }) {
   const { columns } = useBoardStore();
-  const { handleDragEnd, handleDragOver, handleAddCard, handleDeleteCard, handleUpdateCard } =
+  const { handleDragStart, handleDragEnd, handleAddCard, handleDeleteCard, handleUpdateCard } =
     useBoardActions(boardId);
 
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  // local state สำหรับ drop indicator เท่านั้น — ไม่ยุ่ง store เลย
+  const [dropTarget, setDropTarget] = useState<{
+    columnId: string;
+    beforeCardId: string | null;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   const onDragStart = (event: DragStartEvent) => {
+    handleDragStart();
     const card = columns
       .flatMap((c) => c.cards)
       .find((c) => c.id === event.active.id);
@@ -58,10 +64,42 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   };
 
   const onDragOver = (event: DragOverEvent) => {
-    handleDragOver(event);
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      setDropTarget(null);
+      return;
+    }
+
+    const overId = over.id as string;
+    const activeCardId = active.id as string;
+
+    // ตรวจว่า over คือ column หรือ card
+    const isOverColumn = columns.some((c) => c.id === overId);
+    let overColumnId: string;
+    let beforeCardId: string | null = null;
+
+    if (isOverColumn) {
+      overColumnId = overId;
+      beforeCardId = null; // ต่อท้าย column
+    } else {
+      const overCol = columns.find((col) => col.cards.some((c) => c.id === overId));
+      if (!overCol) { setDropTarget(null); return; }
+      overColumnId = overCol.id;
+      // ถ้า over เป็นการ์ดในต้น column เดียวกัน ไม่แสดง indicator (SortableContext จัดการเอง)
+      const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
+      if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
+      beforeCardId = overId;
+    }
+
+    // ถ้าอยู่ column เดิม ไม่แสดง indicator
+    const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
+    if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
+
+    setDropTarget({ columnId: overColumnId, beforeCardId });
   };
 
   const onDragEnd: typeof handleDragEnd = (event) => {
+    setDropTarget(null);
     handleDragEnd(event);
     setActiveCard(null);
   };
@@ -85,6 +123,9 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
             onAddCard={handleAddCard}
             onDeleteCard={handleDeleteCard}
             onSaveCard={handleUpdateCard}
+            dropIndicatorBeforeId={
+              dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined
+            }
           />
         ))}
       </div>

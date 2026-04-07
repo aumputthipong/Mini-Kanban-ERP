@@ -1,6 +1,7 @@
 // components/kanban/Column.tsx
 "use client";
 
+import { memo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus, X } from "lucide-react";
@@ -17,9 +18,15 @@ interface ColumnProps {
   onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
+  // null = แสดงที่ท้าย column, string = แสดงก่อน card id นั้น, undefined = ไม่แสดง
+  dropIndicatorBeforeId?: string | null;
 }
 
-export function KanbanColumn({
+const DropIndicator = () => (
+  <div className="h-0.5 bg-blue-400 rounded-full mx-1 my-0.5" />
+);
+
+export const KanbanColumn = memo(function KanbanColumn({
   id,
   boardId,
   title,
@@ -27,6 +34,7 @@ export function KanbanColumn({
   onAddCard,
   onDeleteCard,
   onSaveCard,
+  dropIndicatorBeforeId,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [isAdding, setIsAdding] = useState(false);
@@ -125,16 +133,20 @@ export function KanbanColumn({
       >
         <div className="flex flex-col gap-2">
           {cards.map((card) => (
-            <TaskCard
-              boardId={boardId}
-              key={card.id}
-              card={card}
-              onDeleteCard={onDeleteCard}
-              onSaveCard={onSaveCard}
-            />
+            <div key={card.id}>
+              {dropIndicatorBeforeId === card.id && <DropIndicator />}
+              <TaskCard
+                boardId={boardId}
+                card={card}
+                onDeleteCard={onDeleteCard}
+                onSaveCard={onSaveCard}
+              />
+            </div>
           ))}
+          {/* indicator ท้าย column เมื่อ drop หลังการ์ดทั้งหมด */}
+          {dropIndicatorBeforeId === null && <DropIndicator />}
         </div>
       </SortableContext>
     </div>
   );
-}
+});
