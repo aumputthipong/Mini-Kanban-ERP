@@ -6,7 +6,6 @@ import {
   Kanban,
   CalendarDays,
   LayoutTemplate,
-  Filter,
   LayoutGrid,
   Settings,
   User,
@@ -103,16 +102,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
           </Link>
         </div>
       </div>
-      {pathname === `${basePath}/tasks` ? (
-        <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-100 bg-slate-50/50 mt-1">
-          <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-            <Filter size={14} />
-            Filters
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3 px-6 py-6 border-t border-slate-100 bg-slate-50/50 mt-1" />
-      )}
+      <div className="h-px bg-slate-100 mt-1" />
     </header>
   );
 }

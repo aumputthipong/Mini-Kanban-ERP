@@ -84,10 +84,12 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string, ownerID st
 	defaultColumns := []struct {
 		Title    string
 		Position float64
+		Category string
 	}{
-		{"To Do", 1.0},
-		{"In Progress", 2.0},
-		{"Done", 3.0},
+		{"To Do", 65536.0, "TODO"},
+		{"In Progress", 131072.0, "TODO"},
+		{"Review", 196608.0, "TODO"},
+		{"Done", 262144.0, "DONE"},
 	}
 
 	for _, col := range defaultColumns {
@@ -95,6 +97,7 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string, ownerID st
 			BoardID:  board.ID,
 			Title:    col.Title,
 			Position: col.Position,
+			Category: col.Category,
 		})
 		if err != nil {
 			return "", fmt.Errorf("create column %q: %w", col.Title, err)

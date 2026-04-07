@@ -54,6 +54,20 @@ export const useWebSocket = (url: string) => {
           useBoardStore.getState().updateCard({ id: card_id, ...rest });
         }
 
+        if (parsedData.type === 'COLUMN_CREATED') {
+          const { id, title, position, category } = parsedData.payload;
+          useBoardStore.getState().addColumnToStore({ id, title, position, category, cards: [] });
+        }
+
+        if (parsedData.type === 'COLUMN_RENAMED') {
+          const { column_id, title } = parsedData.payload;
+          useBoardStore.getState().renameColumnInStore(column_id, title);
+        }
+
+        if (parsedData.type === 'COLUMN_DELETED') {
+          useBoardStore.getState().removeColumnFromStore(parsedData.payload.column_id);
+        }
+
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }

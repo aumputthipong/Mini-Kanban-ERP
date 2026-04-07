@@ -83,6 +83,12 @@ func (c *Client) ReadPump() {
 			c.handleCardUpdated(wsMsg.Payload, message)
 		case "CARD_DONE_TOGGLED":
 			c.handleCardDoneToggled(wsMsg.Payload)
+		case "COLUMN_CREATED":
+			c.handleColumnCreated(wsMsg.Payload)
+		case "COLUMN_RENAMED":
+			c.handleColumnRenamed(wsMsg.Payload)
+		case "COLUMN_DELETED":
+			c.handleColumnDeleted(wsMsg.Payload)
 		default:
 			log.Printf("Unknown message type: %s", wsMsg.Type)
 		}
@@ -416,6 +422,141 @@ func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
 	}
 
 	log.Printf("Toggled card [%s] done=%v → column [%s]", cardIDStr, isDone, targetCol.ID)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func (c *Client) handleColumnCreated(payload map[string]interface{}) {
+	title, ok := payload["title"].(string)
+	if !ok || title == "" {
+		log.Println("Invalid payload for COLUMN_CREATED")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	const positionGap = 65536.0
+
+	// หา position ของ DONE column และ column สุดท้ายก่อน DONE
+	// แล้ว insert ตรงกลาง → column ใหม่จะอยู่ก่อน Done เสมอ
+	doneCol, err := c.hub.queries.GetColumnByBoardAndCategory(ctx, db.GetColumnByBoardAndCategoryParams{
+		BoardID:  c.boardID,
+		Category: "DONE",
+	})
+
+	var position float64
+	if err != nil {
+		// ไม่มี DONE column → ต่อท้ายปกติ
+		maxPos, _ := c.hub.queries.GetMaxColumnPositionInBoard(ctx, c.boardID)
+		position = maxPos + positionGap
+	} else {
+		prevPos, _ := c.hub.queries.GetMaxColumnPositionBeforeDone(ctx, c.boardID)
+		position = (prevPos + doneCol.Position) / 2
+	}
+
+	newCol, err := c.hub.queries.CreateColumn(ctx, db.CreateColumnParams{
+		BoardID:  c.boardID,
+		Title:    title,
+		Position: position,
+		Category: "TODO",
+	})
+	if err != nil {
+		log.Printf("Failed to create column: %v", err)
+		return
+	}
+
+	broadcastMsg := WSMessage{
+		Type: "COLUMN_CREATED",
+		Payload: map[string]interface{}{
+			"id":       newCol.ID,
+			"board_id": c.boardID,
+			"title":    newCol.Title,
+			"position": newCol.Position,
+			"category": newCol.Category,
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal COLUMN_CREATED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Created column [%s] '%s' at position [%f]", newCol.ID, newCol.Title, newCol.Position)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func (c *Client) handleColumnRenamed(payload map[string]interface{}) {
+	columnIDStr, ok1 := payload["column_id"].(string)
+	title, ok2 := payload["title"].(string)
+	if !ok1 || !ok2 || title == "" {
+		log.Println("Invalid payload for COLUMN_RENAMED")
+		return
+	}
+	if _, err := uuid.Parse(columnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", columnIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if err := c.hub.queries.RenameColumn(ctx, db.RenameColumnParams{
+		ID:    columnIDStr,
+		Title: title,
+	}); err != nil {
+		log.Printf("Failed to rename column [%s]: %v", columnIDStr, err)
+		return
+	}
+
+	broadcastMsg := WSMessage{
+		Type: "COLUMN_RENAMED",
+		Payload: map[string]interface{}{
+			"column_id": columnIDStr,
+			"title":     title,
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal COLUMN_RENAMED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Renamed column [%s] to '%s'", columnIDStr, title)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func (c *Client) handleColumnDeleted(payload map[string]interface{}) {
+	columnIDStr, ok := payload["column_id"].(string)
+	if !ok {
+		log.Println("Invalid payload for COLUMN_DELETED")
+		return
+	}
+	if _, err := uuid.Parse(columnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", columnIDStr)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if err := c.hub.queries.DeleteColumn(ctx, columnIDStr); err != nil {
+		log.Printf("Failed to delete column [%s]: %v", columnIDStr, err)
+		return
+	}
+
+	broadcastMsg := WSMessage{
+		Type: "COLUMN_DELETED",
+		Payload: map[string]interface{}{
+			"column_id": columnIDStr,
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal COLUMN_DELETED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Deleted column [%s]", columnIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 

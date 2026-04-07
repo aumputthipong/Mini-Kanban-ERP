@@ -122,15 +122,16 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 }
 
 const createColumn = `-- name: CreateColumn :one
-INSERT INTO columns (id, board_id, title, position, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-RETURNING id, board_id, title, position
+INSERT INTO columns (id, board_id, title, position, category, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, board_id, title, position, category
 `
 
 type CreateColumnParams struct {
 	BoardID  string
 	Title    string
 	Position float64
+	Category string
 }
 
 type CreateColumnRow struct {
@@ -138,18 +139,71 @@ type CreateColumnRow struct {
 	BoardID  string
 	Title    string
 	Position float64
+	Category string
 }
 
 func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (CreateColumnRow, error) {
-	row := q.db.QueryRow(ctx, createColumn, arg.BoardID, arg.Title, arg.Position)
+	row := q.db.QueryRow(ctx, createColumn, arg.BoardID, arg.Title, arg.Position, arg.Category)
 	var i CreateColumnRow
 	err := row.Scan(
 		&i.ID,
 		&i.BoardID,
 		&i.Title,
 		&i.Position,
+		&i.Category,
 	)
 	return i, err
+}
+
+const getMaxColumnPositionInBoard = `-- name: GetMaxColumnPositionInBoard :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1
+`
+
+func (q *Queries) GetMaxColumnPositionInBoard(ctx context.Context, boardID string) (float64, error) {
+	row := q.db.QueryRow(ctx, getMaxColumnPositionInBoard, boardID)
+	var position float64
+	err := row.Scan(&position)
+	return position, err
+}
+
+const getMaxColumnPositionBeforeDone = `-- name: GetMaxColumnPositionBeforeDone :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1 AND category != 'DONE'
+`
+
+func (q *Queries) GetMaxColumnPositionBeforeDone(ctx context.Context, boardID string) (float64, error) {
+	row := q.db.QueryRow(ctx, getMaxColumnPositionBeforeDone, boardID)
+	var position float64
+	err := row.Scan(&position)
+	return position, err
+}
+
+const renameColumn = `-- name: RenameColumn :exec
+UPDATE columns
+SET title = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type RenameColumnParams struct {
+	ID    string
+	Title string
+}
+
+func (q *Queries) RenameColumn(ctx context.Context, arg RenameColumnParams) error {
+	_, err := q.db.Exec(ctx, renameColumn, arg.ID, arg.Title)
+	return err
+}
+
+const deleteColumn = `-- name: DeleteColumn :exec
+DELETE FROM columns WHERE id = $1
+`
+
+func (q *Queries) DeleteColumn(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteColumn, id)
+	return err
 }
 
 const createSubtask = `-- name: CreateSubtask :one

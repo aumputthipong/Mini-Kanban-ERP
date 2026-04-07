@@ -62,9 +62,9 @@ export const TaskCard = memo(function TaskCard({
     }`}
       >
         {/* DEBUG: แสดง position — ลบทิ้งเมื่อ debug เสร็จ */}
-        <span className="absolute top-1 right-1 text-[9px] font-mono text-slate-300 select-none pointer-events-none">
+        {/* <span className="absolute top-1 right-1 text-[9px] font-mono text-slate-300 select-none pointer-events-none">
           {card.position.toFixed(2)}
-        </span>
+        </span> */}
         <div className="flex items-start gap-3">
           {/* 3. ปุ่ม Checkbox สำหรับ Toggle */}
           <button
