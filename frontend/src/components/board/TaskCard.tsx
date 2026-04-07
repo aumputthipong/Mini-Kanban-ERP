@@ -1,7 +1,7 @@
 // components/kanban/TaskCard.tsx
 "use client";
 
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
 import { Calendar, CheckCircle2, Circle, Clock } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
@@ -9,6 +9,7 @@ import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";
+import { formatThaiDate } from "@/ีutils/date_helper";
 
 interface CardProps {
   card: Card;
@@ -32,15 +33,16 @@ export function TaskCard({
   const totalSubtasks = card.total_subtasks ?? 0;
   const completedSubtasks = card.completed_subtasks ?? 0;
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({
       id: card.id,
       data: { currentColumnId: card.column_id },
     });
 
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <>
@@ -58,6 +60,10 @@ export function TaskCard({
         : "shadow-sm cursor-grab hover:shadow-md hover:border-blue-300 transition-all duration-200"
     }`}
       >
+        {/* DEBUG: แสดง position — ลบทิ้งเมื่อ debug เสร็จ */}
+        <span className="absolute top-1 right-1 text-[9px] font-mono text-slate-300 select-none pointer-events-none">
+          {card.position.toFixed(2)}
+        </span>
         <div className="flex items-start gap-3">
           {/* 3. ปุ่ม Checkbox สำหรับ Toggle */}
           <button
@@ -158,7 +164,7 @@ export function TaskCard({
               {card.due_date && (
                 <span className="flex items-center gap-1 text-[10px] text-slate-400">
                   <Calendar size={10} />
-                  {card.due_date.slice(0, 10)}
+                  {formatThaiDate(card.due_date)}
                 </span>
               )}
               {card.estimated_hours != null && (

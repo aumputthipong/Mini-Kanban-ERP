@@ -40,7 +40,7 @@ export const useBoardStore = create<BoardState>((set) => ({
   setBoardMembers: (members) => set({ boardMembers: members }),
   setLoading: (v) => set({ isLoading: v }),
 
-  moveCard: (cardId, toColumnId, _position, isDone, completedAt) =>
+  moveCard: (cardId, toColumnId, position, isDone, completedAt) =>
     set((state) => {
       const newColumns = state.columns.map((col) => ({
         ...col,
@@ -69,12 +69,14 @@ export const useBoardStore = create<BoardState>((set) => ({
 
       // อัปเดต fields
       movedCard.column_id = toColumnId;
+      if (position !== undefined) movedCard.position = position;
       if (isDone !== undefined) movedCard.is_done = isDone;
       if (completedAt !== undefined)
         movedCard.completed_at = completedAt ?? null;
 
-      // เอาการ์ดไปต่อท้ายใน column ใหม่
+      // เพิ่มการ์ดและ sort ตาม position
       newColumns[toColIndex].cards.push(movedCard);
+      newColumns[toColIndex].cards.sort((a, b) => a.position - b.position);
 
       return { columns: newColumns };
     }),

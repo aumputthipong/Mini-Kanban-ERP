@@ -2,6 +2,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { TaskCard } from "./TaskCard";
@@ -118,17 +119,22 @@ export function KanbanColumn({
       </div>
 
       {/* --- Card List Section (วนลูปการ์ดที่มีอยู่) --- */}
-      <div className="flex flex-col gap-2">
-        {cards.map((card) => (
-          <TaskCard
-            boardId={boardId}
-            key={card.id}
-            card={card}
-            onDeleteCard={onDeleteCard}
-            onSaveCard={onSaveCard}
-          />
-        ))}
-      </div>
+      <SortableContext
+        items={cards.map((c) => c.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="flex flex-col gap-2">
+          {cards.map((card) => (
+            <TaskCard
+              boardId={boardId}
+              key={card.id}
+              card={card}
+              onDeleteCard={onDeleteCard}
+              onSaveCard={onSaveCard}
+            />
+          ))}
+        </div>
+      </SortableContext>
     </div>
   );
 }

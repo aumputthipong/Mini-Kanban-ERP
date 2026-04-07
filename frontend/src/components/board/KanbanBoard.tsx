@@ -1,5 +1,5 @@
 // components/board/KanbanBoard.tsx
-import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, PointerSensor, useSensor, useSensors, closestCorners } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/board/Column";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
@@ -17,7 +17,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   );
 
   return (
-    <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
+    <DndContext onDragEnd={handleDragEnd} sensors={sensors} collisionDetection={closestCorners}>
       <div className="flex gap-6 overflow-x-auto pb-4 items-start">
         {columns.map((col) => (
           <KanbanColumn
