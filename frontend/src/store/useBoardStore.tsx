@@ -27,6 +27,9 @@ interface BoardState {
     updatedData: any,
   ) => void;
   deleteSubtaskFromCard: (cardId: string, subtaskId: string) => void;
+  addColumnToStore: (column: Column) => void;
+  renameColumnInStore: (columnId: string, title: string) => void;
+  removeColumnFromStore: (columnId: string) => void;
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
@@ -197,5 +200,26 @@ export const useBoardStore = create<BoardState>((set) => ({
           };
         }),
       })),
+    })),
+
+  addColumnToStore: (column) =>
+    set((state) => {
+      if (state.columns.some((c) => c.id === column.id)) return state;
+      const sorted = [...state.columns, column].sort(
+        (a, b) => a.position - b.position,
+      );
+      return { columns: sorted };
+    }),
+
+  renameColumnInStore: (columnId, title) =>
+    set((state) => ({
+      columns: state.columns.map((col) =>
+        col.id === columnId ? { ...col, title } : col,
+      ),
+    })),
+
+  removeColumnFromStore: (columnId) =>
+    set((state) => ({
+      columns: state.columns.filter((col) => col.id !== columnId),
     })),
 }));

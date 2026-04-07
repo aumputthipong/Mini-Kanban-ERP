@@ -282,6 +282,30 @@ export function useBoardActions(boardId: string) {
     }
   };
 
+  const handleRenameColumn = (columnId: string, title: string) => {
+    useBoardStore.getState().renameColumnInStore(columnId, title);
+    sendMessage({
+      type: "COLUMN_RENAMED",
+      payload: { column_id: columnId, title },
+    });
+  };
+
+  const handleDeleteColumn = (columnId: string) => {
+    useBoardStore.getState().removeColumnFromStore(columnId);
+    sendMessage({
+      type: "COLUMN_DELETED",
+      payload: { column_id: columnId },
+    });
+  };
+
+  const handleAddColumn = (title: string) => {
+    if (!title.trim()) return;
+    sendMessage({
+      type: "COLUMN_CREATED",
+      payload: { title: title.trim() },
+    });
+  };
+
   const handleDragStart = () => {
     dragOverColumnRef.current = null;
   };
@@ -291,6 +315,9 @@ export function useBoardActions(boardId: string) {
     handleDragEnd,
     handleDragOver,
     handleAddCard,
+    handleAddColumn,
+    handleRenameColumn,
+    handleDeleteColumn,
     handleDeleteCard,
     handleUpdateCard,
     handleToggleDone,

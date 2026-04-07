@@ -17,7 +17,6 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import type { Card } from "@/types/board";
 
-// ── Card preview ที่ลอยตามเมาส์ระหว่าง drag ──────────────────────────────────
 function DragPreview({ card }: { card: Card }) {
   return (
     <div className="p-4 rounded-xl border bg-white border-blue-400 shadow-2xl ring-2 ring-blue-500 rotate-2 opacity-95 w-72 cursor-grabbing">
@@ -41,11 +40,15 @@ function DragPreview({ card }: { card: Card }) {
 
 export function KanbanBoard({ boardId }: { boardId: string }) {
   const { columns } = useBoardStore();
-  const { handleDragStart, handleDragEnd, handleAddCard, handleDeleteCard, handleUpdateCard } =
-    useBoardActions(boardId);
+  const {
+    handleDragStart, handleDragEnd, handleAddCard,
+    handleRenameColumn, handleDeleteColumn, handleDeleteCard, handleUpdateCard,
+  } = useBoardActions(boardId);
+
+  const todoColumns = columns.filter((c) => c.category !== "DONE");
+  const doneColumns = columns.filter((c) => c.category === "DONE");
 
   const [activeCard, setActiveCard] = useState<Card | null>(null);
-  // local state สำหรับ drop indicator เท่านั้น — ไม่ยุ่ง store เลย
   const [dropTarget, setDropTarget] = useState<{
     columnId: string;
     beforeCardId: string | null;
@@ -57,41 +60,32 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
 
   const onDragStart = (event: DragStartEvent) => {
     handleDragStart();
-    const card = columns
-      .flatMap((c) => c.cards)
-      .find((c) => c.id === event.active.id);
+    const card = columns.flatMap((c) => c.cards).find((c) => c.id === event.active.id);
     setActiveCard(card ?? null);
   };
 
   const onDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) {
-      setDropTarget(null);
-      return;
-    }
+    if (!over || active.id === over.id) { setDropTarget(null); return; }
 
     const overId = over.id as string;
     const activeCardId = active.id as string;
 
-    // ตรวจว่า over คือ column หรือ card
     const isOverColumn = columns.some((c) => c.id === overId);
     let overColumnId: string;
     let beforeCardId: string | null = null;
 
     if (isOverColumn) {
       overColumnId = overId;
-      beforeCardId = null; // ต่อท้าย column
     } else {
       const overCol = columns.find((col) => col.cards.some((c) => c.id === overId));
       if (!overCol) { setDropTarget(null); return; }
       overColumnId = overCol.id;
-      // ถ้า over เป็นการ์ดในต้น column เดียวกัน ไม่แสดง indicator (SortableContext จัดการเอง)
       const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
       if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
       beforeCardId = overId;
     }
 
-    // ถ้าอยู่ column เดิม ไม่แสดง indicator
     const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
     if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
 
@@ -104,6 +98,20 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     setActiveCard(null);
   };
 
+  const columnProps = (col: typeof columns[0]) => ({
+    id: col.id,
+    boardId,
+    title: col.title,
+    cards: col.cards,
+    onAddCard: handleAddCard,
+    onDeleteCard: handleDeleteCard,
+    onSaveCard: handleUpdateCard,
+    onRenameColumn: handleRenameColumn,
+    onDeleteColumn: handleDeleteColumn,
+    dropIndicatorBeforeId:
+      dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined,
+  });
+
   return (
     <DndContext
       sensors={sensors}
@@ -113,24 +121,10 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragEnd={onDragEnd}
     >
       <div className="flex gap-6 overflow-x-auto pb-4 items-start">
-        {columns.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            id={col.id}
-            boardId={boardId}
-            title={col.title}
-            cards={col.cards}
-            onAddCard={handleAddCard}
-            onDeleteCard={handleDeleteCard}
-            onSaveCard={handleUpdateCard}
-            dropIndicatorBeforeId={
-              dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined
-            }
-          />
-        ))}
+        {todoColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
+        {doneColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
       </div>
 
-      {/* การ์ดที่ลอยตามเมาส์ — แยกออกจาก SortableContext ทุก column */}
       <DragOverlay dropAnimation={null}>
         {activeCard ? <DragPreview card={activeCard} /> : null}
       </DragOverlay>

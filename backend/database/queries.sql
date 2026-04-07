@@ -38,9 +38,27 @@ VALUES (gen_random_uuid(), $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, title;
 
 -- name: CreateColumn :one
-INSERT INTO columns (id, board_id, title, position, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-RETURNING id, board_id, title, position;
+INSERT INTO columns (id, board_id, title, position, category, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id, board_id, title, position, category;
+
+-- name: GetMaxColumnPositionInBoard :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1;
+
+-- name: GetMaxColumnPositionBeforeDone :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1 AND category != 'DONE';
+
+-- name: RenameColumn :exec
+UPDATE columns
+SET title = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: DeleteColumn :exec
+DELETE FROM columns WHERE id = $1;
 
 
 -- name: GetMaxPositionInColumn :one
