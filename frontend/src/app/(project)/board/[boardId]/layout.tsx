@@ -2,8 +2,8 @@
 
 import { use } from "react";
 import { useBoardData } from "@/hooks/useBoardData";
-import { BoardHeader } from "@/components/board/BoardHeader";
-import { BoardBackground } from "@/components/board/BoardBackground";
+import { BoardHeader } from "@/components/board/task-board/BoardHeader";
+import { BoardBackground } from "@/components/board/task-board/BoardBackground";
 
 interface BoardLayoutProps {
   children: React.ReactNode;

@@ -81,7 +81,7 @@ export function PriorityFilterDropdown() {
       {/* trigger button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-medium transition-colors ${
+        className={`cursor-pointer flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-medium transition-colors ${
           isActive
             ? "bg-blue-50 border-blue-300 text-blue-700"
             : "bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-800"
@@ -122,7 +122,7 @@ export function PriorityFilterDropdown() {
               <button
                 key={value}
                 onClick={() => toggleFilterPriority(value)}
-                className={`flex items-center gap-2.5 w-full px-3 py-2 text-xs text-left transition-colors ${
+                className={`cursor-pointer flex items-center gap-2.5 w-full px-3 py-2 text-xs text-left transition-colors ${
                   checked
                     ? "bg-blue-50 text-blue-700"
                     : "text-slate-700 hover:bg-slate-50"
@@ -144,7 +144,7 @@ export function PriorityFilterDropdown() {
               <div className="my-1 border-t border-slate-100" />
               <button
                 onClick={() => { clearFilterPriorities(); setOpen(false); }}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+                className="cursor-pointer flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
               >
                 Clear filter
               </button>

@@ -21,7 +21,7 @@ import type { Card } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { CardFormFields } from "./CardFormFields";
 import { useBoardActions } from "@/hooks/useBoardActions";
-import { SubtaskItem } from "../subtask/SubtaskItem";
+import { SubtaskItem } from "../task-board/subtask/SubtaskItem";
 
 export interface FormState {
   title: string;
