@@ -13,8 +13,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { formatThaiDate } from "@/ีutils/date_helper";
 
 const AVATAR_COLORS = [
-  "bg-blue-500", "bg-violet-500", "bg-emerald-500",
-  "bg-amber-500", "bg-rose-500", "bg-cyan-500",
+  "bg-blue-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-cyan-500",
 ];
 
 function avatarColor(userId: string) {
@@ -36,7 +40,8 @@ export const TaskCard = memo(function TaskCard({
   onSaveCard,
   filterAssigneeId,
 }: CardProps) {
-  const isDimmed = filterAssigneeId != null && card.assignee_id !== filterAssigneeId;
+  const isDimmed =
+    filterAssigneeId != null && card.assignee_id !== filterAssigneeId;
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const { handleAddSubtask, handleToggleDone, handleToggleSubtask } =
@@ -46,11 +51,17 @@ export const TaskCard = memo(function TaskCard({
   const totalSubtasks = card.total_subtasks ?? 0;
   const completedSubtasks = card.completed_subtasks ?? 0;
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: card.id,
-      data: { currentColumnId: card.column_id },
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: card.id,
+    data: { currentColumnId: card.column_id },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -77,16 +88,21 @@ export const TaskCard = memo(function TaskCard({
       >
         <div className="flex items-start gap-3">
           <button
-            onClick={(e) => { e.stopPropagation(); handleToggleDone(card); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleDone(card);
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`mt-0.5 transition-colors ${
-              card.is_done ? "text-emerald-500" : "text-slate-300 hover:text-slate-400"
+              card.is_done
+                ? "text-emerald-500"
+                : "text-slate-300 hover:text-slate-400"
             }`}
           >
             {card.is_done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
           </button>
 
-          <div className="flex flex-col gap-1.5 flex-1">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             {card.priority && !card.is_done && (
               <span
                 className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border w-fit ${
@@ -100,9 +116,12 @@ export const TaskCard = memo(function TaskCard({
                 {card.priority}
               </span>
             )}
-            <p className={`text-sm font-semibold leading-snug transition-all ${
-              card.is_done ? "text-slate-400 line-through" : "text-slate-700"
-            }`}>
+            
+            <p
+              className={`text-sm font-semibold leading-snug transition-all line-clamp-2 break-words ${
+                card.is_done ? "text-slate-400 line-through" : "text-slate-700"
+              }`}
+            >
               {card.title}
             </p>
           </div>
@@ -115,14 +134,22 @@ export const TaskCard = memo(function TaskCard({
               <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
                 <div
                   className={`h-1 rounded-full transition-all duration-300 ${
-                    completedSubtasks === totalSubtasks ? "bg-emerald-500" : "bg-blue-400"
+                    completedSubtasks === totalSubtasks
+                      ? "bg-emerald-500"
+                      : "bg-blue-400"
                   }`}
-                  style={{ width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%` }}
+                  style={{
+                    width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%`,
+                  }}
                 />
               </div>
-              <span className={`text-[10px] font-semibold ${
-                completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"
-              }`}>
+              <span
+                className={`text-[10px] font-semibold ${
+                  completedSubtasks === totalSubtasks
+                    ? "text-emerald-500"
+                    : "text-slate-400"
+                }`}
+              >
                 {completedSubtasks}/{totalSubtasks}
               </span>
             </div>
@@ -136,10 +163,14 @@ export const TaskCard = memo(function TaskCard({
                 <input
                   type="checkbox"
                   checked={st.is_done}
-                  onChange={() => handleToggleSubtask(card.id, st.id, st.is_done)}
+                  onChange={() =>
+                    handleToggleSubtask(card.id, st.id, st.is_done)
+                  }
                   className="rounded border-slate-300 text-blue-500 focus:ring-blue-400 cursor-pointer"
                 />
-                <span className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}>
+                <span
+                  className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}
+                >
                   {st.title}
                 </span>
               </div>
