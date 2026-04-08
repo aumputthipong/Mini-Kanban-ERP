@@ -139,12 +139,19 @@ export function useBoardActions(boardId: string) {
   };
 
   const handleUpdateCard = (cardId: string, form: any) => {
+    const { boardMembers } = useBoardStore.getState();
+    const newAssigneeId = form.assignee_id || null;
+    const newAssigneeName = newAssigneeId
+      ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
+      : null;
+
     updateCard({
       ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
       title: form.title,
       description: form.description || null,
       due_date: form.due_date || null,
-      assignee_id: form.assignee_id || null,
+      assignee_id: newAssigneeId,
+      assignee_name: newAssigneeName,
       priority: (form.priority as Card["priority"]) || null,
       estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
     });
@@ -156,7 +163,8 @@ export function useBoardActions(boardId: string) {
         title: form.title,
         description: form.description || null,
         due_date: form.due_date || null,
-        assignee_id: form.assignee_id || null,
+        assignee_id: newAssigneeId,
+        assignee_name: newAssigneeName,
         priority: form.priority || null,
         estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
       },

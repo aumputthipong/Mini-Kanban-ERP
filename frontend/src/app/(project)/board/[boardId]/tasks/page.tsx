@@ -3,10 +3,76 @@
 import { use, useState, useRef } from "react";
 import { KanbanBoard } from "@/components/board/KanbanBoard";
 import { useBoardActions } from "@/hooks/useBoardActions";
-import { Filter, Plus } from "lucide-react";
+import { useBoardStore } from "@/store/useBoardStore";
+import { Plus } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ boardId: string }>;
+}
+
+const AVATAR_COLORS = [
+  "bg-blue-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-cyan-500",
+];
+
+function avatarColor(userId: string) {
+  const idx = userId.charCodeAt(0) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[idx];
+}
+
+function MemberFilterBar() {
+  const { boardMembers, currentUserId, filterAssigneeId, setFilterAssigneeId } =
+    useBoardStore();
+
+  const toggle = (userId: string) => {
+    setFilterAssigneeId(filterAssigneeId === userId ? null : userId);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => setFilterAssigneeId(null)}
+        className={`px-3 h-7 text-xs font-medium rounded-full border transition-colors ${
+          filterAssigneeId === null
+            ? "bg-slate-800 text-white border-slate-800"
+            : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+        }`}
+      >
+        All
+      </button>
+
+      {boardMembers.map((member) => {
+        const isActive = filterAssigneeId === member.user_id;
+        const isMe = member.user_id === currentUserId;
+        const initial = member.full_name?.charAt(0).toUpperCase() ?? "?";
+        const color = avatarColor(member.user_id);
+
+        return (
+          <button
+            key={member.user_id}
+            onClick={() => toggle(member.user_id)}
+            title={member.full_name + (isMe ? " (Me)" : "")}
+            className={`relative flex items-center justify-center w-7 h-7 rounded-full text-white text-[11px] font-bold transition-all ${color} ${
+              isActive
+                ? "ring-2 ring-offset-1 ring-blue-500 scale-110"
+                : "opacity-80 hover:opacity-100 hover:scale-105"
+            }`}
+          >
+            {initial}
+            {isMe && (
+              <span className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 text-[9px] text-slate-400 font-normal whitespace-nowrap">
+                Me
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function AddColumnButton({ onAdd }: { onAdd: (title: string) => void }) {
@@ -59,14 +125,11 @@ function BoardToolbar({ boardId }: { boardId: string }) {
   const { handleAddColumn } = useBoardActions(boardId);
 
   return (
-<div className="-mx-8 flex items-center gap-3 px-8 h-14 bg-slate-50 border-b border-slate-200 mb-6">
-  <button className="flex items-center justify-center gap-2 px-3 h-9 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-    <Filter size={14} />
-    Filters
-  </button>
-    <div className="w-px h-5 bg-slate-300 mx-1" />
-    <AddColumnButton onAdd={handleAddColumn} />
-</div>
+    <div className="-mx-8 flex items-center gap-3 px-8 h-14 bg-slate-50 border-b border-slate-200 mb-6">
+      <MemberFilterBar />
+      <div className="w-px h-5 bg-slate-300 mx-1" />
+      <AddColumnButton onAdd={handleAddColumn} />
+    </div>
   );
 }
 
