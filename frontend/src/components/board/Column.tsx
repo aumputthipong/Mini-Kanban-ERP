@@ -181,18 +181,21 @@ export const KanbanColumn = memo(function KanbanColumn({
           strategy={verticalListSortingStrategy}
         >
           <div className="kanban-scroll flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 flex flex-col gap-2 min-h-0">
-            {cards.map((card) => (
-              <div key={card.id}>
-                {dropIndicatorBeforeId === card.id && <DropIndicator />}
-                <TaskCard
-                  boardId={boardId}
-                  card={card}
-                  onDeleteCard={onDeleteCard}
-                  onSaveCard={onSaveCard}
-                  filterAssigneeId={filterAssigneeId}
-                />
-              </div>
-            ))}
+            {cards
+              .filter((card) =>
+                filterAssigneeId == null || card.assignee_id === filterAssigneeId
+              )
+              .map((card) => (
+                <div key={card.id}>
+                  {dropIndicatorBeforeId === card.id && <DropIndicator />}
+                  <TaskCard
+                    boardId={boardId}
+                    card={card}
+                    onDeleteCard={onDeleteCard}
+                    onSaveCard={onSaveCard}
+                  />
+                </div>
+              ))}
             {dropIndicatorBeforeId === null && <DropIndicator />}
           </div>
         </SortableContext>

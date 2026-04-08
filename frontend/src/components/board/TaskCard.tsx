@@ -37,7 +37,6 @@ interface CardProps {
   boardId: string;
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
-  filterAssigneeId?: string | null;
 }
 
 export const TaskCard = memo(function TaskCard({
@@ -45,10 +44,7 @@ export const TaskCard = memo(function TaskCard({
   boardId,
   onDeleteCard,
   onSaveCard,
-  filterAssigneeId,
 }: CardProps) {
-  const isDimmed =
-    filterAssigneeId != null && card.assignee_id !== filterAssigneeId;
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const { handleAddSubtask, handleToggleDone, handleToggleSubtask } =
@@ -86,9 +82,7 @@ export const TaskCard = memo(function TaskCard({
         className={`group relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 ${
           isDragging
             ? "opacity-0 pointer-events-none"
-            : isDimmed
-              ? "bg-white border-slate-200 opacity-30 saturate-50 cursor-grab"
-              : card.is_done
+            : card.is_done
                 ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
                 : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300"
         }`}
