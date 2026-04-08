@@ -76,7 +76,7 @@ export default function MyTasksPage() {
   if (isLoading) return <div className="p-8">Loading...</div>;
 
   return (
-    <main className="p-8 max-w-5xl mx-auto">
+    <main className="h-full overflow-y-auto p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8 border-b border-slate-200 pb-6">
         <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
