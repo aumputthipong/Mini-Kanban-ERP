@@ -40,7 +40,7 @@ function DragPreview({ card }: { card: Card }) {
 }
 
 export function KanbanBoard({ boardId }: { boardId: string }) {
-  const { columns, filterAssigneeId } = useBoardStore();
+  const { columns, filterAssigneeId, filterPriorities } = useBoardStore();
   const {
     handleDragStart, handleDragEnd, handleAddCard,
     handleRenameColumn, handleDeleteColumn, handleDeleteCard, handleUpdateCard,
@@ -113,6 +113,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     onRenameColumn: handleRenameColumn,
     onDeleteColumn: handleDeleteColumn,
     filterAssigneeId,
+    filterPriorities,
     dropIndicatorBeforeId:
       dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined,
   });
