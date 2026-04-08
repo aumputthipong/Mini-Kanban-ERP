@@ -56,7 +56,7 @@ export function MemberFilterBar() {
       {/* ปุ่ม All */}
       <button
         onClick={() => setFilterAssigneeId(null)}
-        className={`px-3 h-7 text-xs font-medium rounded-full border transition-colors ${
+        className={`cursor-pointer px-3 h-7 text-xs font-medium rounded-full border transition-colors ${
           filterAssigneeId === null
             ? "bg-slate-800 text-white border-slate-800"
             : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
@@ -70,7 +70,7 @@ export function MemberFilterBar() {
       <div className="flex items-center gap-1.5">
         {visibleMembers.map((member) => {
           const isActive = filterAssigneeId === member.user_id;
-          const isMe = member.user_id === currentUserId;
+          const isYou = member.user_id === currentUserId;
           const isMuted = isFiltering && !isActive;
           const initial = member.full_name?.charAt(0).toUpperCase() ?? "?";
           const color = avatarColor(member.user_id);
@@ -79,15 +79,15 @@ export function MemberFilterBar() {
             <button
               key={member.user_id}
               onClick={() => toggle(member.user_id)}
-              title={member.full_name + (isMe ? " (Me)" : "")}
-              className={`relative flex items-center justify-center w-7 h-7 rounded-full text-white text-[11px] font-bold transition-all duration-200
+              title={member.full_name + (isYou ? " (You)" : "")}
+              className={`cursor-pointer relative flex items-center justify-center w-7 h-7 rounded-full text-white text-[11px] font-bold transition-all duration-200
                 ${color}
                 ${isActive ? "ring-2 ring-offset-1 ring-blue-500 scale-110 z-10 shadow-md" : "hover:scale-105 hover:z-10"}
                 ${isMuted ? "opacity-30 grayscale hover:opacity-80" : "opacity-100"}
               `}
             >
               {initial}
-              {isMe && (
+              {isYou && (
                 <span className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 text-[9px] text-slate-400 font-normal whitespace-nowrap">
                   Me
                 </span>
@@ -141,7 +141,7 @@ export function MemberFilterBar() {
                         toggle(member.user_id);
                         setIsDropdownOpen(false);
                       }}
-                      className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors
+                      className={`cursor-pointer flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors
                         ${isActive ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"}
                       `}
                     >

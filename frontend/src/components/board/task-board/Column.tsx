@@ -3,11 +3,14 @@
 
 import { memo, useState, useRef, useEffect } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { TaskCard } from "./TaskCard";
 import type { Card } from "@/types/board";
-import { FormState } from "./card-modal/CardDetailModal";
+import { FormState } from "../card-modal/CardDetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface ColumnProps {
@@ -132,15 +135,10 @@ export const KanbanColumn = memo(function KanbanColumn({
                 className="font-bold text-slate-700 leading-tight bg-white border border-blue-400 rounded-md px-2 py-0.5 text-sm outline-none ring-2 ring-blue-100 w-full"
               />
             ) : (
-              <h2
-                className="font-bold text-slate-700 leading-tight cursor-pointer hover:text-blue-600 transition-colors truncate"
-                onDoubleClick={() => setIsRenaming(true)}
-                title="Double-click to rename"
-              >
+              <h2 className="font-bold text-slate-700 leading-tight transition-colors truncate">
                 {title}
               </h2>
             )}
-
           </div>
 
           {/* Right: count, ⋯ */}
@@ -153,20 +151,26 @@ export const KanbanColumn = memo(function KanbanColumn({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+                className=" cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
               >
                 <MoreHorizontal size={16} />
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-7 z-20 bg-white rounded-xl shadow-lg border border-slate-100 py-1 w-40 text-sm">
                   <button
-                    onClick={() => { setMenuOpen(false); setIsRenaming(true); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setIsRenaming(true);
+                    }}
                     className="flex items-center gap-2 w-full px-3 py-2 hover:bg-slate-50 text-slate-700 transition-colors"
                   >
                     <Pencil size={14} /> Rename
                   </button>
                   <button
-                    onClick={() => { setMenuOpen(false); setConfirmOpen(true); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConfirmOpen(true);
+                    }}
                     className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-500 transition-colors"
                   >
                     <Trash2 size={14} /> Delete
@@ -184,9 +188,13 @@ export const KanbanColumn = memo(function KanbanColumn({
         >
           <div className="kanban-scroll flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 flex flex-col gap-2 min-h-0">
             {cards
-              .filter((card) =>
-                (filterAssigneeId == null || card.assignee_id === filterAssigneeId) &&
-                (filterPriorities == null || filterPriorities.length === 0 || filterPriorities.includes(card.priority ?? ""))
+              .filter(
+                (card) =>
+                  (filterAssigneeId == null ||
+                    card.assignee_id === filterAssigneeId) &&
+                  (filterPriorities == null ||
+                    filterPriorities.length === 0 ||
+                    filterPriorities.includes(card.priority ?? "")),
               )
               .map((card) => (
                 <div key={card.id}>
@@ -235,8 +243,11 @@ export const KanbanColumn = memo(function KanbanColumn({
             </div>
           ) : (
             <button
-              onClick={() => { setIsAdding(true); setTimeout(() => addInputRef.current?.focus(), 0); }}
-              className="w-full flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              onClick={() => {
+                setIsAdding(true);
+                setTimeout(() => addInputRef.current?.focus(), 0);
+              }}
+              className="cursor-pointer w-full flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             >
               <Plus size={16} /> Add card
             </button>
@@ -250,7 +261,10 @@ export const KanbanColumn = memo(function KanbanColumn({
         description="All cards in this column will be permanently deleted."
         confirmLabel="Delete"
         destructive
-        onConfirm={() => { setConfirmOpen(false); onDeleteColumn(id); }}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onDeleteColumn(id);
+        }}
         onCancel={() => setConfirmOpen(false)}
       />
     </>

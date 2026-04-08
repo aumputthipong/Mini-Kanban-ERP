@@ -17,7 +17,7 @@ import {
   SignalBars,
   type Priority,
 } from "@/components/board/task-board/PriorityFilterDropdown";
-import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
+import { CardDetailModal, FormState } from "../card-modal/CardDetailModal";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";

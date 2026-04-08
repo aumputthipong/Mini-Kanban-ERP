@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState, useRef } from "react";
-import { KanbanBoard } from "@/components/board/KanbanBoard";
+import { KanbanBoard } from "@/components/board/task-board/KanbanBoard";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useBoardStore } from "@/store/useBoardStore";
 import { Plus } from "lucide-react";
@@ -31,7 +31,7 @@ function AddColumnButton({ onAdd }: { onAdd: (title: string) => void }) {
           setEditing(true);
           setTimeout(() => inputRef.current?.focus(), 0);
         }}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
+        className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
       >
         <Plus size={14} /> Add column
       </button>

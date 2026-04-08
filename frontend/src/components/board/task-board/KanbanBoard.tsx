@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
-import { KanbanColumn } from "@/components/board/Column";
+import { KanbanColumn } from "@/components/board/task-board/Column";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import type { Card } from "@/types/board";
@@ -34,7 +34,9 @@ function DragPreview({ card }: { card: Card }) {
           {card.priority}
         </span>
       )}
-      <p className="text-sm font-semibold text-slate-700 leading-snug">{card.title}</p>
+      <p className="text-sm font-semibold text-slate-700 leading-snug">
+        {card.title}
+      </p>
     </div>
   );
 }
@@ -42,8 +44,13 @@ function DragPreview({ card }: { card: Card }) {
 export function KanbanBoard({ boardId }: { boardId: string }) {
   const { columns, filterAssigneeId, filterPriorities } = useBoardStore();
   const {
-    handleDragStart, handleDragEnd, handleAddCard,
-    handleRenameColumn, handleDeleteColumn, handleDeleteCard, handleUpdateCard,
+    handleDragStart,
+    handleDragEnd,
+    handleAddCard,
+    handleRenameColumn,
+    handleDeleteColumn,
+    handleDeleteCard,
+    handleUpdateCard,
   } = useBoardActions(boardId);
 
   const todoColumns = columns.filter((c) => c.category !== "DONE");
@@ -59,18 +66,23 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   usePanBoard(boardScrollRef);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
   const onDragStart = (event: DragStartEvent) => {
     handleDragStart();
-    const card = columns.flatMap((c) => c.cards).find((c) => c.id === event.active.id);
+    const card = columns
+      .flatMap((c) => c.cards)
+      .find((c) => c.id === event.active.id);
     setActiveCard(card ?? null);
   };
 
   const onDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) { setDropTarget(null); return; }
+    if (!over || active.id === over.id) {
+      setDropTarget(null);
+      return;
+    }
 
     const overId = over.id as string;
     const activeCardId = active.id as string;
@@ -82,16 +94,31 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     if (isOverColumn) {
       overColumnId = overId;
     } else {
-      const overCol = columns.find((col) => col.cards.some((c) => c.id === overId));
-      if (!overCol) { setDropTarget(null); return; }
+      const overCol = columns.find((col) =>
+        col.cards.some((c) => c.id === overId),
+      );
+      if (!overCol) {
+        setDropTarget(null);
+        return;
+      }
       overColumnId = overCol.id;
-      const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
-      if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
+      const activeCol = columns.find((col) =>
+        col.cards.some((c) => c.id === activeCardId),
+      );
+      if (activeCol?.id === overColumnId) {
+        setDropTarget(null);
+        return;
+      }
       beforeCardId = overId;
     }
 
-    const activeCol = columns.find((col) => col.cards.some((c) => c.id === activeCardId));
-    if (activeCol?.id === overColumnId) { setDropTarget(null); return; }
+    const activeCol = columns.find((col) =>
+      col.cards.some((c) => c.id === activeCardId),
+    );
+    if (activeCol?.id === overColumnId) {
+      setDropTarget(null);
+      return;
+    }
 
     setDropTarget({ columnId: overColumnId, beforeCardId });
   };
@@ -102,7 +129,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     setActiveCard(null);
   };
 
-  const columnProps = (col: typeof columns[0]) => ({
+  const columnProps = (col: (typeof columns)[0]) => ({
     id: col.id,
     boardId,
     title: col.title,
@@ -126,9 +153,16 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div ref={boardScrollRef} className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full  items-start snap-x snap-mandatory scroll-smooth">
-        {todoColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
-        {doneColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
+      <div
+        ref={boardScrollRef}
+        className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full  items-start snap-x snap-mandatory scroll-smooth"
+      >
+        {todoColumns.map((col) => (
+          <KanbanColumn key={col.id} {...columnProps(col)} />
+        ))}
+        {doneColumns.map((col) => (
+          <KanbanColumn key={col.id} {...columnProps(col)} />
+        ))}
       </div>
 
       <DragOverlay dropAnimation={null}>
