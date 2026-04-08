@@ -118,7 +118,7 @@ export const TaskCard = memo(function TaskCard({
             )}
             
             <p
-              className={`text-sm font-semibold leading-snug transition-all line-clamp-2 break-words ${
+              className={`text-sm font-semibold leading-snug transition-all line-clamp-2  ${
                 card.is_done ? "text-slate-400 line-through" : "text-slate-700"
               }`}
             >

@@ -25,7 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom scrollbar — slim & subtle */
+/* Column vertical scrollbar — slim & subtle */
 .kanban-scroll::-webkit-scrollbar {
   width: 4px;
 }
@@ -39,8 +39,37 @@ body {
 .kanban-scroll::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
-/* Firefox */
 .kanban-scroll {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Board horizontal scrollbar — matches column style */
+.board-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.board-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.board-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+.board-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.board-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Spacebar pan mode cursors — override all children */
+.board-scroll.pan-mode,
+.board-scroll.pan-mode * {
+  cursor: grab !important;
+}
+.board-scroll.panning,
+.board-scroll.panning * {
+  cursor: grabbing !important;
+  user-select: none;
 }
