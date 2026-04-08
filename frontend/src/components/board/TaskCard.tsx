@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
+import {
+  SignalBars,
+  type Priority,
+} from "@/components/board/task-board/PriorityFilterDropdown";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
@@ -83,15 +87,15 @@ export const TaskCard = memo(function TaskCard({
           isDragging
             ? "opacity-0 pointer-events-none"
             : card.is_done
-                ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
-                : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300"
+              ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
+              : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300"
         }`}
       >
         <div className="flex items-start gap-3">
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             {card.priority && !card.is_done && (
               <span
-                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border w-fit ${
+                className={`text-[10px] flex items-center leading-none justify-center gap-1 font-bold  uppercase px-2 py-0.5 rounded border w-fit ${
                   card.priority === "high"
                     ? "bg-red-50 text-red-700 border-red-200"
                     : card.priority === "medium"
@@ -99,7 +103,8 @@ export const TaskCard = memo(function TaskCard({
                       : "bg-emerald-50 text-emerald-700 border-emerald-200"
                 }`}
               >
-                {card.priority}
+                <SignalBars priority={card.priority as Priority} size={12} />
+                <span className="">{card.priority}</span>
               </span>
             )}
 

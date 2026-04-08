@@ -21,6 +21,7 @@ interface ColumnProps {
   onRenameColumn: (columnId: string, title: string) => void;
   onDeleteColumn: (columnId: string) => void;
   filterAssigneeId?: string | null;
+  filterPriorities?: string[];
   dropIndicatorBeforeId?: string | null;
 }
 
@@ -39,6 +40,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   onRenameColumn,
   onDeleteColumn,
   filterAssigneeId,
+  filterPriorities,
   dropIndicatorBeforeId,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -183,7 +185,8 @@ export const KanbanColumn = memo(function KanbanColumn({
           <div className="kanban-scroll flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 flex flex-col gap-2 min-h-0">
             {cards
               .filter((card) =>
-                filterAssigneeId == null || card.assignee_id === filterAssigneeId
+                (filterAssigneeId == null || card.assignee_id === filterAssigneeId) &&
+                (filterPriorities == null || filterPriorities.length === 0 || filterPriorities.includes(card.priority ?? ""))
               )
               .map((card) => (
                 <div key={card.id}>

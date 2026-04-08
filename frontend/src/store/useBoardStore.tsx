@@ -7,11 +7,14 @@ interface BoardState {
   boardMembers: BoardMember[];
   isLoading: boolean;
   filterAssigneeId: string | null;
+  filterPriorities: string[];
   setColumns: (columns: Column[]) => void;
   setCurrentUser: (userId: string) => void;
   setBoardMembers: (members: BoardMember[]) => void;
   setLoading: (v: boolean) => void;
   setFilterAssigneeId: (id: string | null) => void;
+  toggleFilterPriority: (p: string) => void;
+  clearFilterPriorities: () => void;
   moveCard: (
     cardId: string,
     toColumnId: string,
@@ -41,11 +44,19 @@ export const useBoardStore = create<BoardState>((set) => ({
   boardMembers: [],
   isLoading: false,
   filterAssigneeId: null,
+  filterPriorities: [],
   setColumns: (columns) => set({ columns }),
   setCurrentUser: (userId) => set({ currentUserId: userId }),
   setBoardMembers: (members) => set({ boardMembers: members }),
   setLoading: (v) => set({ isLoading: v }),
   setFilterAssigneeId: (id) => set({ filterAssigneeId: id }),
+  toggleFilterPriority: (p) =>
+    set((state) => ({
+      filterPriorities: state.filterPriorities.includes(p)
+        ? state.filterPriorities.filter((x) => x !== p)
+        : [...state.filterPriorities, p],
+    })),
+  clearFilterPriorities: () => set({ filterPriorities: [] }),
 
   moveCard: (cardId, toColumnId, position, isDone, completedAt) =>
     set((state) => {
