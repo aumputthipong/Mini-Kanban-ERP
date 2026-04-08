@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -40,15 +41,13 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-9999 flex items-center justify-center"
       onClick={onCancel}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* Dialog */}
       <div
         className="relative z-10 w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl p-6 flex flex-col gap-4"
         onClick={(e) => e.stopPropagation()}
@@ -80,6 +79,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

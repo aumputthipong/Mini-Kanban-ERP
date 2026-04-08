@@ -49,7 +49,9 @@ export function BoardMembersSection({ boardId }: BoardMembersSectionProps) {
               </p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {members.map((member) => (
+                {[...members]
+                  .sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0))
+                  .map((member) => (
                   <MemberItem
                     key={member.id}
                     member={member}

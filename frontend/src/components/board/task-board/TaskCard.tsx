@@ -6,8 +6,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import {
   Calendar,
   Check,
-  CheckCircle2,
-  Circle,
   Clock,
   UserRound,
 } from "lucide-react";
@@ -138,7 +136,7 @@ export const TaskCard = memo(function TaskCard({
         {totalSubtasks > 0 && (
           <div className="flex flex-col gap-1 pl-7">
             <div className="flex items-center gap-2 mb-1">
-              <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
+              <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden ">
                 <div
                   className={`h-1 rounded-full transition-all duration-300 ${
                     completedSubtasks === totalSubtasks

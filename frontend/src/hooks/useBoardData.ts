@@ -32,7 +32,9 @@ export function useBoardData(boardId: string) {
 
         setColumns(boardData);
         if (meData?.user_id) setCurrentUser(meData.user_id);
-        setBoardMembers(membersData);
+        setBoardMembers(
+          Array.isArray(membersData) ? membersData.filter(Boolean) : []
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {

@@ -40,7 +40,7 @@ export function MemberFilterBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const sortedMembers = [...boardMembers].sort((a, b) => {
+  const sortedMembers = boardMembers.filter(Boolean).sort((a, b) => {
     if (a.user_id === currentUserId) return -1;
     if (b.user_id === currentUserId) return 1;
     return 0;
