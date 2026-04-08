@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   // const boards = await res.json();
 
   return (
-    <main className="p-10 bg-slate-50 min-h-screen">
+    <main className="h-full overflow-y-auto p-10 bg-slate-50">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-10">
           <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">

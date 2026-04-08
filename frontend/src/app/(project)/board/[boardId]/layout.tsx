@@ -47,16 +47,16 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
   }
 
   return (
-    <main className="relative h-screen overflow-hidden bg-[#fafafa] flex flex-col">
+    <div className="relative h-full flex flex-col bg-[#fafafa]">
       <BoardBackground />
 
       <div className="relative z-10 flex flex-col h-full min-h-0">
         <BoardHeader title="Project Board" />
 
-        <div className="flex-1 min-h-0 overflow-hidden px-8 pb-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-8">
           {children}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
