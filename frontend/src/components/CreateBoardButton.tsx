@@ -25,7 +25,7 @@ const handleCreateBoard = async () => {
       });
 
       // Redirect ผู้ใช้ไปยังหน้าบอร์ดที่เพิ่งสร้างเสร็จทันที
-      router.push(`/board/${newBoard.id}`);
+      router.push(`/board/${newBoard.id}/tasks`);
       
     } catch (error) {
       console.error("Failed to create board:", error);

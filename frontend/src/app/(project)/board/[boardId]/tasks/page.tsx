@@ -137,9 +137,11 @@ export default function KanbanPage({ params }: PageProps) {
   const { boardId } = use(params);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 h-full flex flex-col min-h-0">
       <BoardToolbar boardId={boardId} />
-      <KanbanBoard boardId={boardId} />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <KanbanBoard boardId={boardId} />
+      </div>
     </div>
   );
 }
