@@ -17,13 +17,14 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import type { Card } from "@/types/board";
 import { usePanBoard } from "@/hooks/usePanBoard";
+import { Priority, SignalBars } from "./PriorityFilterDropdown";
 
 function DragPreview({ card }: { card: Card }) {
   return (
     <div className="p-4 rounded-xl border bg-white border-blue-400 shadow-2xl ring-2 ring-blue-500 rotate-2 opacity-95 w-72 cursor-grabbing">
       {card.priority && (
         <span
-          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border mb-1.5 inline-block ${
+          className={`text-[10px] flex items-center leading-none justify-center gap-1 font-bold  uppercase px-2 py-0.5 rounded border w-fit ${
             card.priority === "high"
               ? "bg-red-50 text-red-700 border-red-200"
               : card.priority === "medium"
@@ -31,7 +32,8 @@ function DragPreview({ card }: { card: Card }) {
                 : "bg-emerald-50 text-emerald-700 border-emerald-200"
           }`}
         >
-          {card.priority}
+          <SignalBars priority={card.priority as Priority} size={12} />
+          <span className="">{card.priority}</span>
         </span>
       )}
       <p className="text-sm font-semibold text-slate-700 leading-snug">

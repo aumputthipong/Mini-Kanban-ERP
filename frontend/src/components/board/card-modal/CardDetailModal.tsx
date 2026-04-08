@@ -22,6 +22,7 @@ import { useCardForm } from "../../../hooks/useCardForm";
 import { CardFormFields } from "./CardFormFields";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { SubtaskItem } from "../task-board/subtask/SubtaskItem";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface FormState {
   title: string;
@@ -88,6 +89,7 @@ useEffect(() => {
     onClose();
   };
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const handleDelete = () => onDelete(card.id);
 
   const handleAddSubtaskSubmit = (e: React.FormEvent) => {
@@ -107,9 +109,10 @@ useEffect(() => {
       : Math.round((completedSubtasks / totalSubtasks) * 100);
 
   return (
+    <>
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       {/* --- ส่วนหัว (Header) --- */}
-      <DialogTitle className="border-b border-slate-100 pb-4 pt-5">
+      <DialogTitle className="border-b border-slate-100 pb-4 pt-5 ">
         <div className="flex items-center gap-3 group">
           <div className="text-slate-400 shrink-0">
             <Folder size={24} />
@@ -136,7 +139,7 @@ useEffect(() => {
       </DialogTitle>
 
       {/* --- ส่วนเนื้อหา (Content) --- */}
-      <DialogContent className="pt-4 pb-6">
+      <DialogContent className="pt-4 pb-6 ">
         <CardFormFields
           form={form}
           members={members}
@@ -221,7 +224,7 @@ useEffect(() => {
       >
         {canEdit ? (
           <button
-            onClick={handleDelete}
+            onClick={() => setDeleteConfirmOpen(true)}
             disabled={isSaving}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
@@ -262,5 +265,16 @@ useEffect(() => {
         </div>
       </DialogActions>
     </Dialog>
+
+    <ConfirmDialog
+      open={deleteConfirmOpen}
+      title="Delete task"
+      description={`"${card.title}" will be permanently deleted. This cannot be undone.`}
+      confirmLabel="Delete"
+      destructive
+      onConfirm={() => { setDeleteConfirmOpen(false); handleDelete(); }}
+      onCancel={() => setDeleteConfirmOpen(false)}
+    />
+    </>
   );
 }
