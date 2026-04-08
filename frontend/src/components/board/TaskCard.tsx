@@ -3,7 +3,14 @@
 
 import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
-import { Calendar, CheckCircle2, Circle, Clock, UserRound } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  Circle,
+  Clock,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
@@ -87,21 +94,6 @@ export const TaskCard = memo(function TaskCard({
         }`}
       >
         <div className="flex items-start gap-3">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleDone(card);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className={`mt-0.5 transition-colors ${
-              card.is_done
-                ? "text-emerald-500"
-                : "text-slate-300 hover:text-slate-400"
-            }`}
-          >
-            {card.is_done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-          </button>
-
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             {card.priority && !card.is_done && (
               <span
@@ -116,7 +108,7 @@ export const TaskCard = memo(function TaskCard({
                 {card.priority}
               </span>
             )}
-            
+
             <p
               className={`text-sm font-semibold leading-snug transition-all line-clamp-2  ${
                 card.is_done ? "text-slate-400 line-through" : "text-slate-700"
@@ -125,6 +117,22 @@ export const TaskCard = memo(function TaskCard({
               {card.title}
             </p>
           </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleDone(card);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className={`shrink-0 mt-0.5 w-6 h-6 rounded flex items-center justify-center transition-all cursor-pointer ${
+              card.is_done
+                ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" // ตอนเสร็จ: สีเขียวชัดเจน
+                : "bg-slate-50 text-slate-300 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-500 hover:border-emerald-200 opacity-0 group-hover:opacity-100" // ตอนยังไม่เสร็จ: ซ่อนไว้โชว์แค่ตอน Hover
+            }`}
+            title={card.is_done ? "Mark as Undone" : "Mark as Done"}
+          >
+            {/* ใช้ไอคอน Check หนาๆ แทนวงกลม */}
+            <Check strokeWidth={card.is_done ? 3 : 2} size={14} />
+          </button>
         </div>
 
         {/* Subtasks inline */}
@@ -179,20 +187,17 @@ export const TaskCard = memo(function TaskCard({
         )}
 
         {/* Footer — due date, estimated hours, assignee */}
-        <div className="flex items-center justify-between pl-7 pt-1">
+        <div className="flex items-center justify-between pl-2 pt-1">
           <div className="flex items-center gap-2">
-            {card.due_date && (
-              <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                <Calendar size={10} />
-                {formatThaiDate(card.due_date)}
-              </span>
-            )}
-            {card.estimated_hours != null && (
-              <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                <Clock size={10} />
-                {card.estimated_hours}h
-              </span>
-            )}
+            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+              <Calendar size={10} />
+              {card.due_date ? formatThaiDate(card.due_date) : "-"}
+            </span>
+
+            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+              <Clock size={10} />
+              {card.estimated_hours ? `${card.estimated_hours} h` : "-"}
+            </span>
           </div>
 
           {card.assignee_name && card.assignee_id ? (
