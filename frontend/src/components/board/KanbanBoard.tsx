@@ -125,7 +125,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div ref={boardScrollRef} className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full pb-4 items-start snap-x snap-mandatory scroll-smooth">
+      <div ref={boardScrollRef} className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full  items-start snap-x snap-mandatory scroll-smooth">
         {todoColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
         {doneColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
       </div>

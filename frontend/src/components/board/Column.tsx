@@ -21,7 +21,6 @@ interface ColumnProps {
   onRenameColumn: (columnId: string, title: string) => void;
   onDeleteColumn: (columnId: string) => void;
   filterAssigneeId?: string | null;
-  // null = แสดงที่ท้าย column, string = แสดงก่อน card id นั้น, undefined = ไม่แสดง
   dropIndicatorBeforeId?: string | null;
 }
 
