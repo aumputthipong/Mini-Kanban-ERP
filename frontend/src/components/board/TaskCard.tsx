@@ -3,7 +3,7 @@
 
 import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
-import { Calendar, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Calendar, CheckCircle2, Circle, Clock, UserRound } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
 import { CardDetailModal, FormState } from "./card-modal/CardDetailModal";
@@ -12,11 +12,21 @@ import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";
 import { formatThaiDate } from "@/ีutils/date_helper";
 
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-violet-500", "bg-emerald-500",
+  "bg-amber-500", "bg-rose-500", "bg-cyan-500",
+];
+
+function avatarColor(userId: string) {
+  return AVATAR_COLORS[userId.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
 interface CardProps {
   card: Card;
   boardId: string;
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
+  filterAssigneeId?: string | null;
 }
 
 export const TaskCard = memo(function TaskCard({
@@ -24,7 +34,9 @@ export const TaskCard = memo(function TaskCard({
   boardId,
   onDeleteCard,
   onSaveCard,
+  filterAssigneeId,
 }: CardProps) {
+  const isDimmed = filterAssigneeId != null && card.assignee_id !== filterAssigneeId;
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const { handleAddSubtask, handleToggleDone, handleToggleSubtask } =
@@ -53,30 +65,22 @@ export const TaskCard = memo(function TaskCard({
         {...listeners}
         {...attributes}
         onClick={() => setIsDetailOpen(true)}
-        className={`group relative p-4 rounded-xl border flex flex-col gap-3
-    ${isDragging
-        ? "opacity-0 pointer-events-none"
-        : card.is_done
-          ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
-          : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300 transition-all duration-200"
-    }`}
+        className={`group relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 ${
+          isDragging
+            ? "opacity-0 pointer-events-none"
+            : isDimmed
+              ? "bg-white border-slate-200 opacity-30 saturate-50 cursor-grab"
+              : card.is_done
+                ? "bg-slate-50/50 border-slate-200 opacity-80 shadow-sm cursor-grab"
+                : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300"
+        }`}
       >
-        {/* DEBUG: แสดง position — ลบทิ้งเมื่อ debug เสร็จ */}
-        {/* <span className="absolute top-1 right-1 text-[9px] font-mono text-slate-300 select-none pointer-events-none">
-          {card.position.toFixed(2)}
-        </span> */}
         <div className="flex items-start gap-3">
-          {/* 3. ปุ่ม Checkbox สำหรับ Toggle */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleDone(card);
-            }}
+            onClick={(e) => { e.stopPropagation(); handleToggleDone(card); }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`mt-0.5 transition-colors ${
-              card.is_done
-                ? "text-emerald-500"
-                : "text-slate-300 hover:text-slate-400"
+              card.is_done ? "text-emerald-500" : "text-slate-300 hover:text-slate-400"
             }`}
           >
             {card.is_done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
@@ -85,8 +89,7 @@ export const TaskCard = memo(function TaskCard({
           <div className="flex flex-col gap-1.5 flex-1">
             {card.priority && !card.is_done && (
               <span
-                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border w-fit 
-                ${
+                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border w-fit ${
                   card.priority === "high"
                     ? "bg-red-50 text-red-700 border-red-200"
                     : card.priority === "medium"
@@ -97,10 +100,9 @@ export const TaskCard = memo(function TaskCard({
                 {card.priority}
               </span>
             )}
-            <p
-              className={`text-sm font-semibold leading-snug transition-all
-              ${card.is_done ? "text-slate-400 line-through" : "text-slate-700"}`}
-            >
+            <p className={`text-sm font-semibold leading-snug transition-all ${
+              card.is_done ? "text-slate-400 line-through" : "text-slate-700"
+            }`}>
               {card.title}
             </p>
           </div>
@@ -113,26 +115,17 @@ export const TaskCard = memo(function TaskCard({
               <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
                 <div
                   className={`h-1 rounded-full transition-all duration-300 ${
-                    completedSubtasks === totalSubtasks
-                      ? "bg-emerald-500"
-                      : "bg-blue-400"
+                    completedSubtasks === totalSubtasks ? "bg-emerald-500" : "bg-blue-400"
                   }`}
-                  style={{
-                    width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%`,
-                  }}
+                  style={{ width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%` }}
                 />
               </div>
-              <span
-                className={`text-[10px] font-semibold ${
-                  completedSubtasks === totalSubtasks
-                    ? "text-emerald-500"
-                    : "text-slate-400"
-                }`}
-              >
+              <span className={`text-[10px] font-semibold ${
+                completedSubtasks === totalSubtasks ? "text-emerald-500" : "text-slate-400"
+              }`}>
                 {completedSubtasks}/{totalSubtasks}
               </span>
             </div>
-            {/* Subtask rows */}
             {card.subtasks?.map((st) => (
               <div
                 key={st.id}
@@ -143,14 +136,10 @@ export const TaskCard = memo(function TaskCard({
                 <input
                   type="checkbox"
                   checked={st.is_done}
-                  onChange={() =>
-                    handleToggleSubtask(card.id, st.id, st.is_done)
-                  }
+                  onChange={() => handleToggleSubtask(card.id, st.id, st.is_done)}
                   className="rounded border-slate-300 text-blue-500 focus:ring-blue-400 cursor-pointer"
                 />
-                <span
-                  className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}
-                >
+                <span className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}>
                   {st.title}
                 </span>
               </div>
@@ -159,40 +148,46 @@ export const TaskCard = memo(function TaskCard({
         )}
 
         {/* Footer — due date, estimated hours, assignee */}
-        {(card.due_date || card.estimated_hours || card.assignee_id) && (
-          <div className="flex items-center justify-between pl-7 pt-1">
-            <div className="flex items-center gap-2">
-              {card.due_date && (
-                <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                  <Calendar size={10} />
-                  {formatThaiDate(card.due_date)}
-                </span>
-              )}
-              {card.estimated_hours != null && (
-                <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                  <Clock size={10} />
-                  {card.estimated_hours}h
-                </span>
-              )}
-            </div>
-            {card.assignee_name && (
-              <div
-                className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                title={card.assignee_name}
-              >
-                {card.assignee_name.charAt(0).toUpperCase()}
-              </div>
+        <div className="flex items-center justify-between pl-7 pt-1">
+          <div className="flex items-center gap-2">
+            {card.due_date && (
+              <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                <Calendar size={10} />
+                {formatThaiDate(card.due_date)}
+              </span>
+            )}
+            {card.estimated_hours != null && (
+              <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                <Clock size={10} />
+                {card.estimated_hours}h
+              </span>
             )}
           </div>
-        )}
+
+          {card.assignee_name && card.assignee_id ? (
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${avatarColor(card.assignee_id)}`}
+              title={card.assignee_name}
+            >
+              {card.assignee_name.charAt(0).toUpperCase()}
+            </div>
+          ) : (
+            <div
+              className="w-6 h-6 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center shrink-0"
+              title="Unassigned"
+            >
+              <UserRound size={12} className="text-slate-300" />
+            </div>
+          )}
+        </div>
       </div>
+
       <CardDetailModal
         card={card}
         boardId={boardId}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         onUpdated={(cardId, form) => {
-          // เปลี่ยน signature
           onSaveCard(cardId, form);
           setIsDetailOpen(false);
         }}

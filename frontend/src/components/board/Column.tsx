@@ -20,6 +20,7 @@ interface ColumnProps {
   onSaveCard: (cardId: string, form: FormState) => void;
   onRenameColumn: (columnId: string, title: string) => void;
   onDeleteColumn: (columnId: string) => void;
+  filterAssigneeId?: string | null;
   // null = แสดงที่ท้าย column, string = แสดงก่อน card id นั้น, undefined = ไม่แสดง
   dropIndicatorBeforeId?: string | null;
 }
@@ -38,6 +39,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   onSaveCard,
   onRenameColumn,
   onDeleteColumn,
+  filterAssigneeId,
   dropIndicatorBeforeId,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -227,6 +229,7 @@ export const KanbanColumn = memo(function KanbanColumn({
                   card={card}
                   onDeleteCard={onDeleteCard}
                   onSaveCard={onSaveCard}
+                  filterAssigneeId={filterAssigneeId}
                 />
               </div>
             ))}

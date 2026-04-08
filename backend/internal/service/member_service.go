@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 )
@@ -28,6 +29,16 @@ func (s *BoardService) AddBoardMember(ctx context.Context, boardID, userID strin
 }
 
 func (s *BoardService) RemoveBoardMember(ctx context.Context, boardID, userID string) error {
+	role, err := s.queries.GetBoardMemberRole(ctx, db.GetBoardMemberRoleParams{
+		BoardID: boardID,
+		UserID:  userID,
+	})
+	if err != nil {
+		return err
+	}
+	if role == "owner" {
+		return fmt.Errorf("cannot remove the board owner")
+	}
 	return s.queries.RemoveBoardMember(ctx, db.RemoveBoardMemberParams{
 		BoardID: boardID,
 		UserID:  userID,
@@ -35,7 +46,17 @@ func (s *BoardService) RemoveBoardMember(ctx context.Context, boardID, userID st
 }
 
 func (s *BoardService) UpdateMemberRole(ctx context.Context, boardID, userID string, role string) error {
-	_, err := s.queries.UpdateBoardMemberRole(ctx, db.UpdateBoardMemberRoleParams{
+	currentRole, err := s.queries.GetBoardMemberRole(ctx, db.GetBoardMemberRoleParams{
+		BoardID: boardID,
+		UserID:  userID,
+	})
+	if err != nil {
+		return err
+	}
+	if currentRole == "owner" {
+		return fmt.Errorf("cannot change the role of the board owner")
+	}
+	_, err = s.queries.UpdateBoardMemberRole(ctx, db.UpdateBoardMemberRoleParams{
 		BoardID: boardID,
 		UserID:  userID,
 		Role:    role,

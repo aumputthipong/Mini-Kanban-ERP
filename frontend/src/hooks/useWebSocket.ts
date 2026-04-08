@@ -35,7 +35,7 @@ export const useWebSocket = (url: string) => {
       if (isCancelled) return; // ถ้ายกเลิกแล้ว ห้ามประมวลผลข้อความ
       try {
         const parsedData = JSON.parse(event.data);
-        console.log('Message from server:', parsedData);
+        // console.log('Message from server:', parsedData);
 
         if (parsedData.type === 'CARD_MOVED') {
           const { card_id, new_column_id, position, is_done, completed_at } = parsedData.payload;
@@ -50,8 +50,12 @@ export const useWebSocket = (url: string) => {
           useBoardStore.getState().removeCardFromStore(parsedData.payload.card_id);
         }
         if (parsedData.type === 'CARD_UPDATED') {
-          const { card_id, ...rest } = parsedData.payload;
-          useBoardStore.getState().updateCard({ id: card_id, ...rest });
+          const { card_id, assignee_name, ...rest } = parsedData.payload;
+          useBoardStore.getState().updateCard({
+            id: card_id,
+            assignee_name: assignee_name ?? null,
+            ...rest,
+          });
         }
 
         if (parsedData.type === 'COLUMN_CREATED') {

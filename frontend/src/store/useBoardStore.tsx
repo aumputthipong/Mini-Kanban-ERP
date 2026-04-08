@@ -6,10 +6,12 @@ interface BoardState {
   currentUserId: string;
   boardMembers: BoardMember[];
   isLoading: boolean;
+  filterAssigneeId: string | null;
   setColumns: (columns: Column[]) => void;
   setCurrentUser: (userId: string) => void;
   setBoardMembers: (members: BoardMember[]) => void;
   setLoading: (v: boolean) => void;
+  setFilterAssigneeId: (id: string | null) => void;
   moveCard: (
     cardId: string,
     toColumnId: string,
@@ -38,10 +40,12 @@ export const useBoardStore = create<BoardState>((set) => ({
   currentUserId: "",
   boardMembers: [],
   isLoading: false,
+  filterAssigneeId: null,
   setColumns: (columns) => set({ columns }),
   setCurrentUser: (userId) => set({ currentUserId: userId }),
   setBoardMembers: (members) => set({ boardMembers: members }),
   setLoading: (v) => set({ isLoading: v }),
+  setFilterAssigneeId: (id) => set({ filterAssigneeId: id }),
 
   moveCard: (cardId, toColumnId, position, isDone, completedAt) =>
     set((state) => {

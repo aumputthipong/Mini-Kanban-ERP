@@ -128,12 +128,12 @@ WHERE id = $1 LIMIT 1;
 -- name: UpdateCard :one
 UPDATE cards
 SET
-    title            = COALESCE($2, title),
-    description      = COALESCE($3, description),
-    due_date         = COALESCE($4, due_date),
-    assignee_id      = COALESCE($5, assignee_id),
-    priority         = COALESCE($6, priority),
-    estimated_hours  = COALESCE($7, estimated_hours),
+    title            = $2,
+    description      = $3,
+    due_date         = $4,
+    assignee_id      = $5,
+    priority         = $6,
+    estimated_hours  = $7,
     updated_at       = CURRENT_TIMESTAMP
 WHERE id = $1
 RETURNING *;
