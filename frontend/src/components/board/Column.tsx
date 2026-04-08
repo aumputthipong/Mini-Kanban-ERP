@@ -108,7 +108,7 @@ export const KanbanColumn = memo(function KanbanColumn({
     <>
       <div
         ref={setNodeRef}
-        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors max-h-full ${
+        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors max-h-full snap-start ${
           isOver
             ? "bg-blue-50 border-2 border-blue-300"
             : "bg-slate-100 border-2 border-transparent"

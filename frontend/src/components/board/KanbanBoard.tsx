@@ -1,7 +1,7 @@
 // components/board/KanbanBoard.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -16,6 +16,7 @@ import { KanbanColumn } from "@/components/board/Column";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import type { Card } from "@/types/board";
+import { usePanBoard } from "@/hooks/usePanBoard";
 
 function DragPreview({ card }: { card: Card }) {
   return (
@@ -53,6 +54,9 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     columnId: string;
     beforeCardId: string | null;
   } | null>(null);
+
+  const boardScrollRef = useRef<HTMLDivElement>(null);
+  usePanBoard(boardScrollRef);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -121,7 +125,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="flex gap-6 overflow-x-auto overflow-y-hidden h-full pb-4 items-start">
+      <div ref={boardScrollRef} className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full pb-4 items-start snap-x snap-mandatory scroll-smooth">
         {todoColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
         {doneColumns.map((col) => <KanbanColumn key={col.id} {...columnProps(col)} />)}
       </div>
