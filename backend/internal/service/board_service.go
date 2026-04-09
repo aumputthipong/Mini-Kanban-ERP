@@ -167,9 +167,16 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	// 1. ดึงข้อมูล Columns
 	columns, err := s.queries.GetColumnsByBoardID(ctx, boardID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch columns: %w", err)
+	}
+
+	// 🌟 Best Practice: ตรวจสอบความว่างเปล่า (Early Return)
+	// ถ้าบอร์ดนี้ยังไม่มี Column เลย ให้ส่ง Array ว่างกลับไปทันที
+	if len(columns) == 0 {
+		return []ColumnData{}, nil
 	}
 
 	columnIDs := make([]string, len(columns))
@@ -177,12 +184,12 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 		columnIDs[i] = col.ID
 	}
 
+	// 2. ดึงข้อมูล Cards 
+	// (ถึงบรรทัดนี้ การันตีได้แล้วว่า columnIDs มีค่าอย่างน้อย 1 ตัวแน่นอน)
 	cards, err := s.queries.GetCardsByColumnIDs(ctx, columnIDs)
 	if err != nil {
 		return nil, fmt.Errorf("fetch cards: %w", err)
 	}
-
-	// ลบส่วน fetch subtasks ออกทั้งหมด — ไม่ต้องการแล้ว
 
 	cardsByColumn := make(map[string][]CardData)
 	for _, card := range cards {
@@ -207,12 +214,20 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 
 	result := make([]ColumnData, 0, len(columns))
 	for _, col := range columns {
+		// 🌟 Best Practice: เช็คค่า nil ของ map
+		// ถ้า Column นั้นไม่มี Card เลย map จะคืนค่า nil 
+		// เราควรแปลงเป็น Slice ว่าง []CardData{} แทนที่ Frontend จะได้รับเป็น null
+		colCards := cardsByColumn[col.ID]
+		if colCards == nil {
+			colCards = []CardData{}
+		}
+
 		result = append(result, ColumnData{
 			ID:       col.ID,
 			Title:    col.Title,
 			Position: col.Position,
 			Category: col.Category,
-			Cards:    cardsByColumn[col.ID],
+			Cards:    colCards,
 		})
 	}
 

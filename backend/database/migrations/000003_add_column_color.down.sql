@@ -1,0 +1,1 @@
+ALTER TABLE columns DROP COLUMN IF EXISTS color;

@@ -181,6 +181,27 @@ func (q *Queries) GetMaxColumnPositionBeforeDone(ctx context.Context, boardID st
 	return position, err
 }
 
+const updateColumn = `-- name: UpdateColumn :exec
+UPDATE columns
+SET title    = $2,
+    category = $3,
+    color    = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateColumnParams struct {
+	ID       string
+	Title    string
+	Category string
+	Color    *string
+}
+
+func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) error {
+	_, err := q.db.Exec(ctx, updateColumn, arg.ID, arg.Title, arg.Category, arg.Color)
+	return err
+}
+
 const renameColumn = `-- name: RenameColumn :exec
 UPDATE columns
 SET title = $2, updated_at = CURRENT_TIMESTAMP
@@ -616,7 +637,7 @@ func (q *Queries) GetColumnCategory(ctx context.Context, id string) (string, err
 }
 
 const getColumnsByBoardID = `-- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, category, created_at, updated_at
+SELECT id, board_id, title, position, category, color, created_at, updated_at
 FROM columns
 WHERE board_id = $1
 ORDER BY position ASC
@@ -637,6 +658,7 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Co
 			&i.Title,
 			&i.Position,
 			&i.Category,
+			&i.Color,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

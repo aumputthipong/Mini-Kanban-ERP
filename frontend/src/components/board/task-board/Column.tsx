@@ -1,28 +1,30 @@
 // components/kanban/Column.tsx
 "use client";
 
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import { TaskCard } from "./TaskCard";
-import type { Card } from "@/types/board";
+import type { Card, Column } from "@/types/board";
 import { FormState } from "../card-modal/CardDetailModal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ColumnOptionsModal, getColumnColorHex } from "./ColumnOptionsModal";
 
 interface ColumnProps {
   id: string;
   title: string;
+  category: Column["category"];
+  color?: string | null;
   boardId: string;
   cards: Card[];
   onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
-  onRenameColumn: (columnId: string, title: string) => void;
   onDeleteColumn: (columnId: string) => void;
+  onUpdateColumn: (columnId: string, title: string, category: "TODO" | "DONE", color: string | null) => void;
   filterAssigneeId?: string | null;
   filterPriorities?: string[];
   dropIndicatorBeforeId?: string | null;
@@ -36,12 +38,14 @@ export const KanbanColumn = memo(function KanbanColumn({
   id,
   boardId,
   title,
+  category,
+  color,
   cards,
   onAddCard,
   onDeleteCard,
   onSaveCard,
-  onRenameColumn,
   onDeleteColumn,
+  onUpdateColumn,
   filterAssigneeId,
   filterPriorities,
   dropIndicatorBeforeId,
@@ -50,46 +54,9 @@ export const KanbanColumn = memo(function KanbanColumn({
   const [isAdding, setIsAdding] = useState(false);
   const [cardTitle, setCardTitle] = useState("");
   const addInputRef = useRef<HTMLInputElement>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
-  // ⋯ menu
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // inline rename
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(title);
-  const renameInputRef = useRef<HTMLInputElement>(null);
-
-  // confirm delete
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  // ปิด menu เมื่อคลิกนอก
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
-
-  // focus rename input เมื่อเปิด
-  useEffect(() => {
-    if (isRenaming) {
-      setRenameValue(title);
-      setTimeout(() => renameInputRef.current?.select(), 0);
-    }
-  }, [isRenaming, title]);
-
-  const submitRename = () => {
-    const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== title) {
-      onRenameColumn(id, trimmed);
-    }
-    setIsRenaming(false);
-  };
+  const colorHex = getColumnColorHex(color);
 
   const handleSubmit = () => {
     if (!cardTitle.trim()) return;
@@ -112,72 +79,34 @@ export const KanbanColumn = memo(function KanbanColumn({
     <>
       <div
         ref={setNodeRef}
-        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors max-h-full snap-start ${
+        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors max-h-full snap-start overflow-hidden ${
           isOver
             ? "bg-blue-50 border-2 border-blue-300"
             : "bg-slate-100 border-2 border-transparent"
         }`}
       >
-        {/* Header — sticky */}
-        <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-2 shrink-0">
-          <div className="flex-1 flex flex-col gap-2.5 min-w-0">
-            {/* Title / inline rename */}
-            {isRenaming ? (
-              <input
-                ref={renameInputRef}
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={submitRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitRename();
-                  if (e.key === "Escape") setIsRenaming(false);
-                }}
-                className="font-bold text-slate-700 leading-tight bg-white border border-blue-400 rounded-md px-2 py-0.5 text-sm outline-none ring-2 ring-blue-100 w-full"
-              />
-            ) : (
-              <h2 className="font-bold text-slate-700 leading-tight transition-colors truncate">
-                {title}
-              </h2>
-            )}
-          </div>
+        {/* Color strip */}
+        {colorHex && (
+          <div className="h-1 shrink-0" style={{ backgroundColor: colorHex }} />
+        )}
 
-          {/* Right: count, ⋯ */}
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2 shrink-0">
+          <h2 className="font-bold text-slate-700 leading-tight truncate flex-1">
+            {title}
+          </h2>
+
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full min-w-5 text-center">
               {cards.length}
             </span>
 
-            {/* ⋯ menu */}
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen((v) => !v)}
-                className=" cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-7 z-20 bg-white rounded-xl shadow-lg border border-slate-100 py-1 w-40 text-sm">
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setIsRenaming(true);
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-slate-50 text-slate-700 transition-colors"
-                  >
-                    <Pencil size={14} /> Rename
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setConfirmOpen(true);
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-500 transition-colors"
-                  >
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => setOptionsOpen(true)}
+              className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+            >
+              <MoreHorizontal size={16} />
+            </button>
           </div>
         </div>
 
@@ -211,7 +140,7 @@ export const KanbanColumn = memo(function KanbanColumn({
           </div>
         </SortableContext>
 
-        {/* Add Card footer — sticky */}
+        {/* Add Card footer */}
         <div className="shrink-0 px-4 pb-4 pt-1">
           {isAdding ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2.5 flex flex-col gap-2">
@@ -255,17 +184,15 @@ export const KanbanColumn = memo(function KanbanColumn({
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        title={`Delete "${title}"?`}
-        description="All cards in this column will be permanently deleted."
-        confirmLabel="Delete"
-        destructive
-        onConfirm={() => {
-          setConfirmOpen(false);
-          onDeleteColumn(id);
-        }}
-        onCancel={() => setConfirmOpen(false)}
+      <ColumnOptionsModal
+        open={optionsOpen}
+        columnId={id}
+        initialTitle={title}
+        initialCategory={category}
+        initialColor={color ?? null}
+        onSave={(t, cat, col) => onUpdateColumn(id, t, cat, col)}
+        onDelete={() => onDeleteColumn(id)}
+        onClose={() => setOptionsOpen(false)}
       />
     </>
   );

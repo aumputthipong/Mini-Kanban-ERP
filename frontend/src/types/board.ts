@@ -23,6 +23,7 @@ export interface Column {
   title: string;
   position: number;
   category: "TODO" | "DONE";
+  color?: string | null;
   cards: Card[];
 }
 

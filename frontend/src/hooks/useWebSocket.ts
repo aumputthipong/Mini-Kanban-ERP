@@ -72,6 +72,15 @@ export const useWebSocket = (url: string) => {
           useBoardStore.getState().removeColumnFromStore(parsedData.payload.column_id);
         }
 
+        if (parsedData.type === 'COLUMN_UPDATED') {
+          const { column_id, title, category, color } = parsedData.payload;
+          useBoardStore.getState().updateColumnInStore(column_id, {
+            title,
+            category,
+            color: color || null,
+          });
+        }
+
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }

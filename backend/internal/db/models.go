@@ -60,6 +60,7 @@ type Column struct {
 	Title     string
 	Position  float64
 	Category  string
+	Color     *string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
