@@ -14,9 +14,18 @@ type ColumnResponse struct {
 type CreateBoardRequest struct {
 	Title string `json:"title"`
 }
+type MemberSummary struct {
+	UserID   string `json:"user_id"`
+	FullName string `json:"full_name"`
+}
+
 type BoardSummaryResponse struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID         string          `json:"id"`
+	Title      string          `json:"title"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	TotalCards int             `json:"total_cards"`
+	DoneCards  int             `json:"done_cards"`
+	Members    []MemberSummary `json:"members"`
 }
 
 type UserResponse struct {

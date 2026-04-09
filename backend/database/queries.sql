@@ -99,10 +99,35 @@ SET deleted_at = CURRENT_TIMESTAMP
 WHERE id = $1;
 
 -- name: GetAllActiveBoards :many
-SELECT id, title, created_at 
-FROM boards 
-WHERE deleted_at IS NULL 
+SELECT id, title, created_at
+FROM boards
+WHERE deleted_at IS NULL
 ORDER BY created_at DESC;
+
+-- name: GetActiveBoardsWithStats :many
+SELECT
+    b.id,
+    b.title,
+    b.updated_at,
+    COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
+    COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
+FROM boards b
+LEFT JOIN columns col ON col.board_id = b.id
+LEFT JOIN cards   c   ON c.column_id  = col.id
+WHERE b.deleted_at IS NULL
+GROUP BY b.id, b.title, b.updated_at
+ORDER BY b.updated_at DESC;
+
+-- name: GetMembersForActiveBoards :many
+SELECT
+    bm.board_id::text AS board_id,
+    u.id::text        AS user_id,
+    u.full_name
+FROM board_members bm
+JOIN users  u ON u.id  = bm.user_id
+JOIN boards b ON b.id  = bm.board_id
+WHERE b.deleted_at IS NULL
+ORDER BY bm.joined_at ASC;
 
 -- name: GetTrashedBoards :many
 SELECT id, title, deleted_at 

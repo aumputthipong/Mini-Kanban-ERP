@@ -195,7 +195,11 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 	if position <= 0 {
 		maxPos, err := c.hub.queries.GetMaxPositionInColumn(ctx, columnIDStr)
 		if err == nil {
-			position = maxPos + positionGap
+			if v, ok := maxPos.(float64); ok {
+				position = v + positionGap
+			} else {
+				position = positionGap
+			}
 		} else {
 			position = positionGap
 		}
@@ -450,10 +454,15 @@ func (c *Client) handleColumnCreated(payload map[string]interface{}) {
 	if err != nil {
 		// ไม่มี DONE column → ต่อท้ายปกติ
 		maxPos, _ := c.hub.queries.GetMaxColumnPositionInBoard(ctx, c.boardID)
-		position = maxPos + positionGap
+		if v, ok := maxPos.(float64); ok {
+			position = v + positionGap
+		} else {
+			position = positionGap
+		}
 	} else {
 		prevPos, _ := c.hub.queries.GetMaxColumnPositionBeforeDone(ctx, c.boardID)
-		position = (prevPos + doneCol.Position) / 2
+		prevPosF, _ := prevPos.(float64)
+		position = (prevPosF + doneCol.Position) / 2
 	}
 
 	newCol, err := c.hub.queries.CreateColumn(ctx, db.CreateColumnParams{

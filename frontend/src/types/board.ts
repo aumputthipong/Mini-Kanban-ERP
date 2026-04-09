@@ -30,7 +30,11 @@ export interface Column {
 export interface Board {
   id: string;
   title: string;
-  budget: number;
+  budget?: number;
+  updated_at: string;
+  total_cards: number;
+  done_cards: number;
+  members: { user_id: string; full_name: string }[];
 }
 
 export interface CreateCardPayload {

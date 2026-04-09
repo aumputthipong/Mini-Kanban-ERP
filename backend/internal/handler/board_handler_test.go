@@ -42,8 +42,8 @@ const validUserID = "550e8400-e29b-41d4-a716-446655440000"
 
 func TestGetAllBoards_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
-			return []db.GetAllActiveBoardsRow{
+		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+			return []service.BoardSummaryData{
 				{ID: "id-1", Title: "Board A"},
 				{ID: "id-2", Title: "Board B"},
 			}, nil
@@ -57,7 +57,7 @@ func TestGetAllBoards_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result []map[string]string
+	var result []map[string]interface{}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&result))
 	assert.Len(t, result, 2)
 	assert.Equal(t, "Board A", result[0]["title"])
@@ -65,7 +65,7 @@ func TestGetAllBoards_Success(t *testing.T) {
 
 func TestGetAllBoards_DBError(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
+		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
 			return nil, errors.New("connection refused")
 		},
 	}

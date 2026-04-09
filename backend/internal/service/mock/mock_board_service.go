@@ -13,12 +13,12 @@ import (
 // ตัวอย่างการใช้:
 //
 //	mock := &mock.MockBoardService{
-//	    GetAllBoardsFn: func(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
-//	        return []db.GetAllActiveBoardsRow{{ID: "abc", Title: "Test"}}, nil
+//	    GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+//	        return []service.BoardSummaryData{{ID: "abc", Title: "Test"}}, nil
 //	    },
 //	}
 type MockBoardService struct {
-	GetAllBoardsFn      func(ctx context.Context) ([]db.GetAllActiveBoardsRow, error)
+	GetAllBoardsFn      func(ctx context.Context) ([]service.BoardSummaryData, error)
 	GetBoardWithCardsFn func(ctx context.Context, boardID string) ([]service.ColumnData, error)
 	CreateBoardFn       func(ctx context.Context, title string, ownerID string) (string, error)
 	UpdateBoardFn       func(ctx context.Context, id string, title *string, budget *float64) (db.Board, error)
@@ -38,7 +38,7 @@ type MockBoardService struct {
 	GetAllUsersFn func(ctx context.Context) ([]db.GetAllUsersRow, error)
 }
 
-func (m *MockBoardService) GetAllBoards(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
+func (m *MockBoardService) GetAllBoards(ctx context.Context) ([]service.BoardSummaryData, error) {
 	return m.GetAllBoardsFn(ctx)
 }
 
