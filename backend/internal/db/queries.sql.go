@@ -55,19 +55,6 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 	return i, err
 }
 
-const getMaxPositionInColumn = `-- name: GetMaxPositionInColumn :one
-SELECT COALESCE(MAX(position), 0)
-FROM cards
-WHERE column_id = $1
-`
-
-func (q *Queries) GetMaxPositionInColumn(ctx context.Context, columnID string) (float64, error) {
-	row := q.db.QueryRow(ctx, getMaxPositionInColumn, columnID)
-	var position float64
-	err := row.Scan(&position)
-	return position, err
-}
-
 const createCard = `-- name: CreateCard :one
 INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -143,7 +130,12 @@ type CreateColumnRow struct {
 }
 
 func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (CreateColumnRow, error) {
-	row := q.db.QueryRow(ctx, createColumn, arg.BoardID, arg.Title, arg.Position, arg.Category)
+	row := q.db.QueryRow(ctx, createColumn,
+		arg.BoardID,
+		arg.Title,
+		arg.Position,
+		arg.Category,
+	)
 	var i CreateColumnRow
 	err := row.Scan(
 		&i.ID,
@@ -153,78 +145,6 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Cre
 		&i.Category,
 	)
 	return i, err
-}
-
-const getMaxColumnPositionInBoard = `-- name: GetMaxColumnPositionInBoard :one
-SELECT COALESCE(MAX(position), 0)
-FROM columns
-WHERE board_id = $1
-`
-
-func (q *Queries) GetMaxColumnPositionInBoard(ctx context.Context, boardID string) (float64, error) {
-	row := q.db.QueryRow(ctx, getMaxColumnPositionInBoard, boardID)
-	var position float64
-	err := row.Scan(&position)
-	return position, err
-}
-
-const getMaxColumnPositionBeforeDone = `-- name: GetMaxColumnPositionBeforeDone :one
-SELECT COALESCE(MAX(position), 0)
-FROM columns
-WHERE board_id = $1 AND category != 'DONE'
-`
-
-func (q *Queries) GetMaxColumnPositionBeforeDone(ctx context.Context, boardID string) (float64, error) {
-	row := q.db.QueryRow(ctx, getMaxColumnPositionBeforeDone, boardID)
-	var position float64
-	err := row.Scan(&position)
-	return position, err
-}
-
-const updateColumn = `-- name: UpdateColumn :exec
-UPDATE columns
-SET title    = $2,
-    category = $3,
-    color    = $4,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1
-`
-
-type UpdateColumnParams struct {
-	ID       string
-	Title    string
-	Category string
-	Color    *string
-}
-
-func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) error {
-	_, err := q.db.Exec(ctx, updateColumn, arg.ID, arg.Title, arg.Category, arg.Color)
-	return err
-}
-
-const renameColumn = `-- name: RenameColumn :exec
-UPDATE columns
-SET title = $2, updated_at = CURRENT_TIMESTAMP
-WHERE id = $1
-`
-
-type RenameColumnParams struct {
-	ID    string
-	Title string
-}
-
-func (q *Queries) RenameColumn(ctx context.Context, arg RenameColumnParams) error {
-	_, err := q.db.Exec(ctx, renameColumn, arg.ID, arg.Title)
-	return err
-}
-
-const deleteColumn = `-- name: DeleteColumn :exec
-DELETE FROM columns WHERE id = $1
-`
-
-func (q *Queries) DeleteColumn(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteColumn, id)
-	return err
 }
 
 const createSubtask = `-- name: CreateSubtask :one
@@ -299,6 +219,15 @@ func (q *Queries) DeleteCard(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteColumn = `-- name: DeleteColumn :exec
+DELETE FROM columns WHERE id = $1
+`
+
+func (q *Queries) DeleteColumn(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteColumn, id)
+	return err
+}
+
 const deleteSubtask = `-- name: DeleteSubtask :exec
 DELETE FROM card_subtasks
 WHERE id = $1
@@ -309,10 +238,59 @@ func (q *Queries) DeleteSubtask(ctx context.Context, id string) error {
 	return err
 }
 
+const getActiveBoardsWithStats = `-- name: GetActiveBoardsWithStats :many
+SELECT
+    b.id,
+    b.title,
+    b.updated_at,
+    COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
+    COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
+FROM boards b
+LEFT JOIN columns col ON col.board_id = b.id
+LEFT JOIN cards   c   ON c.column_id  = col.id
+WHERE b.deleted_at IS NULL
+GROUP BY b.id, b.title, b.updated_at
+ORDER BY b.updated_at DESC
+`
+
+type GetActiveBoardsWithStatsRow struct {
+	ID         string
+	Title      string
+	UpdatedAt  pgtype.Timestamptz
+	TotalCards int32
+	DoneCards  int32
+}
+
+func (q *Queries) GetActiveBoardsWithStats(ctx context.Context) ([]GetActiveBoardsWithStatsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveBoardsWithStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveBoardsWithStatsRow
+	for rows.Next() {
+		var i GetActiveBoardsWithStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.UpdatedAt,
+			&i.TotalCards,
+			&i.DoneCards,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllActiveBoards = `-- name: GetAllActiveBoards :many
-SELECT id, title, created_at 
-FROM boards 
-WHERE deleted_at IS NULL 
+SELECT id, title, created_at
+FROM boards
+WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 `
 
@@ -672,6 +650,83 @@ func (q *Queries) GetColumnsByBoardID(ctx context.Context, boardID string) ([]Co
 	return items, nil
 }
 
+const getMaxColumnPositionBeforeDone = `-- name: GetMaxColumnPositionBeforeDone :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1 AND category != 'DONE'
+`
+
+func (q *Queries) GetMaxColumnPositionBeforeDone(ctx context.Context, boardID string) (interface{}, error) {
+	row := q.db.QueryRow(ctx, getMaxColumnPositionBeforeDone, boardID)
+	var coalesce interface{}
+	err := row.Scan(&coalesce)
+	return coalesce, err
+}
+
+const getMaxColumnPositionInBoard = `-- name: GetMaxColumnPositionInBoard :one
+SELECT COALESCE(MAX(position), 0)
+FROM columns
+WHERE board_id = $1
+`
+
+func (q *Queries) GetMaxColumnPositionInBoard(ctx context.Context, boardID string) (interface{}, error) {
+	row := q.db.QueryRow(ctx, getMaxColumnPositionInBoard, boardID)
+	var coalesce interface{}
+	err := row.Scan(&coalesce)
+	return coalesce, err
+}
+
+const getMaxPositionInColumn = `-- name: GetMaxPositionInColumn :one
+SELECT COALESCE(MAX(position), 0)
+FROM cards
+WHERE column_id = $1
+`
+
+func (q *Queries) GetMaxPositionInColumn(ctx context.Context, columnID string) (interface{}, error) {
+	row := q.db.QueryRow(ctx, getMaxPositionInColumn, columnID)
+	var coalesce interface{}
+	err := row.Scan(&coalesce)
+	return coalesce, err
+}
+
+const getMembersForActiveBoards = `-- name: GetMembersForActiveBoards :many
+SELECT
+    bm.board_id::text AS board_id,
+    u.id::text        AS user_id,
+    u.full_name
+FROM board_members bm
+JOIN users  u ON u.id  = bm.user_id
+JOIN boards b ON b.id  = bm.board_id
+WHERE b.deleted_at IS NULL
+ORDER BY bm.joined_at ASC
+`
+
+type GetMembersForActiveBoardsRow struct {
+	BoardID  string
+	UserID   string
+	FullName string
+}
+
+func (q *Queries) GetMembersForActiveBoards(ctx context.Context) ([]GetMembersForActiveBoardsRow, error) {
+	rows, err := q.db.Query(ctx, getMembersForActiveBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMembersForActiveBoardsRow
+	for rows.Next() {
+		var i GetMembersForActiveBoardsRow
+		if err := rows.Scan(&i.BoardID, &i.UserID, &i.FullName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSubtask = `-- name: GetSubtask :one
 SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks WHERE id = $1 LIMIT 1
 `
@@ -876,6 +931,22 @@ func (q *Queries) RemoveBoardMember(ctx context.Context, arg RemoveBoardMemberPa
 	return err
 }
 
+const renameColumn = `-- name: RenameColumn :exec
+UPDATE columns
+SET title = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type RenameColumnParams struct {
+	ID    string
+	Title string
+}
+
+func (q *Queries) RenameColumn(ctx context.Context, arg RenameColumnParams) error {
+	_, err := q.db.Exec(ctx, renameColumn, arg.ID, arg.Title)
+	return err
+}
+
 const restoreBoardFromTrash = `-- name: RestoreBoardFromTrash :exec
 UPDATE boards 
 SET deleted_at = NULL 
@@ -1022,6 +1093,32 @@ func (q *Queries) UpdateCardColumn(ctx context.Context, arg UpdateCardColumnPara
 		arg.IsDone,
 		arg.CompletedAt,
 		arg.ID,
+	)
+	return err
+}
+
+const updateColumn = `-- name: UpdateColumn :exec
+UPDATE columns
+SET title    = $2,
+    category = $3,
+    color    = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateColumnParams struct {
+	ID       string
+	Title    string
+	Category string
+	Color    *string
+}
+
+func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) error {
+	_, err := q.db.Exec(ctx, updateColumn,
+		arg.ID,
+		arg.Title,
+		arg.Category,
+		arg.Color,
 	)
 	return err
 }

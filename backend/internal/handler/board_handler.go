@@ -32,8 +32,12 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 	result := make([]dto.BoardSummaryResponse, 0, len(boards))
 	for _, b := range boards {
 		result = append(result, dto.BoardSummaryResponse{
-			ID:    b.ID,
-			Title: b.Title,
+			ID:         b.ID,
+			Title:      b.Title,
+			UpdatedAt:  b.UpdatedAt,
+			TotalCards: b.TotalCards,
+			DoneCards:  b.DoneCards,
+			Members:    b.Members,
 		})
 	}
 	httputil.RespondJSON(w, http.StatusOK, result)

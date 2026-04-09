@@ -36,7 +36,7 @@ export function BoardSettingsForm({ boardId, board }: BoardSettingsFormProps) {
         <EditableField
           title="Budget"
           description="Total budget allocated for this project. Used for cost tracking."
-          initialValue={board?.budget}
+          initialValue={board?.budget ?? 0}
           type="number"
           fieldKey="budget"
           prefix="$"

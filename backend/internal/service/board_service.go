@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,6 +53,15 @@ type CardData struct {
 	Subtasks          []SubtaskData
 	TotalSubtasks     int64
 	CompletedSubtasks int64
+}
+
+type BoardSummaryData struct {
+	ID         string
+	Title      string
+	UpdatedAt  time.Time
+	TotalCards int
+	DoneCards  int
+	Members    []dto.MemberSummary
 }
 
 func NewBoardService(pool *pgxpool.Pool, queries *db.Queries) *BoardService {
@@ -119,8 +129,42 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string, ownerID st
 	return board.ID, nil
 }
 
-func (s *BoardService) GetAllBoards(ctx context.Context) ([]db.GetAllActiveBoardsRow, error) {
-	return s.queries.GetAllActiveBoards(ctx)
+func (s *BoardService) GetAllBoards(ctx context.Context) ([]BoardSummaryData, error) {
+	stats, err := s.queries.GetActiveBoardsWithStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	memberRows, err := s.queries.GetMembersForActiveBoards(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// group members by board ID
+	membersByBoard := make(map[string][]dto.MemberSummary, len(stats))
+	for _, m := range memberRows {
+		membersByBoard[m.BoardID] = append(membersByBoard[m.BoardID], dto.MemberSummary{
+			UserID:   m.UserID,
+			FullName: m.FullName,
+		})
+	}
+
+	result := make([]BoardSummaryData, 0, len(stats))
+	for _, b := range stats {
+		members := membersByBoard[b.ID]
+		if members == nil {
+			members = []dto.MemberSummary{}
+		}
+		result = append(result, BoardSummaryData{
+			ID:         b.ID,
+			Title:      b.Title,
+			UpdatedAt:  b.UpdatedAt.Time,
+			TotalCards: int(b.TotalCards),
+			DoneCards:  int(b.DoneCards),
+			Members:    members,
+		})
+	}
+	return result, nil
 }
 
 func (s *BoardService) GetColumnsByBoardID(ctx context.Context, boardID string) ([]db.Column, error) {

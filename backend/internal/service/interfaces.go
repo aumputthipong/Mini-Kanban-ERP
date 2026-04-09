@@ -11,7 +11,7 @@ import (
 // *BoardService implement interface นี้โดยอัตโนมัติ (Go implicit interface)
 type BoardServicer interface {
 	// Board
-	GetAllBoards(ctx context.Context) ([]db.GetAllActiveBoardsRow, error)
+	GetAllBoards(ctx context.Context) ([]BoardSummaryData, error)
 	GetBoardWithCards(ctx context.Context, boardID string) ([]ColumnData, error)
 	CreateBoard(ctx context.Context, title string, ownerID string) (string, error)
 	UpdateBoard(ctx context.Context, id string, title *string, budget *float64) (db.Board, error)
