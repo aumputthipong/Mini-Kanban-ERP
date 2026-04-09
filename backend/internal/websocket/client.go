@@ -89,6 +89,8 @@ func (c *Client) ReadPump() {
 			c.handleColumnRenamed(wsMsg.Payload)
 		case "COLUMN_DELETED":
 			c.handleColumnDeleted(wsMsg.Payload)
+		case "COLUMN_UPDATED":
+			c.handleColumnUpdated(wsMsg.Payload)
 		default:
 			log.Printf("Unknown message type: %s", wsMsg.Type)
 		}
@@ -557,6 +559,60 @@ func (c *Client) handleColumnDeleted(payload map[string]interface{}) {
 	}
 
 	log.Printf("Deleted column [%s]", columnIDStr)
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func (c *Client) handleColumnUpdated(payload map[string]interface{}) {
+	columnIDStr, ok := payload["column_id"].(string)
+	if !ok {
+		log.Println("Invalid payload for COLUMN_UPDATED")
+		return
+	}
+	if _, err := uuid.Parse(columnIDStr); err != nil {
+		log.Printf("Invalid column ID: %s", columnIDStr)
+		return
+	}
+
+	title, _ := payload["title"].(string)
+	category, _ := payload["category"].(string)
+	if title == "" || category == "" {
+		log.Println("COLUMN_UPDATED: missing title or category")
+		return
+	}
+	var colorPtr *string
+	if colorVal, ok := payload["color"].(string); ok && colorVal != "" {
+		colorPtr = &colorVal
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if err := c.hub.queries.UpdateColumn(ctx, db.UpdateColumnParams{
+		ID:       columnIDStr,
+		Title:    title,
+		Category: category,
+		Color:    colorPtr,
+	}); err != nil {
+		log.Printf("Failed to update column [%s]: %v", columnIDStr, err)
+		return
+	}
+
+	broadcastMsg := WSMessage{
+		Type: "COLUMN_UPDATED",
+		Payload: map[string]interface{}{
+			"column_id": columnIDStr,
+			"title":     title,
+			"category":  category,
+			"color":     colorPtr,
+		},
+	}
+	msgBytes, err := json.Marshal(broadcastMsg)
+	if err != nil {
+		log.Printf("Failed to marshal COLUMN_UPDATED broadcast: %v", err)
+		return
+	}
+
+	log.Printf("Updated column [%s]", columnIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
 }
 

@@ -13,10 +13,10 @@ import (
 )
 
 type SubtaskHandler struct {
-	subtaskService *service.SubtaskService
+	subtaskService service.SubtaskServicer
 }
 
-func NewSubtaskHandler(subtaskService *service.SubtaskService) *SubtaskHandler {
+func NewSubtaskHandler(subtaskService service.SubtaskServicer) *SubtaskHandler {
 	return &SubtaskHandler{subtaskService: subtaskService}
 }
 

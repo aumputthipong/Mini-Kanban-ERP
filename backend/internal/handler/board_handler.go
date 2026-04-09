@@ -14,10 +14,10 @@ import (
 )
 
 type BoardHandler struct {
-	boardService *service.BoardService
+	boardService service.BoardServicer
 }
 
-func NewBoardHandler(boardService *service.BoardService) *BoardHandler {
+func NewBoardHandler(boardService service.BoardServicer) *BoardHandler {
 	return &BoardHandler{
 		boardService: boardService,
 	}
@@ -41,20 +41,23 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) error {
-    boardID, err := httputil.GetUUIDParam(r, "boardID")
-    if err != nil {
-        return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
-    }
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+	}
 
-    columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
-    if err != nil {
-        return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
-    }
+	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
+	if err != nil {
+		// 🌟 1. เพิ่มบรรทัดนี้เพื่อพิมพ์ Error จริงๆ ออกมาที่ Terminal
+		log.Printf("👉 [DB ERROR] GetBoardWithCards failed for board %s: %v\n", boardID, err)
 
-    httputil.RespondJSON(w, http.StatusOK, mapper.ToColumnResponses(columns)) // เปลี่ยนตรงนี้
-    return nil
+		// 🌟 2. return กลับไปให้ Frontend ตามปกติ
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
+	}
+
+	httputil.RespondJSON(w, http.StatusOK, mapper.ToColumnResponses(columns))
+	return nil
 }
-
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateBoardRequest
 	if err := httputil.DecodeJSON(r, &req); err != nil {

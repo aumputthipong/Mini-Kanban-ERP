@@ -35,6 +35,7 @@ interface BoardState {
   addColumnToStore: (column: Column) => void;
   renameColumnInStore: (columnId: string, title: string) => void;
   removeColumnFromStore: (columnId: string) => void;
+  updateColumnInStore: (columnId: string, patch: Partial<Pick<Column, "title" | "category" | "color">>) => void;
 }
 
 // 3. สร้าง Store ด้วย Zustand (ตัวจัดการ State ที่ทำงานเร็วกว่า Redux และตั้งค่าง่ายกว่ามาก)
@@ -236,5 +237,12 @@ export const useBoardStore = create<BoardState>((set) => ({
   removeColumnFromStore: (columnId) =>
     set((state) => ({
       columns: state.columns.filter((col) => col.id !== columnId),
+    })),
+
+  updateColumnInStore: (columnId, patch) =>
+    set((state) => ({
+      columns: state.columns.map((col) =>
+        col.id === columnId ? { ...col, ...patch } : col
+      ),
     })),
 }));

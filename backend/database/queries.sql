@@ -4,7 +4,7 @@ FROM boards
 ORDER BY created_at DESC;
 
 -- name: GetColumnsByBoardID :many
-SELECT id, board_id, title, position, category, created_at, updated_at
+SELECT id, board_id, title, position, category, color, created_at, updated_at
 FROM columns
 WHERE board_id = $1
 ORDER BY position ASC;
@@ -51,6 +51,14 @@ WHERE board_id = $1;
 SELECT COALESCE(MAX(position), 0)
 FROM columns
 WHERE board_id = $1 AND category != 'DONE';
+
+-- name: UpdateColumn :exec
+UPDATE columns
+SET title    = $2,
+    category = $3,
+    color    = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
 
 -- name: RenameColumn :exec
 UPDATE columns

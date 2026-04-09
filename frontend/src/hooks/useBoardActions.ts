@@ -306,6 +306,19 @@ export function useBoardActions(boardId: string) {
     });
   };
 
+  const handleUpdateColumn = (
+    columnId: string,
+    title: string,
+    category: "TODO" | "DONE",
+    color: string | null
+  ) => {
+    useBoardStore.getState().updateColumnInStore(columnId, { title, category, color });
+    sendMessage({
+      type: "COLUMN_UPDATED",
+      payload: { column_id: columnId, title, category, color: color ?? "" },
+    });
+  };
+
   const handleAddColumn = (title: string) => {
     if (!title.trim()) return;
     sendMessage({
@@ -326,6 +339,7 @@ export function useBoardActions(boardId: string) {
     handleAddColumn,
     handleRenameColumn,
     handleDeleteColumn,
+    handleUpdateColumn,
     handleDeleteCard,
     handleUpdateCard,
     handleToggleDone,
