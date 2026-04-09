@@ -1,4 +1,4 @@
-# Mini ERP Kanban
+# Project Management Kanban
 
 A Real-time Kanban Board application designed for efficient task and project management. This project demonstrates a complete Full-Stack architecture with a clear separation of concerns, utilizing RESTful APIs for initial data fetching and WebSockets for real-time state synchronization.
 
