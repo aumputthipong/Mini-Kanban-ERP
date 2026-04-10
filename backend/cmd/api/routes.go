@@ -35,7 +35,7 @@ func setupRoutes(
 		r.Post("/register", httputil.MakeHandler(authHandler.Register))
 		r.Post("/login", httputil.MakeHandler(authHandler.Login))
 		r.Post("/oauth", httputil.MakeHandler(authHandler.OAuthCallback))
-		r.Post("/logout", authHandler.Logout)
+		r.Post("/logout", httputil.MakeHandler(authHandler.Logout))
 	})
 
 	// Protected routes
@@ -51,7 +51,7 @@ func setupRoutes(
 			websocket.ServeWs(hub, w, r, boardID)
 		})
 
-		r.Get("/api/auth/me", authHandler.Me)
+		r.Get("/api/auth/me", httputil.MakeHandler(authHandler.Me))
 		r.Get("/api/users", httputil.MakeHandler(boardHandler.GetAllUsers))
 
 		r.Route("/api/boards", func(r chi.Router) {
@@ -75,11 +75,11 @@ func setupRoutes(
 			r.Get("/{cardID}", httputil.MakeHandler(boardHandler.GetCard))
 			// r.Delete("/{cardID}",    boardHandler.DeleteCard)
 			r.Route("/{cardID}/subtasks", func(r chi.Router) {
-				r.Post("/", subtaskHandler.CreateSubtask)
-				r.Get("/", subtaskHandler.GetSubtasks)
-				r.Get("/{subtaskID}", subtaskHandler.GetSubtask)
-				r.Patch("/{subtaskID}", subtaskHandler.UpdateSubtask)
-				r.Delete("/{subtaskID}", subtaskHandler.DeleteSubtask)
+				r.Post("/", httputil.MakeHandler(subtaskHandler.CreateSubtask))
+				r.Get("/", httputil.MakeHandler(subtaskHandler.GetSubtasks))
+				r.Get("/{subtaskID}", httputil.MakeHandler(subtaskHandler.GetSubtask))
+				r.Patch("/{subtaskID}", httputil.MakeHandler(subtaskHandler.UpdateSubtask))
+				r.Delete("/{subtaskID}", httputil.MakeHandler(subtaskHandler.DeleteSubtask))
 			})
 		})
 

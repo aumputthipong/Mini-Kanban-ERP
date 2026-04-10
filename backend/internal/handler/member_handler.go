@@ -2,9 +2,9 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/core"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/go-chi/chi/v5"
@@ -19,7 +19,6 @@ func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) e
 
 	members, err := h.boardService.GetBoardMembers(r.Context(), boardID)
 	if err != nil {
-		log.Printf("GetBoardMembers error: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch members", err)
 	}
 
@@ -49,8 +48,7 @@ func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) er
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	validRoles := map[string]bool{"owner": true, "manager": true, "member": true}
-	if !validRoles[req.Role] {
+	if !core.BoardRole(req.Role).IsValid() {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role", nil)
 	}
 
@@ -102,8 +100,8 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
 	}
 
-	validRoles := map[string]bool{"manager": true, "member": true}
-	if !validRoles[req.Role] {
+	role := core.BoardRole(req.Role)
+	if !role.IsValid() || role == core.RoleOwner {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role — cannot change to owner", nil)
 	}
 
@@ -118,7 +116,6 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) error {
 	users, err := h.boardService.GetAllUsers(r.Context())
 	if err != nil {
-		log.Printf("GetAllUsers error: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch users", err)
 	}
 

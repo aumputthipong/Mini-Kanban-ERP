@@ -23,6 +23,7 @@ type config struct {
 	DBUrl       string
 	Port        string
 	FrontendURL string
+	Production  bool
 }
 
 func loadConfig() config {
@@ -30,9 +31,13 @@ func loadConfig() config {
 		DBUrl:       os.Getenv("DB_URL"),
 		Port:        os.Getenv("PORT"),
 		FrontendURL: os.Getenv("FRONTEND_URL"),
+		Production:  os.Getenv("ENV") == "production",
 	}
 	if cfg.DBUrl == "" {
 		log.Fatal("DB_URL is required but not set")
+	}
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET is required but not set")
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
@@ -73,7 +78,7 @@ func run(ctx context.Context, cfg config) error {
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, cfg.Production)
 
 	router := setupRoutes(boardHandler, authHandler, subtaskHandler, hub)
 	server := &http.Server{

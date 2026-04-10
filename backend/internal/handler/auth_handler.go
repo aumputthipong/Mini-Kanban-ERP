@@ -15,10 +15,11 @@ import (
 
 type AuthHandler struct {
 	authService service.AuthServicer
+	production  bool
 }
 
-func NewAuthHandler(authService service.AuthServicer) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService service.AuthServicer, production bool) *AuthHandler {
+	return &AuthHandler{authService: authService, production: production}
 }
 
 type registerRequest struct {
@@ -39,13 +40,13 @@ type oauthRequest struct {
 	ProviderID string `json:"provider_id"`
 }
 
-func setAuthCookie(w http.ResponseWriter, token string) {
+func (h *AuthHandler) setAuthCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // เปลี่ยนเป็น true ใน production
+		Secure:   h.production,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 	})
@@ -84,7 +85,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
-	setAuthCookie(w, token)
+	h.setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusCreated, map[string]string{
 		"id":        user.ID,
 		"email":     user.Email,
@@ -103,7 +104,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	user, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCreds) || errors.Is(err, service.ErrOAuthOnly) {
-			return httputil.NewAPIError(http.StatusUnauthorized, err.Error(), nil)
+			return httputil.NewAPIError(http.StatusUnauthorized, "Invalid credentials", err)
 		}
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to login", err)
 	}
@@ -113,7 +114,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
-	setAuthCookie(w, token)
+	h.setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusOK, map[string]string{
 		"id":        user.ID,
 		"email":     user.Email,
@@ -139,7 +140,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
 
-	setAuthCookie(w, token)
+	h.setAuthCookie(w, token)
 	httputil.RespondJSON(w, http.StatusOK, map[string]string{
 		"id":        user.ID,
 		"email":     user.Email,
@@ -148,7 +149,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    "",
@@ -157,9 +158,11 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
-func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) error {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 	httputil.RespondJSON(w, http.StatusOK, map[string]string{"user_id": userID})
+	return nil
 }
