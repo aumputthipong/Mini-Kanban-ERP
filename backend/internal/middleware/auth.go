@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/token"
 )
 
@@ -28,13 +29,13 @@ func RequireAuth(next http.Handler) http.Handler {
 		}
 
 		if tokenStr == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			httputil.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 
 		claims, err := token.Parse(tokenStr)
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			httputil.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 

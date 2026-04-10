@@ -61,12 +61,16 @@ func ToSubtaskResponses(subtasks []db.CardSubtask) []dto.SubtaskResponse {
 }
 
 
+// timePtrToString serializes *time.Time as "YYYY-MM-DD".
+// DB schema stores due_date as DATE (no time component), so date-only format is correct.
+// Input that includes time-of-day (RFC3339) is accepted by util.PtrStringToTimePtr
+// but the time portion is discarded when saved to DB — this matches that behavior.
 func timePtrToString(t *time.Time) *string {
-    if t == nil {
-        return nil
-    }
-    s := t.Format("2006-01-02")
-    return &s
+	if t == nil {
+		return nil
+	}
+	s := t.Format("2006-01-02")
+	return &s
 }
 
 func ToCardResponse(card service.CardData) dto.CardResponse {

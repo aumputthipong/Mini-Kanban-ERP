@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"log"
 	"net/http"
-	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -52,10 +50,6 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) erro
 
 	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
 	if err != nil {
-		// 🌟 1. เพิ่มบรรทัดนี้เพื่อพิมพ์ Error จริงๆ ออกมาที่ Terminal
-		log.Printf("👉 [DB ERROR] GetBoardWithCards failed for board %s: %v\n", boardID, err)
-
-		// 🌟 2. return กลับไปให้ Frontend ตามปกติ
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
 	}
 
@@ -137,7 +131,6 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	if err := h.boardService.HardDeleteBoard(r.Context(), boardID); err != nil {
-		log.Printf("HardDelete error: %v", err)
 		return httputil.NewAPIError(http.StatusInternalServerError, "Delete failed", err)
 	}
 
@@ -145,45 +138,3 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
-func toColumnResponses(columns []service.ColumnData) []dto.ColumnResponse {
-	result := make([]dto.ColumnResponse, 0, len(columns))
-	for _, col := range columns {
-		cards := make([]dto.CardResponse, 0, len(col.Cards))
-		for _, card := range col.Cards {
-			cards = append(cards, dto.CardResponse{
-				ID:                card.ID,
-				ColumnID:          card.ColumnID,
-				Title:             card.Title,
-				Description:       card.Description,
-				Position:          card.Position,
-				DueDate:           timePtrToStrPtr(card.DueDate),
-				EstimatedHours:    card.EstimatedHours,
-				AssigneeID:        card.AssigneeID,
-				AssigneeName:      card.AssigneeName,
-				Priority:          card.Priority,
-				IsDone:            card.IsDone,
-				CompletedAt:       timePtrToStrPtr(card.CompletedAt),
-				CreatedBy:         card.CreatedBy,
-				TotalSubtasks:     card.TotalSubtasks,
-				CompletedSubtasks: card.CompletedSubtasks,
-			})
-		}
-		result = append(result, dto.ColumnResponse{
-			ID:       col.ID,
-			Title:    col.Title,
-			Position: col.Position,
-			Category: col.Category,
-			Cards:    cards,
-		})
-	}
-	return result
-}
-
-// timePtrToStrPtr แปลง *time.Time เป็น *string สำหรับ JSON response
-func timePtrToStrPtr(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	val := t.Format("2006-01-02T15:04:05Z07:00")
-	return &val
-}
