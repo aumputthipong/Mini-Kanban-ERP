@@ -1,13 +1,16 @@
+"use client";
+
 import { Card } from "@/types/board";
 import { formatDate } from "date-fns";
 import { Plus, Target } from "lucide-react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
+
 interface FocusModeWidgetProps {
   boardId: string;
-  focusTasks: Card[]; 
+  focusTasks: Card[];
   overdueCards: Card[];
   onSelectCard: (card: Card) => void;
-  formatDate: (date: string) => string; 
+  formatDate: (date: string) => string;
 }
 export function FocusModeWidget({
   boardId,
