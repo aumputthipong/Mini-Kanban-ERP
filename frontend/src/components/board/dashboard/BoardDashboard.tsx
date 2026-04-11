@@ -17,8 +17,15 @@ import {
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
-import { formatThaiDate, getDaysRemainingText, getOverdueText } from "@/ีutils/date_helper";
-import { CardDetailModal, FormState } from "@/components/board/card-modal/CardDetailModal";
+import {
+  formatThaiDate,
+  getDaysRemainingText,
+  getOverdueText,
+} from "@/ีutils/date_helper";
+import {
+  CardDetailModal,
+  FormState,
+} from "@/components/board/card-modal/CardDetailModal";
 import type { Card } from "@/types/board";
 import {
   AlertCircle,
@@ -33,6 +40,7 @@ import {
   Activity,
   Target,
 } from "lucide-react";
+import { FocusModeWidget } from "../overview/FocusModeWidget";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -65,11 +73,51 @@ function computeCanEdit(
 
 // ─── Mock: Activity Stream ────────────────────────────────────────────────────
 const MOCK_ACTIVITY = [
-  { id: 1, actor: "Aumputthipong", action: "moved", target: "Fix login bug", dest: "Done", time: "2m ago", color: "bg-emerald-500" },
-  { id: 2, actor: "Napatpong", action: "added", target: "Write API docs", dest: "To Do", time: "14m ago", color: "bg-blue-500" },
-  { id: 3, actor: "Aumputthipong", action: "updated", target: "Deploy to staging", dest: "In Progress", time: "1h ago", color: "bg-violet-500" },
-  { id: 4, actor: "Sirinapa", action: "commented on", target: "Design new dashboard", dest: "", time: "3h ago", color: "bg-rose-500" },
-  { id: 5, actor: "Napatpong", action: "moved", target: "Code review PR #42", dest: "In Review", time: "5h ago", color: "bg-amber-500" },
+  {
+    id: 1,
+    actor: "Aumputthipong",
+    action: "moved",
+    target: "Fix login bug",
+    dest: "Done",
+    time: "2m ago",
+    color: "bg-emerald-500",
+  },
+  {
+    id: 2,
+    actor: "Napatpong",
+    action: "added",
+    target: "Write API docs",
+    dest: "To Do",
+    time: "14m ago",
+    color: "bg-blue-500",
+  },
+  {
+    id: 3,
+    actor: "Aumputthipong",
+    action: "updated",
+    target: "Deploy to staging",
+    dest: "In Progress",
+    time: "1h ago",
+    color: "bg-violet-500",
+  },
+  {
+    id: 4,
+    actor: "Sirinapa",
+    action: "commented on",
+    target: "Design new dashboard",
+    dest: "",
+    time: "3h ago",
+    color: "bg-rose-500",
+  },
+  {
+    id: 5,
+    actor: "Napatpong",
+    action: "moved",
+    target: "Code review PR #42",
+    dest: "In Review",
+    time: "5h ago",
+    color: "bg-amber-500",
+  },
 ];
 
 // ─── Mock: Burndown data (14-day sprint) ─────────────────────────────────────
@@ -82,11 +130,15 @@ function buildBurndownData(totalCards: number, doneCount: number) {
     const actualRemaining =
       i <= days * 0.6
         ? totalCards - Math.round((doneCount * 0.3 * i) / days)
-        : totalCards - Math.round(doneCount * (0.3 + (0.7 * (i - days * 0.6)) / (days * 0.4)));
+        : totalCards -
+          Math.round(
+            doneCount * (0.3 + (0.7 * (i - days * 0.6)) / (days * 0.4)),
+          );
     data.push({
       day: `D${i}`,
       ideal: Math.max(0, ideal),
-      actual: i === days ? totalCards - doneCount : Math.max(0, actualRemaining),
+      actual:
+        i === days ? totalCards - doneCount : Math.max(0, actualRemaining),
     });
   }
   return data;
@@ -99,12 +151,18 @@ function DashboardSkeleton() {
       <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-xl h-28" />
       <div className="grid grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white p-5 rounded-xl border border-slate-200 h-20" />
+          <div
+            key={i}
+            className="bg-white p-5 rounded-xl border border-slate-200 h-20"
+          />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-xl border border-slate-200 h-52" />
+          <div
+            key={i}
+            className="bg-white rounded-xl border border-slate-200 h-52"
+          />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -116,11 +174,19 @@ function DashboardSkeleton() {
 }
 
 // ─── Section header ───────────────────────────────────────────────────────────
-function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
+export function SectionTitle({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <div className="flex items-center gap-2 mb-3">
       <span className="text-slate-400">{icon}</span>
-      <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">{label}</h3>
+      <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+        {label}
+      </h3>
     </div>
   );
 }
@@ -133,7 +199,8 @@ interface BoardDashboardProps {
 export function BoardDashboard({ boardId }: BoardDashboardProps) {
   const stats = useDashboardStats();
   const { isLoading, currentUserId, boardMembers, columns } = useBoardStore();
-  const { handleUpdateCard, handleDeleteCard, handleAddSubtask } = useBoardActions(boardId);
+  const { handleUpdateCard, handleDeleteCard, handleAddSubtask } =
+    useBoardActions(boardId);
   const router = useRouter();
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
@@ -143,7 +210,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white/50 gap-4">
         <BarChart3 size={32} className="text-slate-300" />
-        <p className="text-sm">No data to analyze. Add some tasks to your board.</p>
+        <p className="text-sm">
+          No data to analyze. Add some tasks to your board.
+        </p>
         <button
           onClick={() => router.push(`/board/${boardId}/tasks`)}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
@@ -156,7 +225,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const doneCount = columns.flatMap((c) => c.cards).filter((c) => c.is_done).length;
+  const doneCount = columns
+    .flatMap((c) => c.cards)
+    .filter((c) => c.is_done).length;
   const burndownData = buildBurndownData(stats.totalCards, doneCount);
 
   // Status distribution for pie chart — group by column
@@ -165,7 +236,14 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
     value: col.count,
     isDone: col.category === "DONE",
   }));
-  const PIE_COLORS = ["#94a3b8", "#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+  const PIE_COLORS = [
+    "#94a3b8",
+    "#6366f1",
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+  ];
 
   // Focus Mode: top 3 urgent tasks for current user (overdue first, then dueSoon, else assigned)
   const urgentForUser = [
@@ -199,59 +277,14 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
       )}
 
       <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-10">
-
         {/* ── Row 1: Focus Mode ─────────────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl p-5 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Target size={18} className="opacity-80" />
-              <span className="font-bold text-sm tracking-wide">Focus Mode — Your Top 3 Right Now</span>
-            </div>
-            <button
-              onClick={() => router.push(`/board/${boardId}/tasks`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              <Plus size={13} />
-              New Task
-            </button>
-          </div>
-
-          {focusTasks.length === 0 ? (
-            <p className="text-sm text-white/70">No urgent tasks — you&apos;re on track!</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {focusTasks.map((card, i) => {
-                const isOverdue = stats.overdueCards.some((c) => c.id === card.id);
-                return (
-                  <button
-                    key={card.id}
-                    onClick={() => setSelectedCard(card)}
-                    className="text-left bg-white/10 hover:bg-white/20 transition-colors rounded-lg p-3 flex flex-col gap-1.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/20">
-                        #{i + 1}
-                      </span>
-                      {isOverdue ? (
-                        <span className="text-[10px] font-bold text-red-200 bg-red-500/40 px-1.5 py-0.5 rounded">
-                          OVERDUE
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-200 bg-amber-500/40 px-1.5 py-0.5 rounded">
-                          DUE SOON
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm font-semibold leading-snug line-clamp-2">{card.title}</p>
-                    {card.due_date && (
-                      <p className="text-[11px] text-white/60">{formatThaiDate(card.due_date)}</p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+       <FocusModeWidget 
+        boardId={boardId}
+        focusTasks={focusTasks}
+        overdueCards={stats.overdueCards}
+        onSelectCard={setSelectedCard}
+        formatDate={formatThaiDate}
+      />
 
         {/* ── Row 2: Stats strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4">
@@ -260,7 +293,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
               <CheckCircle2 size={20} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-slate-800">{stats.progress}%</p>
+              <p className="text-2xl font-extrabold text-slate-800">
+                {stats.progress}%
+              </p>
               <p className="text-xs text-slate-400 font-medium">Completion</p>
             </div>
             {/* mini progress bar */}
@@ -277,7 +312,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
               <BarChart3 size={20} className="text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-slate-800">{stats.totalCards}</p>
+              <p className="text-2xl font-extrabold text-slate-800">
+                {stats.totalCards}
+              </p>
               <p className="text-xs text-slate-400 font-medium">Total Tasks</p>
             </div>
             <div className="ml-auto text-right">
@@ -291,7 +328,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
               <Clock size={20} className="text-violet-500" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-slate-800">{stats.totalHours}</p>
+              <p className="text-2xl font-extrabold text-slate-800">
+                {stats.totalHours}
+              </p>
               <p className="text-xs text-slate-400 font-medium">Est. Hours</p>
             </div>
           </div>
@@ -299,10 +338,12 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
 
         {/* ── Row 3: Charts ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
           {/* Status Distribution (Pie) */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-            <SectionTitle icon={<BarChart3 size={15} />} label="Status Distribution" />
+            <SectionTitle
+              icon={<BarChart3 size={15} />}
+              label="Status Distribution"
+            />
             <ResponsiveContainer width="100%" height={160}>
               <PieChart>
                 <Pie
@@ -317,13 +358,21 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                   {pieData.map((entry, index) => (
                     <Cell
                       key={entry.name}
-                      fill={entry.isDone ? "#10b981" : PIE_COLORS[index % PIE_COLORS.length]}
+                      fill={
+                        entry.isDone
+                          ? "#10b981"
+                          : PIE_COLORS[index % PIE_COLORS.length]
+                      }
                     />
                   ))}
                 </Pie>
                 <Tooltip
                   formatter={(value) => [`${value} tasks`]}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -332,10 +381,18 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                 <div key={entry.name} className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-sm shrink-0"
-                    style={{ backgroundColor: entry.isDone ? "#10b981" : PIE_COLORS[i % PIE_COLORS.length] }}
+                    style={{
+                      backgroundColor: entry.isDone
+                        ? "#10b981"
+                        : PIE_COLORS[i % PIE_COLORS.length],
+                    }}
                   />
-                  <span className="text-[11px] text-slate-600 font-medium">{entry.name}</span>
-                  <span className="text-[11px] text-slate-400">({entry.value})</span>
+                  <span className="text-[11px] text-slate-600 font-medium">
+                    {entry.name}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    ({entry.value})
+                  </span>
                 </div>
               ))}
             </div>
@@ -344,18 +401,32 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
           {/* Burndown Chart */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 lg:col-span-2">
             <div className="flex items-start justify-between mb-3">
-              <SectionTitle icon={<TrendingDown size={15} />} label="Burn-down Chart" />
+              <SectionTitle
+                icon={<TrendingDown size={15} />}
+                label="Burn-down Chart"
+              />
               <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-medium">
                 Mock — 14-day sprint
               </span>
             </div>
             <ResponsiveContainer width="100%" height={170}>
-              <LineChart data={burndownData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <LineChart
+                data={burndownData}
+                margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={1} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  interval={1}
+                />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                  }}
                   formatter={(value, name) => [
                     `${value} tasks remaining`,
                     (name as string) === "ideal" ? "Ideal" : "Actual",
@@ -381,7 +452,10 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-5 h-0.5 bg-slate-300 border-dashed" style={{ borderTop: "2px dashed #cbd5e1" }} />
+                <div
+                  className="w-5 h-0.5 bg-slate-300 border-dashed"
+                  style={{ borderTop: "2px dashed #cbd5e1" }}
+                />
                 <span className="text-[11px] text-slate-400">Ideal</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -394,10 +468,12 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
 
         {/* ── Row 4: Needs Attention + Activity Stream ──────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
           {/* Overdue + Due Soon */}
           <div className="lg:col-span-2 flex flex-col gap-4">
-            <SectionTitle icon={<AlertCircle size={15} />} label="Needs Attention" />
+            <SectionTitle
+              icon={<AlertCircle size={15} />}
+              label="Needs Attention"
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Overdue */}
@@ -411,7 +487,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                   </span>
                 </div>
                 {stats.overdueCards.length === 0 ? (
-                  <p className="text-sm text-slate-400 p-4">ไม่มีงานที่เลยกำหนด</p>
+                  <p className="text-sm text-slate-400 p-4">
+                    ไม่มีงานที่เลยกำหนด
+                  </p>
                 ) : (
                   <ul className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
                     {stats.overdueCards.map((card) => (
@@ -422,7 +500,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                       >
                         <span className="flex items-center gap-2 font-medium text-slate-700 truncate pr-2">
                           <PriorityDot priority={card.priority} />
-                          <span className="truncate group-hover:text-red-700">{card.title}</span>
+                          <span className="truncate group-hover:text-red-700">
+                            {card.title}
+                          </span>
                         </span>
                         <span className="text-red-600 text-xs font-bold whitespace-nowrap shrink-0">
                           {getOverdueText(card.due_date!)}
@@ -444,7 +524,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                   </span>
                 </div>
                 {stats.dueSoonCards.length === 0 ? (
-                  <p className="text-sm text-slate-400 p-4">ไม่มีงานที่กำลังจะครบ</p>
+                  <p className="text-sm text-slate-400 p-4">
+                    ไม่มีงานที่กำลังจะครบ
+                  </p>
                 ) : (
                   <ul className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
                     {stats.dueSoonCards.map((card) => (
@@ -455,7 +537,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
                       >
                         <span className="flex items-center gap-2 font-medium text-slate-700 truncate pr-2">
                           <PriorityDot priority={card.priority} />
-                          <span className="truncate group-hover:text-amber-700">{card.title}</span>
+                          <span className="truncate group-hover:text-amber-700">
+                            {card.title}
+                          </span>
                         </span>
                         <span className="text-amber-600 text-xs font-bold whitespace-nowrap shrink-0">
                           {getDaysRemainingText(card.due_date!)}
@@ -471,21 +555,32 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Users size={15} className="text-slate-400" />
-                <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">Team Workload</h3>
+                <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+                  Team Workload
+                </h3>
               </div>
               {stats.workload.length === 0 ? (
-                <p className="text-sm text-slate-400">No active tasks assigned.</p>
+                <p className="text-sm text-slate-400">
+                  No active tasks assigned.
+                </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {stats.workload.map((user, index) => {
                     const maxCount = stats.workload[0].count;
-                    const barWidth = Math.max(8, Math.round((user.count / maxCount) * 100));
+                    const barWidth = Math.max(
+                      8,
+                      Math.round((user.count / maxCount) * 100),
+                    );
                     const isHeavy = user.count >= 5;
                     return (
                       <div key={index} className="flex flex-col gap-1">
                         <div className="flex justify-between text-sm">
-                          <span className="font-medium text-slate-700 truncate">{user.name}</span>
-                          <span className={`font-bold text-xs ${isHeavy ? "text-red-500" : "text-slate-500"}`}>
+                          <span className="font-medium text-slate-700 truncate">
+                            {user.name}
+                          </span>
+                          <span
+                            className={`font-bold text-xs ${isHeavy ? "text-red-500" : "text-slate-500"}`}
+                          >
                             {user.count} tasks{isHeavy ? " ⚠️" : ""}
                           </span>
                         </div>
@@ -505,16 +600,20 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
 
           {/* Activity Stream (mock) + Smart Insights */}
           <div className="flex flex-col gap-4">
-
             {/* Smart Insights */}
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={15} className="text-indigo-600 fill-indigo-500" />
-                <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wide">Insights</h3>
+                <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wide">
+                  Insights
+                </h3>
               </div>
               <ul className="space-y-2.5">
                 {stats.insights.map((insight, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-indigo-900">
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-indigo-900"
+                  >
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1 shrink-0" />
                     {insight}
                   </li>
@@ -527,7 +626,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Activity size={15} className="text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">Activity</h3>
+                  <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">
+                    Activity
+                  </h3>
                 </div>
                 <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-medium">
                   Mock
@@ -536,25 +637,36 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
               <ul className="space-y-3">
                 {MOCK_ACTIVITY.map((event) => (
                   <li key={event.id} className="flex items-start gap-3">
-                    <div className={`w-6 h-6 rounded-full ${event.color} flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-0.5`}>
+                    <div
+                      className={`w-6 h-6 rounded-full ${event.color} flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-0.5`}
+                    >
                       {event.actor[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-slate-700 leading-snug">
                         <span className="font-semibold">{event.actor}</span>{" "}
                         {event.action}{" "}
-                        <span className="font-medium text-slate-800">&ldquo;{event.target}&rdquo;</span>
+                        <span className="font-medium text-slate-800">
+                          &ldquo;{event.target}&rdquo;
+                        </span>
                         {event.dest && (
-                          <> → <span className="text-indigo-600 font-medium">{event.dest}</span></>
+                          <>
+                            {" "}
+                            →{" "}
+                            <span className="text-indigo-600 font-medium">
+                              {event.dest}
+                            </span>
+                          </>
                         )}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{event.time}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {event.time}
+                      </p>
                     </div>
                   </li>
                 ))}
               </ul>
             </div>
-
           </div>
         </div>
       </div>

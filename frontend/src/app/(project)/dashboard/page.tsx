@@ -1,5 +1,5 @@
 import { CreateBoardButton } from "@/components/CreateBoardButton";
-import { BoardsClient } from "@/components/dashboard/BoardsClient";
+import { BoardsClient } from "@/components/project-list/BoardsClient";
 import { apiFetch } from "@/lib/api";
 import { Board } from "@/types/board";
 
