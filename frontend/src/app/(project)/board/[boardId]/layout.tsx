@@ -4,6 +4,7 @@ import { use } from "react";
 import { useBoardData } from "@/hooks/useBoardData";
 import { BoardHeader } from "@/components/board/task-board/BoardHeader";
 import { BoardBackground } from "@/components/board/task-board/BoardBackground";
+import { BoardWebSocketProvider } from "@/contexts/BoardWebSocketContext";
 
 interface BoardLayoutProps {
   children: React.ReactNode;
@@ -47,16 +48,18 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
   }
 
   return (
-    <div className="relative h-full flex flex-col bg-[#fafafa]">
-      <BoardBackground />
+    <BoardWebSocketProvider boardId={boardId}>
+      <div className="relative h-full flex flex-col bg-[#fafafa]">
+        <BoardBackground />
 
-      <div className="relative z-10 flex flex-col h-full min-h-0">
-        <BoardHeader title="Project Board" />
+        <div className="relative z-10 flex flex-col h-full min-h-0">
+          <BoardHeader title="Project Board" />
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-8">
-          {children}
+          <div className="flex-1 min-h-0 overflow-y-auto px-8">
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </BoardWebSocketProvider>
   );
 }

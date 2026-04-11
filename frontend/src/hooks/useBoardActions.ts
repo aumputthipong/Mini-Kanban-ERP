@@ -2,8 +2,8 @@
 import { DragEndEvent, DragOverEvent } from "@dnd-kit/core";
 import { useRef } from "react";
 import { useBoardStore } from "@/store/useBoardStore";
-import { useWebSocket } from "@/hooks/useWebSocket";
-import { API_URL, WS_URL } from "@/lib/constants";
+import { useBoardWebSocket } from "@/contexts/BoardWebSocketContext";
+import { API_URL } from "@/lib/constants";
 import type { Card, Subtask } from "@/types/board";
 
 const POSITION_GAP = 65536;
@@ -44,7 +44,7 @@ function calcPositionFromColumns(
 
 export function useBoardActions(boardId: string) {
   const { columns, moveCard, updateCard } = useBoardStore();
-  const { sendMessage } = useWebSocket(`${WS_URL}/${boardId}`);
+  const { sendMessage } = useBoardWebSocket();
 
   // ref ติดตาม column ที่การ์ดถูกย้ายไปล่าสุดระหว่าง drag
   // ใช้ ref แทน state เพื่อหลีกเลี่ยง React update cycle → ไม่วนลูป
