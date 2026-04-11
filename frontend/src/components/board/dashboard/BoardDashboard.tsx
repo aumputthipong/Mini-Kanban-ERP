@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { FocusModeWidget } from "../overview/FocusModeWidget";
 import { BurndownChartWidget } from "../overview/BurndownChartWidget";
+import PieChartWidget from "../overview/PieChartWidget";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,6 @@ const MOCK_ACTIVITY = [
     color: "bg-amber-500",
   },
 ];
-
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function DashboardSkeleton() {
@@ -213,14 +213,6 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
     value: col.count,
     isDone: col.category === "DONE",
   }));
-  const PIE_COLORS = [
-    "#94a3b8",
-    "#6366f1",
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#ef4444",
-  ];
 
   // Focus Mode: top 3 urgent tasks for current user (overdue first, then dueSoon, else assigned)
   const urgentForUser = [
@@ -255,13 +247,13 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
 
       <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-10">
         {/* ── Row 1: Focus Mode ─────────────────────────────────────────────── */}
-       <FocusModeWidget 
-        boardId={boardId}
-        focusTasks={focusTasks}
-        overdueCards={stats.overdueCards}
-        onSelectCard={setSelectedCard}
-        formatDate={formatThaiDate}
-      />
+        <FocusModeWidget
+          boardId={boardId}
+          focusTasks={focusTasks}
+          overdueCards={stats.overdueCards}
+          onSelectCard={setSelectedCard}
+          formatDate={formatThaiDate}
+        />
 
         {/* ── Row 2: Stats strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4">
@@ -316,70 +308,12 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
         {/* ── Row 3: Charts ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Status Distribution (Pie) */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-            <SectionTitle
-              icon={<BarChart3 size={15} />}
-              label="Status Distribution"
-            />
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell
-                      key={entry.name}
-                      fill={
-                        entry.isDone
-                          ? "#10b981"
-                          : PIE_COLORS[index % PIE_COLORS.length]
-                      }
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [`${value} tasks`]}
-                  contentStyle={{
-                    fontSize: 12,
-                    borderRadius: 8,
-                    border: "1px solid #e2e8f0",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2">
-              {pieData.map((entry, i) => (
-                <div key={entry.name} className="flex items-center gap-1.5">
-                  <span
-                    className="w-2.5 h-2.5 rounded-sm shrink-0"
-                    style={{
-                      backgroundColor: entry.isDone
-                        ? "#10b981"
-                        : PIE_COLORS[i % PIE_COLORS.length],
-                    }}
-                  />
-                  <span className="text-[11px] text-slate-600 font-medium">
-                    {entry.name}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    ({entry.value})
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
+          <PieChartWidget columnStats={stats.columnStats} />
           {/* Burndown Chart */}
-      <BurndownChartWidget 
-          totalCards={stats.totalCards} 
-          doneCount={doneCount} 
-        />
+          <BurndownChartWidget
+            totalCards={stats.totalCards}
+            doneCount={doneCount}
+          />
         </div>
 
         {/* ── Row 4: Needs Attention + Activity Stream ──────────────────────── */}
@@ -517,7 +451,7 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
           {/* Activity Stream (mock) + Smart Insights */}
           <div className="flex flex-col gap-4">
             {/* Smart Insights */}
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={15} className="text-indigo-600 fill-indigo-500" />
                 <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wide">
