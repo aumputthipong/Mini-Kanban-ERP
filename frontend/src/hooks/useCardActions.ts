@@ -1,0 +1,74 @@
+import { useBoardStore } from "@/store/useBoardStore";
+import { useBoardWebSocket } from "@/contexts/BoardWebSocketContext";
+import { POSITION_GAP } from "@/utils/boardPosition";
+import type { Card, CardUpdateForm } from "@/types/board";
+
+export function useCardActions(boardId: string) {
+  const { columns, updateCard } = useBoardStore();
+  const { sendMessage } = useBoardWebSocket();
+
+  const handleToggleDone = (card: Card) => {
+    sendMessage({
+      type: "CARD_DONE_TOGGLED",
+      payload: {
+        card_id: card.id,
+        board_id: boardId,
+        is_done: !card.is_done,
+      },
+    });
+  };
+
+  const handleAddCard = (columnId: string, title: string) => {
+    const col = columns.find((c) => c.id === columnId);
+    const sorted = col ? [...col.cards].sort((a, b) => a.position - b.position) : [];
+    const lastCard = sorted[sorted.length - 1];
+    const newPosition = lastCard ? lastCard.position + POSITION_GAP : POSITION_GAP;
+
+    sendMessage({
+      type: "CARD_CREATED",
+      payload: { column_id: columnId, title, position: newPosition },
+    });
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    sendMessage({
+      type: "CARD_DELETED",
+      payload: { card_id: cardId },
+    });
+  };
+
+  const handleUpdateCard = (cardId: string, form: CardUpdateForm) => {
+    const { boardMembers } = useBoardStore.getState();
+    const newAssigneeId = form.assignee_id || null;
+    const newAssigneeName = newAssigneeId
+      ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
+      : null;
+
+    updateCard({
+      ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
+      title: form.title,
+      description: form.description || null,
+      due_date: form.due_date || null,
+      assignee_id: newAssigneeId,
+      assignee_name: newAssigneeName,
+      priority: (form.priority as Card["priority"]) || null,
+      estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+    });
+
+    sendMessage({
+      type: "CARD_UPDATED",
+      payload: {
+        card_id: cardId,
+        title: form.title,
+        description: form.description || null,
+        due_date: form.due_date || null,
+        assignee_id: newAssigneeId,
+        assignee_name: newAssigneeName,
+        priority: form.priority || null,
+        estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+      },
+    });
+  };
+
+  return { handleToggleDone, handleAddCard, handleDeleteCard, handleUpdateCard };
+}

@@ -63,3 +63,12 @@ export interface Subtask {
   is_done: boolean;
   position: number;
 }
+
+export interface CardUpdateForm {
+  title: string;
+  description: string;
+  due_date: string;
+  assignee_id: string;
+  priority: string;
+  estimated_hours: string;
+}
