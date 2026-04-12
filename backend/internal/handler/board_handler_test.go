@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -33,8 +34,10 @@ func withUserID(r *http.Request, userID string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), middleware.UserIDKey, userID))
 }
 
-const validBoardID = "452ae618-9e69-49f5-88a9-47728a5f17ac"
-const validUserID = "550e8400-e29b-41d4-a716-446655440000"
+const validBoardID  = "452ae618-9e69-49f5-88a9-47728a5f17ac"
+const validUserID   = "550e8400-e29b-41d4-a716-446655440000"
+const validColumnID = "7f3b9a2e-1c4d-4e8f-a6b0-2d5e8f1a3c7b"
+const validCardID   = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 // ────────────────────────────────────────────────
 // GetAllBoards
@@ -313,4 +316,330 @@ func TestGetAllUsers_Success(t *testing.T) {
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&result))
 	assert.Len(t, result, 1)
 	assert.Equal(t, "Bob", result[0]["full_name"])
+}
+
+// ────────────────────────────────────────────────
+// UpdateBoard
+// ────────────────────────────────────────────────
+
+func TestUpdateBoard_Success(t *testing.T) {
+	svc := &mock.MockBoardService{
+		UpdateBoardFn: func(ctx context.Context, id string, title *string, budget *float64) (db.Board, error) {
+			assert.Equal(t, validBoardID, id)
+			return db.Board{ID: validBoardID, Title: "New Title"}, nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"New Title"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateBoard)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var res map[string]interface{}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&res))
+	assert.Equal(t, validBoardID, res["ID"])
+}
+
+func TestUpdateBoard_InvalidBoardID(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"New Title"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/boards/not-a-uuid", body)
+	req = chiCtx(req, "boardID", "not-a-uuid")
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateBoard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateBoard_InvalidJSON(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{bad json}`)
+	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateBoard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateBoard_ServiceError(t *testing.T) {
+	svc := &mock.MockBoardService{
+		UpdateBoardFn: func(ctx context.Context, id string, title *string, budget *float64) (db.Board, error) {
+			return db.Board{}, errors.New("db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"New Title"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateBoard)(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ────────────────────────────────────────────────
+// GetTrash
+// ────────────────────────────────────────────────
+
+func TestGetTrash_Success(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
+			return []db.GetTrashedBoardsRow{
+				{ID: "b-1", Title: "Old Board"},
+			}, nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetTrash)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var res []map[string]interface{}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&res))
+	assert.Len(t, res, 1)
+	assert.Equal(t, "b-1", res[0]["id"])
+}
+
+func TestGetTrash_ServiceError(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetTrash)(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ────────────────────────────────────────────────
+// CreateCard
+// ────────────────────────────────────────────────
+
+func TestCreateCard_Success(t *testing.T) {
+	svc := &mock.MockBoardService{
+		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
+			assert.Equal(t, validColumnID, arg.ColumnID)
+			assert.Equal(t, "Test Card", arg.Title)
+			return db.CreateCardRow{ID: validCardID, ColumnID: validColumnID, Title: "Test Card"}, nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
+	req := httptest.NewRequest(http.MethodPost, "/cards", body)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.CreateCard)(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var res map[string]interface{}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&res))
+	assert.Equal(t, validCardID, res["ID"])
+}
+
+func TestCreateCard_Unauthorized(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
+	req := httptest.NewRequest(http.MethodPost, "/cards", body)
+	// ไม่ใส่ userID ใน context
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.CreateCard)(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestCreateCard_InvalidColumnID(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"column_id":"not-a-uuid","title":"Test Card"}`)
+	req := httptest.NewRequest(http.MethodPost, "/cards", body)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.CreateCard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateCard_InvalidJSON(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{bad json}`)
+	req := httptest.NewRequest(http.MethodPost, "/cards", body)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.CreateCard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateCard_ServiceError(t *testing.T) {
+	svc := &mock.MockBoardService{
+		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
+			return db.CreateCardRow{}, errors.New("db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
+	req := httptest.NewRequest(http.MethodPost, "/cards", body)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.CreateCard)(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ────────────────────────────────────────────────
+// UpdateCard
+// ────────────────────────────────────────────────
+
+func TestUpdateCard_Success(t *testing.T) {
+	svc := &mock.MockBoardService{
+		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
+			assert.Equal(t, validCardID, arg.ID)
+			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "Updated"}, nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"Updated"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateCard)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var res map[string]interface{}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&res))
+	assert.Equal(t, validCardID, res["ID"])
+}
+
+func TestUpdateCard_InvalidCardID(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"Updated"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/cards/not-a-uuid", body)
+	req = chiCtx(req, "cardID", "not-a-uuid")
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateCard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateCard_InvalidJSON(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{bad json}`)
+	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateCard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateCard_ServiceError(t *testing.T) {
+	svc := &mock.MockBoardService{
+		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
+			return db.Card{}, errors.New("db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	body := strings.NewReader(`{"title":"Updated"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.UpdateCard)(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ────────────────────────────────────────────────
+// GetCard
+// ────────────────────────────────────────────────
+
+func TestGetCard_Success(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			assert.Equal(t, validCardID, cardID)
+			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "My Card"}, nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetCard)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var res map[string]interface{}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&res))
+	assert.Equal(t, validCardID, res["ID"])
+}
+
+func TestGetCard_NotFound(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{}, sql.ErrNoRows
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetCard)(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetCard_InvalidCardID(t *testing.T) {
+	svc := &mock.MockBoardService{}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/cards/not-a-uuid", nil)
+	req = chiCtx(req, "cardID", "not-a-uuid")
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetCard)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGetCard_ServiceError(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{}, errors.New("db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
+	req = chiCtx(req, "cardID", validCardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetCard)(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
