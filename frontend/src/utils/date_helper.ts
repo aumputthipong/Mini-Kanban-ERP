@@ -2,10 +2,10 @@
 export const getOverdueText = (dueDateStr: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const dueDate = new Date(dueDateStr);
   dueDate.setHours(0, 0, 0, 0);
-  
+
   const diffTime = today.getTime() - dueDate.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 

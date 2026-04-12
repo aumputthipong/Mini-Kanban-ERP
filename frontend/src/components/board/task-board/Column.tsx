@@ -1,14 +1,15 @@
 // components/kanban/Column.tsx
 "use client";
 
-import { memo, useState, useRef } from "react";
+import { memo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { TaskCard } from "./TaskCard";
+import { AddCardForm } from "./AddCardForm";
 import type { Card, Column } from "@/types/board";
 import { FormState } from "../card-modal/CardDetailModal";
 import { ColumnOptionsModal, getColumnColorHex } from "./ColumnOptionsModal";
@@ -51,29 +52,9 @@ export const KanbanColumn = memo(function KanbanColumn({
   dropIndicatorBeforeId,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  const [isAdding, setIsAdding] = useState(false);
-  const [cardTitle, setCardTitle] = useState("");
-  const addInputRef = useRef<HTMLInputElement>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   const colorHex = getColumnColorHex(color);
-
-  const handleSubmit = () => {
-    if (!cardTitle.trim()) return;
-    onAddCard(id, cardTitle.trim());
-    setCardTitle("");
-    setIsAdding(false);
-  };
-
-  const handleCancel = () => {
-    setCardTitle("");
-    setIsAdding(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSubmit();
-    if (e.key === "Escape") handleCancel();
-  };
 
   return (
     <>
@@ -142,45 +123,7 @@ export const KanbanColumn = memo(function KanbanColumn({
 
         {/* Add Card footer */}
         <div className="shrink-0 px-4 pb-4 pt-1">
-          {isAdding ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2.5 flex flex-col gap-2">
-              <input
-                ref={addInputRef}
-                autoFocus
-                type="text"
-                placeholder="Card title..."
-                value={cardTitle}
-                onChange={(e) => setCardTitle(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full text-sm font-medium text-slate-800 placeholder-slate-400 border border-transparent rounded-md px-2 py-1 focus:outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition-all"
-              />
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={handleSubmit}
-                  disabled={!cardTitle.trim()}
-                  className="flex-1 bg-blue-600 text-white text-xs font-semibold py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add Card
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                setIsAdding(true);
-                setTimeout(() => addInputRef.current?.focus(), 0);
-              }}
-              className="cursor-pointer w-full flex items-center gap-1.5 px-2 py-1.5 text-sm text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            >
-              <Plus size={16} /> Add card
-            </button>
-          )}
+          <AddCardForm onAdd={(title) => onAddCard(id, title)} />
         </div>
       </div>
 

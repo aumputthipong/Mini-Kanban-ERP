@@ -1,21 +1,9 @@
 // MemberFilterBar.tsx
 import { useBoardStore } from "@/store/useBoardStore";
 import { useState, useRef, useEffect } from "react";
+import { getAvatarColor } from "@/utils/avatar";
 
 export function MemberFilterBar() {
-  const AVATAR_COLORS = [
-    "bg-blue-500",
-    "bg-violet-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-  ];
-
-  function avatarColor(userId: string) {
-    const idx = userId.charCodeAt(0) % AVATAR_COLORS.length;
-    return AVATAR_COLORS[idx];
-  }
   const { boardMembers, currentUserId, filterAssigneeId, setFilterAssigneeId } =
     useBoardStore();
 
@@ -73,7 +61,7 @@ export function MemberFilterBar() {
           const isYou = member.user_id === currentUserId;
           const isMuted = isFiltering && !isActive;
           const initial = member.full_name?.charAt(0).toUpperCase() ?? "?";
-          const color = avatarColor(member.user_id);
+          const color = getAvatarColor(member.user_id);
 
           return (
             <button
@@ -132,7 +120,7 @@ export function MemberFilterBar() {
                   const isActive = filterAssigneeId === member.user_id;
                   const initial =
                     member.full_name?.charAt(0).toUpperCase() ?? "?";
-                  const color = avatarColor(member.user_id);
+                  const color = getAvatarColor(member.user_id);
 
                   return (
                     <button

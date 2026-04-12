@@ -1,4 +1,4 @@
-import { BoardMember, Card, Column } from "@/types/board";
+import { BoardMember, Card, Column, Subtask } from "@/types/board";
 import { create } from "zustand";
 
 interface BoardState {
@@ -22,14 +22,14 @@ interface BoardState {
     isDone?: boolean,
     completedAt?: string | null,
   ) => void;
-  addCardToStore: (newCard: any) => void;
+  addCardToStore: (newCard: Card) => void;
   removeCardFromStore: (cardId: string) => void;
   updateCard: (updated: Card) => void;
-  setSubtasksToCard: (cardId: string, subtasks: any[]) => void;
+  setSubtasksToCard: (cardId: string, subtasks: Subtask[]) => void;
   updateSubtaskInCard: (
     cardId: string,
     subtaskId: string,
-    updatedData: any,
+    updatedData: Partial<Subtask>,
   ) => void;
   deleteSubtaskFromCard: (cardId: string, subtaskId: string) => void;
   addColumnToStore: (column: Column) => void;
@@ -165,7 +165,7 @@ export const useBoardStore = create<BoardState>((set) => ({
                 ...card,
                 subtasks,
                 total_subtasks: subtasks.length,
-                completed_subtasks: subtasks.filter((st: any) => st.is_done).length,
+                completed_subtasks: subtasks.filter((st) => st.is_done).length,
               }
             : card,
         ),

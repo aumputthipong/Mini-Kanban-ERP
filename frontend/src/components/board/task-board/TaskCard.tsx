@@ -11,28 +11,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Card } from "@/types/board";
-import {
-  SignalBars,
-  type Priority,
-} from "@/components/board/task-board/PriorityFilterDropdown";
 import { CardDetailModal, FormState } from "../card-modal/CardDetailModal";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";
-import { formatThaiDate } from "@/ีutils/date_helper";
-
-const AVATAR_COLORS = [
-  "bg-blue-500",
-  "bg-violet-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
-];
-
-function avatarColor(userId: string) {
-  return AVATAR_COLORS[userId.charCodeAt(0) % AVATAR_COLORS.length];
-}
+import { formatThaiDate } from "@/utils/date_helper";
+import { getAvatarColor } from "@/utils/avatar";
+import { PriorityBadge } from "@/components/board/task-board/PriorityBadge";
 
 interface CardProps {
   card: Card;
@@ -92,18 +77,7 @@ export const TaskCard = memo(function TaskCard({
         <div className="flex items-start gap-3">
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             {card.priority && !card.is_done && (
-              <span
-                className={`text-[10px] flex items-center leading-none justify-center gap-1 font-bold  uppercase px-2 py-0.5 rounded border w-fit ${
-                  card.priority === "high"
-                    ? "bg-red-50 text-red-700 border-red-200"
-                    : card.priority === "medium"
-                      ? "bg-amber-50 text-amber-700 border-amber-200"
-                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}
-              >
-                <SignalBars priority={card.priority as Priority} size={12} />
-                <span className="">{card.priority}</span>
-              </span>
+              <PriorityBadge priority={card.priority} />
             )}
 
             <p
@@ -199,7 +173,7 @@ export const TaskCard = memo(function TaskCard({
 
           {card.assignee_name && card.assignee_id ? (
             <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${avatarColor(card.assignee_id)}`}
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${getAvatarColor(card.assignee_id)}`}
               title={card.assignee_name}
             >
               {card.assignee_name.charAt(0).toUpperCase()}
