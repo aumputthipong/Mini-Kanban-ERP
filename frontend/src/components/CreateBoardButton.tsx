@@ -125,7 +125,7 @@ export function CreateBoardButton() {
                         if (error) setError(null);
                       }}
                       disabled={isCreating}
-                      placeholder="enter your project name"
+                      placeholder="e.g. Q3 Marketing Campaign"
                       className={`text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 transition disabled:opacity-50 disabled:bg-slate-50 ${
                         error
                           ? "border-red-300 focus:ring-red-100 focus:border-red-400"
