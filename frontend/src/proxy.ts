@@ -1,10 +1,9 @@
-// src/middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const PROTECTED = ["/dashboard", "/board"];
 const AUTH_PAGES = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token    = request.cookies.get("auth_token");
   const pathname = request.nextUrl.pathname;
 
