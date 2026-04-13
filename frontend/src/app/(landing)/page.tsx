@@ -46,6 +46,7 @@ function HeroSection() {
             src="/Turtask.png"
             alt="Turtask Logo"
             fill
+            sizes="(max-width: 768px) 80px, 96px"
             className="object-contain"
             priority
           />
