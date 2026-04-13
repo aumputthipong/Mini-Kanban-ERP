@@ -1,48 +1,173 @@
 "use client";
 
 import { apiClient } from "@/lib/apiClient";
-import { API_URL } from "@/lib/constants";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Plus, X, FolderPlus, Loader2 } from "lucide-react";
 
 export function CreateBoardButton() {
   const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-const handleCreateBoard = async () => {
-    const title = prompt("Enter new project name:");
-    
-    // เพิ่ม .trim() เพื่อป้องกันผู้ใช้กรอกแค่ช่องว่าง (Spacebar)
-    if (!title || !title.trim()) return;
+  const handleOpen = () => setIsOpen(true);
+
+  const handleClose = () => {
+    if (isCreating) return;
+    setIsOpen(false);
+    setTitle("");
+    setError(null);
+  };
+
+  // Escape to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, isCreating]);
+
+  // Focus input when modal opens
+  useEffect(() => {
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Please enter a project name");
+      return;
+    }
 
     setIsCreating(true);
+    setError(null);
 
     try {
-      // apiClient จะเปลี่ยนเป็น POST อัตโนมัติเมื่อมีการส่ง data
-      // และเราสามารถระบุ Type ให้ผลลัพธ์ที่ตอบกลับมาได้เลย
       const newBoard = await apiClient<{ id: string }>("/boards", {
-        data: { title: title.trim() },
+        data: { title: trimmedTitle },
       });
-
-      // Redirect ผู้ใช้ไปยังหน้าบอร์ดที่เพิ่งสร้างเสร็จทันที
+      handleClose();
       router.push(`/board/${newBoard.id}/tasks`);
-      
-    } catch (error) {
-      console.error("Failed to create board:", error);
-      // แนะนำทางเลือก: ควรมี UI แจ้งเตือนผู้ใช้ เช่น alert หรือ Toast
-      alert(error instanceof Error ? error.message : "Failed to create project");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project");
     } finally {
       setIsCreating(false);
     }
   };
 
   return (
-    <button
-      onClick={handleCreateBoard}
-      disabled={isCreating}
-      className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-    >
-      {isCreating ? "Creating..." : "+ New Project"}
-    </button>
+    <>
+      <button
+        onClick={handleOpen}
+        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-sm text-sm"
+      >
+        <Plus size={16} />
+        New Project
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-9998 bg-black/40 backdrop-blur-sm"
+              onClick={handleClose}
+            />
+
+            {/* Modal */}
+            <div className="fixed inset-0 z-9999 flex items-center justify-center pointer-events-none px-4">
+              <div
+                className="pointer-events-auto w-full max-w-sm bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-blue-50 rounded-lg">
+                      <FolderPlus size={16} className="text-blue-600" />
+                    </div>
+                    <h2 className="text-sm font-bold text-slate-800">
+                      Create New Project
+                    </h2>
+                  </div>
+                  <button
+                    onClick={handleClose}
+                    disabled={isCreating}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors disabled:opacity-40"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <form onSubmit={handleSubmit} className="px-5 py-5 flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="project-name"
+                      className="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                    >
+                      Project Name
+                    </label>
+                    <input
+                      ref={inputRef}
+                      id="project-name"
+                      type="text"
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      disabled={isCreating}
+                      placeholder="enter your project name"
+                      className={`text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 transition disabled:opacity-50 disabled:bg-slate-50 ${
+                        error
+                          ? "border-red-300 focus:ring-red-100 focus:border-red-400"
+                          : "border-slate-200 focus:ring-blue-100 focus:border-blue-400"
+                      }`}
+                    />
+                    {error && (
+                      <p className="text-xs text-red-500 font-medium">{error}</p>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      disabled={isCreating}
+                      className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreating || !title.trim()}
+                      className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Project"
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
   );
 }
