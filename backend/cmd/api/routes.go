@@ -16,6 +16,7 @@ import (
 func setupRoutes(
 	boardHandler *handler.BoardHandler,
 	authHandler *handler.AuthHandler,
+	oauthHandler *handler.OAuthHandler,
 	subtaskHandler *handler.SubtaskHandler,
 	hub *websocket.Hub,
 ) http.Handler {
@@ -36,6 +37,9 @@ func setupRoutes(
 		r.Post("/login", httputil.MakeHandler(authHandler.Login))
 		r.Post("/oauth", httputil.MakeHandler(authHandler.OAuthCallback))
 		r.Post("/logout", httputil.MakeHandler(authHandler.Logout))
+
+		r.Get("/google", httputil.MakeHandler(oauthHandler.RedirectToGoogle))
+		r.Get("/google/callback", httputil.MakeHandler(oauthHandler.HandleGoogleCallback))
 	})
 
 	// Protected routes

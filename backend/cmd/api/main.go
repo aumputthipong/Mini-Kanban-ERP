@@ -20,18 +20,24 @@ import (
 )
 
 type config struct {
-	DBUrl       string
-	Port        string
-	FrontendURL string
-	Production  bool
+	DBUrl            string
+	Port             string
+	FrontendURL      string
+	GoogleClientID   string
+	GoogleClientSecret string
+	GoogleRedirect   string
+	Production       bool
 }
 
 func loadConfig() config {
 	cfg := config{
-		DBUrl:       os.Getenv("DB_URL"),
-		Port:        os.Getenv("PORT"),
-		FrontendURL: os.Getenv("FRONTEND_URL"),
-		Production:  os.Getenv("ENV") == "production",
+		DBUrl:              os.Getenv("DB_URL"),
+		Port:               os.Getenv("PORT"),
+		FrontendURL:        os.Getenv("FRONTEND_URL"),
+		Production:         os.Getenv("ENV") == "production",
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirect:     os.Getenv("GOOGLE_REDIRECT_URL"),
 	}
 	if cfg.DBUrl == "" {
 		log.Fatal("DB_URL is required but not set")
@@ -79,8 +85,16 @@ func run(ctx context.Context, cfg config) error {
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
+	oauthHandler := handler.NewOAuthHandler(
+		cfg.GoogleClientID,
+		cfg.GoogleClientSecret,
+		cfg.GoogleRedirect,
+		cfg.FrontendURL,
+		authService,
+		cfg.Production,
+	)
 
-	router := setupRoutes(boardHandler, authHandler, subtaskHandler, hub)
+	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, hub)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: middleware.CORS(cfg.FrontendURL, router),
