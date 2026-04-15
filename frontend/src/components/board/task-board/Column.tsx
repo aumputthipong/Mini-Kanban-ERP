@@ -60,34 +60,36 @@ export const KanbanColumn = memo(function KanbanColumn({
     <>
       <div
         ref={setNodeRef}
-        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors max-h-full snap-start overflow-hidden ${
+        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors snap-start ${
           isOver
             ? "bg-blue-50 border-2 border-blue-300"
             : "bg-slate-100 border-2 border-transparent"
         }`}
       >
-        {/* Color strip */}
-        {colorHex && (
-          <div className="h-1 shrink-0" style={{ backgroundColor: colorHex }} />
-        )}
+        {/* Sticky header — color strip + title row */}
+        <div className={`sticky top-0 z-10 rounded-t-2xl transition-colors ${
+          isOver ? "bg-blue-50" : "bg-slate-100"
+        }`}>
+          {colorHex && (
+            <div className="h-1 rounded-t-2xl" style={{ backgroundColor: colorHex }} />
+          )}
+          <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
+            <h2 className="font-bold text-slate-700 leading-tight truncate flex-1">
+              {title}
+            </h2>
 
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2 shrink-0">
-          <h2 className="font-bold text-slate-700 leading-tight truncate flex-1">
-            {title}
-          </h2>
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full min-w-5 text-center">
+                {cards.length}
+              </span>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full min-w-5 text-center">
-              {cards.length}
-            </span>
-
-            <button
-              onClick={() => setOptionsOpen(true)}
-              className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
-            >
-              <MoreHorizontal size={16} />
-            </button>
+              <button
+                onClick={() => setOptionsOpen(true)}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -96,7 +98,7 @@ export const KanbanColumn = memo(function KanbanColumn({
           items={cards.map((c) => c.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="kanban-scroll flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 flex flex-col gap-2 min-h-0">
+          <div className="px-4 pb-4 flex flex-col gap-2">
             {cards
               .filter(
                 (card) =>
