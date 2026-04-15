@@ -146,7 +146,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     >
       <div
         ref={boardScrollRef}
-        className="board-scroll flex gap-6 overflow-x-auto overflow-y-hidden h-full  items-start snap-x snap-mandatory scroll-smooth"
+        className="board-scroll flex gap-6 overflow-x-auto overflow-y-auto h-full items-start snap-x snap-mandatory scroll-smooth"
       >
         {todoColumns.map((col) => (
           <KanbanColumn key={col.id} {...columnProps(col)} />
