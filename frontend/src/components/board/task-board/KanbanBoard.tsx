@@ -1,7 +1,7 @@
 // components/board/KanbanBoard.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -53,6 +53,12 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
 
   const boardScrollRef = useRef<HTMLDivElement>(null);
   usePanBoard(boardScrollRef);
+
+  const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
+  const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
+  const stableHandleUpdateCard = useCallback(handleUpdateCard, [handleUpdateCard]);
+  const stableHandleDeleteColumn = useCallback(handleDeleteColumn, [handleDeleteColumn]);
+  const stableHandleUpdateColumn = useCallback(handleUpdateColumn, [handleUpdateColumn]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -118,23 +124,37 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     setActiveCard(null);
   };
 
-  const columnProps = (col: (typeof columns)[0]) => ({
-    id: col.id,
-    boardId,
-    title: col.title,
-    category: col.category,
-    color: col.color,
-    cards: col.cards,
-    onAddCard: handleAddCard,
-    onDeleteCard: handleDeleteCard,
-    onSaveCard: handleUpdateCard,
-    onDeleteColumn: handleDeleteColumn,
-    onUpdateColumn: handleUpdateColumn,
-    filterAssigneeId,
-    filterPriorities,
-    dropIndicatorBeforeId:
-      dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined,
-  });
+  const columnProps = useCallback(
+    (col: (typeof columns)[0]) => ({
+      id: col.id,
+      boardId,
+      title: col.title,
+      category: col.category,
+      color: col.color,
+      cards: col.cards,
+      onAddCard: stableHandleAddCard,
+      onDeleteCard: stableHandleDeleteCard,
+      onSaveCard: stableHandleUpdateCard,
+      onDeleteColumn: stableHandleDeleteColumn,
+      onUpdateColumn: stableHandleUpdateColumn,
+      filterAssigneeId,
+      filterPriorities,
+      dropIndicatorBeforeId:
+        dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined,
+    }),
+    [
+      boardId,
+      stableHandleAddCard,
+      stableHandleDeleteCard,
+      stableHandleUpdateCard,
+      stableHandleDeleteColumn,
+      stableHandleUpdateColumn,
+      filterAssigneeId,
+      filterPriorities,
+      dropTarget,
+      columns,
+    ],
+  );
 
   return (
     <DndContext
