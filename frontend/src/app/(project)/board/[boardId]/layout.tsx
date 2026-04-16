@@ -18,22 +18,21 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
   // จัดการสถานะ Loading ระดับ Layout
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#fafafa] px-8 py-6 animate-pulse">
+      <main className="min-h-screen bg-[#fafafa] px-8 py-6">
         {/* Header skeleton */}
-        <div className="h-14 bg-white rounded-xl border border-slate-200 mb-6 w-full" />
-        {/* Content skeleton */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-5">
-          <div className="h-28 bg-slate-100 rounded-xl" />
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-slate-100 rounded-xl" />
-            ))}
-          </div>
-          <div className="h-20 bg-slate-100 rounded-xl" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="h-56 bg-slate-100 rounded-xl" />
-            <div className="h-56 bg-slate-100 rounded-xl" />
-          </div>
+        <div className="h-14 bg-white rounded-xl border border-slate-200 mb-6 w-full animate-pulse" />
+        {/* Toolbar skeleton */}
+        <div className="h-12 bg-slate-50 border border-slate-200 rounded-xl mb-6 animate-pulse" />
+        {/* Kanban columns skeleton */}
+        <div className="flex gap-6 items-start">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="w-72 shrink-0 rounded-2xl bg-slate-100 p-4 animate-pulse">
+              <div className="h-5 bg-slate-200 rounded-lg w-24 mb-4" />
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="h-24 bg-white rounded-xl border border-slate-200 mb-2" />
+              ))}
+            </div>
+          ))}
         </div>
       </main>
     );
