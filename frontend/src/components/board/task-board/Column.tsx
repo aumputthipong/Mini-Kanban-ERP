@@ -1,7 +1,7 @@
 // components/kanban/Column.tsx
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -54,6 +54,18 @@ export const KanbanColumn = memo(function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id });
   const [optionsOpen, setOptionsOpen] = useState(false);
 
+  const visibleCards = useMemo(
+    () =>
+      cards.filter(
+        (card) =>
+          (filterAssigneeId == null || card.assignee_id === filterAssigneeId) &&
+          (filterPriorities == null ||
+            filterPriorities.length === 0 ||
+            filterPriorities.includes(card.priority ?? "")),
+      ),
+    [cards, filterAssigneeId, filterPriorities],
+  );
+
   const colorHex = getColumnColorHex(color);
 
   return (
@@ -99,16 +111,7 @@ export const KanbanColumn = memo(function KanbanColumn({
           strategy={verticalListSortingStrategy}
         >
           <div className="px-4 pb-4 flex flex-col gap-2">
-            {cards
-              .filter(
-                (card) =>
-                  (filterAssigneeId == null ||
-                    card.assignee_id === filterAssigneeId) &&
-                  (filterPriorities == null ||
-                    filterPriorities.length === 0 ||
-                    filterPriorities.includes(card.priority ?? "")),
-              )
-              .map((card) => (
+            {visibleCards.map((card) => (
                 <div key={card.id}>
                   {dropIndicatorBeforeId === card.id && <DropIndicator />}
                   <TaskCard

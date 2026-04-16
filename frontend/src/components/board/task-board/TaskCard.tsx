@@ -10,8 +10,17 @@ import {
   UserRound,
 } from "lucide-react";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { Card } from "@/types/board";
-import { CardDetailModal, FormState } from "../card-modal/CardDetailModal";
+import type { FormState } from "../card-modal/CardDetailModal";
+
+const CardDetailModal = dynamic(
+  () =>
+    import("../card-modal/CardDetailModal").then((m) => ({
+      default: m.CardDetailModal,
+    })),
+  { ssr: false },
+);
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { CSS } from "@dnd-kit/utilities";
