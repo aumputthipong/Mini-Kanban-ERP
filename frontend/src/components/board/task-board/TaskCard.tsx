@@ -5,7 +5,6 @@ import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import {
   Calendar,
-  Check,
   Clock,
   UserRound,
 } from "lucide-react";
@@ -44,8 +43,7 @@ export const TaskCard = memo(function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const { handleAddSubtask, handleToggleDone, handleToggleSubtask } =
-    useBoardActions(boardId);
+  const { handleAddSubtask, handleToggleSubtask } = useBoardActions(boardId);
   const canEdit = useCanEdit(card);
 
   const totalSubtasks = card.total_subtasks ?? 0;
@@ -114,22 +112,6 @@ export const TaskCard = memo(function TaskCard({
               {card.title}
             </p>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleDone(card);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className={`shrink-0 mt-0.5 w-6 h-6 rounded flex items-center justify-center transition-all cursor-pointer ${
-              card.is_done
-                ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" // ตอนเสร็จ: สีเขียวชัดเจน
-                : "bg-slate-50 text-slate-300 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-500 hover:border-emerald-200 opacity-0 group-hover:opacity-100" // ตอนยังไม่เสร็จ: ซ่อนไว้โชว์แค่ตอน Hover
-            }`}
-            title={card.is_done ? "Mark as Undone" : "Mark as Done"}
-          >
-            {/* ใช้ไอคอน Check หนาๆ แทนวงกลม */}
-            <Check strokeWidth={card.is_done ? 3 : 2} size={14} />
-          </button>
         </div>
 
         {/* Subtasks inline */}

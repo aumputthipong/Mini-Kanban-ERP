@@ -31,6 +31,33 @@ export function useCardActions(boardId: string) {
     });
   };
 
+  const handleChangeColumn = (cardId: string, toColumnId: string) => {
+    const freshColumns = useBoardStore.getState().columns;
+    const currentCol = freshColumns.find((col) =>
+      col.cards.some((c) => c.id === cardId),
+    );
+    if (!currentCol || currentCol.id === toColumnId) return;
+
+    const targetCol = freshColumns.find((c) => c.id === toColumnId);
+    if (!targetCol) return;
+
+    const sorted = [...targetCol.cards].sort((a, b) => a.position - b.position);
+    const last = sorted[sorted.length - 1];
+    const newPosition = last ? last.position + POSITION_GAP : POSITION_GAP;
+
+    useBoardStore.getState().moveCard(cardId, toColumnId, newPosition);
+
+    sendMessage({
+      type: "CARD_MOVED",
+      payload: {
+        card_id: cardId,
+        old_column_id: currentCol.id,
+        new_column_id: toColumnId,
+        position: newPosition,
+      },
+    });
+  };
+
   const handleDeleteCard = (cardId: string) => {
     sendMessage({
       type: "CARD_DELETED",
@@ -90,5 +117,5 @@ export function useCardActions(boardId: string) {
     });
   };
 
-  return { handleToggleDone, handleAddCard, handleDeleteCard, handleUpdateCard };
+  return { handleToggleDone, handleAddCard, handleChangeColumn, handleDeleteCard, handleUpdateCard };
 }

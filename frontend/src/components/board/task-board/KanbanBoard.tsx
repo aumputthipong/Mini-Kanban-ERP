@@ -1,7 +1,7 @@
 // components/board/KanbanBoard.tsx
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -49,12 +49,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     columnId: string;
     beforeCardId: string | null;
   } | null>(null);
-
-  const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
-  const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
-  const stableHandleUpdateCard = useCallback(handleUpdateCard, [handleUpdateCard]);
-  const stableHandleDeleteColumn = useCallback(handleDeleteColumn, [handleDeleteColumn]);
-  const stableHandleUpdateColumn = useCallback(handleUpdateColumn, [handleUpdateColumn]);
 
   const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
   const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
