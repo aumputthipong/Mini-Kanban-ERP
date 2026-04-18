@@ -5,7 +5,6 @@ import { API_URL } from "@/lib/constants";
 import type { Card, CardUpdateForm } from "@/types/board";
 
 export function useCardActions(boardId: string) {
-  const { columns, updateCard } = useBoardStore();
   const { sendMessage } = useBoardWebSocket();
 
   const handleToggleDone = (card: Card) => {
@@ -20,6 +19,7 @@ export function useCardActions(boardId: string) {
   };
 
   const handleAddCard = (columnId: string, title: string) => {
+    const { columns } = useBoardStore.getState();
     const col = columns.find((c) => c.id === columnId);
     const sorted = col ? [...col.cards].sort((a, b) => a.position - b.position) : [];
     const lastCard = sorted[sorted.length - 1];
@@ -66,7 +66,7 @@ export function useCardActions(boardId: string) {
   };
 
   const handleUpdateCard = (cardId: string, form: CardUpdateForm) => {
-    const { boardMembers } = useBoardStore.getState();
+    const { boardMembers, columns, updateCard } = useBoardStore.getState();
     const newAssigneeId = form.assignee_id || null;
     const newAssigneeName = newAssigneeId
       ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
