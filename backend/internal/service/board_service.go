@@ -56,6 +56,7 @@ type CardData struct {
 	Priority          *string
 	IsDone            bool
 	CompletedAt       *time.Time
+	CreatedAt         *time.Time
 	CreatedBy         *string
 	Subtasks          []SubtaskData
 	TotalSubtasks     int64
@@ -281,6 +282,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			Priority:          card.Priority,
 			IsDone:            card.IsDone,
 			CompletedAt:       util.TimestamptzToTimePtr(card.CompletedAt),
+			CreatedAt:         util.TimestamptzToTimePtr(card.CreatedAt),
 			CreatedBy:         card.CreatedBy,
 			TotalSubtasks:     card.TotalSubtasks,
 			CompletedSubtasks: card.CompletedSubtasks,

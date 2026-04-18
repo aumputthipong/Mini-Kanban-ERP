@@ -3,6 +3,7 @@
 import { CheckCircle2, BarChart3, Clock, Zap } from "lucide-react";
 import PieChartWidget from "./PieChartWidget";
 import { BurndownChartWidget } from "./BurndownChartWidget";
+import type { Card } from "@/types/board";
 
 interface ColumnStat {
   title: string;
@@ -17,6 +18,7 @@ interface OverviewTabContentProps {
   totalHours: number;
   columnStats: ColumnStat[];
   insights: string[];
+  allCards: Card[];
 }
 
 export function OverviewTabContent({
@@ -26,6 +28,7 @@ export function OverviewTabContent({
   totalHours,
   columnStats,
   insights,
+  allCards,
 }: OverviewTabContentProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -75,7 +78,7 @@ export function OverviewTabContent({
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <PieChartWidget columnStats={columnStats} />
-        <BurndownChartWidget totalCards={totalCards} doneCount={doneCount} />
+        <BurndownChartWidget cards={allCards} />
       </div>
 
       {/* Smart Insights */}
