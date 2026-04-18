@@ -3,7 +3,8 @@ import { useBoardStore } from "@/store/useBoardStore";
 import type { Card } from "@/types/board";
 
 export function useCanEdit(card: Card): boolean {
-  const { currentUserId, boardMembers } = useBoardStore();
+  const currentUserId = useBoardStore((s) => s.currentUserId);
+  const boardMembers = useBoardStore((s) => s.boardMembers);
 
   if (!currentUserId) return false;
 

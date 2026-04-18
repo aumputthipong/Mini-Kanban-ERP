@@ -1,10 +1,9 @@
 import { useBoardStore } from "@/store/useBoardStore";
+import { useToastStore } from "@/store/useToastStore";
 import { API_URL } from "@/lib/constants";
 import type { Subtask } from "@/types/board";
 
 export function useSubtaskActions() {
-  const { columns, updateCard } = useBoardStore();
-
   const fetchSubtasks = async (cardId: string) => {
     try {
       const response = await fetch(`${API_URL}/cards/${cardId}/subtasks`, {
@@ -22,6 +21,7 @@ export function useSubtaskActions() {
 
   const handleAddSubtask = async (cardId: string, title: string) => {
     try {
+      const { columns, updateCard } = useBoardStore.getState();
       const targetCard = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
       if (!targetCard) return;
 
@@ -71,17 +71,44 @@ export function useSubtaskActions() {
     }
   };
 
-  const handleDeleteSubtask = async (cardId: string, subtaskId: string) => {
-    useBoardStore.getState().deleteSubtaskFromCard(cardId, subtaskId);
-    try {
-      const response = await fetch(`${API_URL}/cards/${cardId}/subtasks/${subtaskId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to delete subtask");
-    } catch (error) {
-      console.error("Error deleting subtask:", error);
-    }
+  const handleDeleteSubtask = (cardId: string, subtaskId: string) => {
+    const store = useBoardStore.getState();
+    const card = store.columns
+      .flatMap((c) => c.cards)
+      .find((c) => c.id === cardId);
+    const removed = card?.subtasks?.find((st) => st.id === subtaskId);
+    if (!removed) return;
+
+    // Optimistic remove from UI
+    store.deleteSubtaskFromCard(cardId, subtaskId);
+
+    let undone = false;
+    const toastId = useToastStore.getState().show({
+      message: `Subtask "${removed.title}" deleted`,
+      actionLabel: "Undo",
+      duration: 5000,
+      onAction: () => {
+        undone = true;
+        // Restore: fetch fresh list from server
+        fetchSubtasks(cardId);
+      },
+    });
+
+    // Delay API call — gives user time to undo
+    setTimeout(async () => {
+      if (undone) return;
+      try {
+        const response = await fetch(
+          `${API_URL}/cards/${cardId}/subtasks/${subtaskId}`,
+          { method: "DELETE", credentials: "include" },
+        );
+        if (!response.ok) throw new Error("Failed to delete subtask");
+      } catch (error) {
+        console.error("Error deleting subtask:", error);
+        useToastStore.getState().dismiss(toastId);
+        fetchSubtasks(cardId);
+      }
+    }, 5000);
   };
 
   const handleUpdateSubtaskTitle = async (
