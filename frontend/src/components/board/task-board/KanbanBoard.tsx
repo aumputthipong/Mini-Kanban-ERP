@@ -30,7 +30,7 @@ function DragPreview({ card }: { card: Card }) {
 }
 
 export function KanbanBoard({ boardId }: { boardId: string }) {
-  const { columns, filterAssigneeId, filterPriorities } = useBoardStore();
+  const { columns, filterAssigneeId, filterPriorities, filterTagIds } = useBoardStore();
   const {
     handleDragStart,
     handleDragEnd,
@@ -135,6 +135,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onUpdateColumn: stableHandleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
+      filterTagIds,
       dropIndicatorBeforeId:
         dropTarget?.columnId === col.id ? dropTarget.beforeCardId : undefined,
     }),
@@ -147,6 +148,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       stableHandleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
+      filterTagIds,
       dropTarget,
       columns,
     ],
@@ -160,7 +162,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="board-scroll flex gap-6 items-stretch snap-x snap-mandatory">
+      <div className="board-scroll flex gap-6 items-stretch min-h-full snap-x snap-mandatory">
         {todoColumns.map((col) => (
           <KanbanColumn key={col.id} {...columnProps(col)} />
         ))}
