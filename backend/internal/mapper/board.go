@@ -73,6 +73,14 @@ func timePtrToString(t *time.Time) *string {
 	return &s
 }
 
+func timePtrToRFC3339(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format(time.RFC3339)
+	return &s
+}
+
 func ToCardResponse(card service.CardData) dto.CardResponse {
     tags := make([]dto.TagResponse, len(card.Tags))
     for i, t := range card.Tags {
@@ -90,7 +98,8 @@ func ToCardResponse(card service.CardData) dto.CardResponse {
         AssigneeName:      card.AssigneeName,
         Priority:          card.Priority,
         IsDone:            card.IsDone,
-        CompletedAt:       timePtrToString(card.CompletedAt),
+        CompletedAt:       timePtrToRFC3339(card.CompletedAt),
+        CreatedAt:         timePtrToRFC3339(card.CreatedAt),
         CreatedBy:         card.CreatedBy,
         TotalSubtasks:     card.TotalSubtasks,
         CompletedSubtasks: card.CompletedSubtasks,
