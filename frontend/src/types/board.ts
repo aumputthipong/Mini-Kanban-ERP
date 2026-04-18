@@ -1,4 +1,11 @@
 // types/board.ts
+export interface Tag {
+  id: string;
+  board_id: string;
+  name: string;
+  color: string;
+}
+
 export interface Card {
   id: string;
   column_id: string;
@@ -16,6 +23,7 @@ export interface Card {
   total_subtasks: number;      // เพิ่ม — มาจาก COUNT
   completed_subtasks: number;      // เพิ่ม — มาจาก COUNT
   subtasks?: Subtask[];
+  tags?: Tag[];
 }
 
 export interface Column {
@@ -71,4 +79,5 @@ export interface CardUpdateForm {
   assignee_id: string;
   priority: string;
   estimated_hours: string;
+  tags: Tag[];
 }

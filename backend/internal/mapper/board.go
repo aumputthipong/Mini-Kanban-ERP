@@ -74,6 +74,10 @@ func timePtrToString(t *time.Time) *string {
 }
 
 func ToCardResponse(card service.CardData) dto.CardResponse {
+    tags := make([]dto.TagResponse, len(card.Tags))
+    for i, t := range card.Tags {
+        tags[i] = dto.TagResponse{ID: t.ID, BoardID: t.BoardID, Name: t.Name, Color: t.Color}
+    }
     return dto.CardResponse{
         ID:                card.ID,
         ColumnID:          card.ColumnID,
@@ -90,6 +94,7 @@ func ToCardResponse(card service.CardData) dto.CardResponse {
         CreatedBy:         card.CreatedBy,
         TotalSubtasks:     card.TotalSubtasks,
         CompletedSubtasks: card.CompletedSubtasks,
+        Tags:              tags,
     }
 }
 

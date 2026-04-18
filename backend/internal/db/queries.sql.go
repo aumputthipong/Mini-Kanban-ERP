@@ -37,6 +37,15 @@ func (q *Queries) AddBoardMember(ctx context.Context, arg AddBoardMemberParams) 
 	return i, err
 }
 
+const clearCardTags = `-- name: ClearCardTags :exec
+DELETE FROM card_tags WHERE card_id = $1
+`
+
+func (q *Queries) ClearCardTags(ctx context.Context, cardID string) error {
+	_, err := q.db.Exec(ctx, clearCardTags, cardID)
+	return err
+}
+
 const createBoard = `-- name: CreateBoard :one
 INSERT INTO boards (id, title, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -174,6 +183,31 @@ func (q *Queries) CreateSubtask(ctx context.Context, arg CreateSubtaskParams) (C
 	return i, err
 }
 
+const createTag = `-- name: CreateTag :one
+INSERT INTO tags (board_id, name, color)
+VALUES ($1, $2, $3)
+RETURNING id, board_id, name, color, created_at
+`
+
+type CreateTagParams struct {
+	BoardID string
+	Name    string
+	Color   string
+}
+
+func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
+	row := q.db.QueryRow(ctx, createTag, arg.BoardID, arg.Name, arg.Color)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Color,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, full_name, password_hash, provider, provider_id)
 VALUES ($1, $2, $3, $4, $5)
@@ -235,6 +269,20 @@ WHERE id = $1
 
 func (q *Queries) DeleteSubtask(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteSubtask, id)
+	return err
+}
+
+const deleteTag = `-- name: DeleteTag :exec
+DELETE FROM tags WHERE id = $1 AND board_id = $2
+`
+
+type DeleteTagParams struct {
+	ID      string
+	BoardID string
+}
+
+func (q *Queries) DeleteTag(ctx context.Context, arg DeleteTagParams) error {
+	_, err := q.db.Exec(ctx, deleteTag, arg.ID, arg.BoardID)
 	return err
 }
 
@@ -814,6 +862,80 @@ func (q *Queries) GetSubtasksByCardIDs(ctx context.Context, dollar_1 []string) (
 	return items, nil
 }
 
+const getTagsByBoardID = `-- name: GetTagsByBoardID :many
+SELECT id, board_id, name, color, created_at FROM tags WHERE board_id = $1 ORDER BY name ASC
+`
+
+func (q *Queries) GetTagsByBoardID(ctx context.Context, boardID string) ([]Tag, error) {
+	rows, err := q.db.Query(ctx, getTagsByBoardID, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tag
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTagsByCardIDs = `-- name: GetTagsByCardIDs :many
+SELECT ct.card_id, t.id, t.board_id, t.name, t.color, t.created_at
+FROM tags t
+JOIN card_tags ct ON ct.tag_id = t.id
+WHERE ct.card_id = ANY($1::uuid[])
+ORDER BY ct.card_id, t.name ASC
+`
+
+type GetTagsByCardIDsRow struct {
+	CardID    string
+	ID        string
+	BoardID   string
+	Name      string
+	Color     string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetTagsByCardIDs(ctx context.Context, dollar_1 []string) ([]GetTagsByCardIDsRow, error) {
+	rows, err := q.db.Query(ctx, getTagsByCardIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTagsByCardIDsRow
+	for rows.Next() {
+		var i GetTagsByCardIDsRow
+		if err := rows.Scan(
+			&i.CardID,
+			&i.ID,
+			&i.BoardID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTrashedBoards = `-- name: GetTrashedBoards :many
 SELECT id, title, deleted_at 
 FROM boards 
@@ -902,6 +1024,20 @@ WHERE id = $1
 // ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)
 func (q *Queries) HardDeleteBoard(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, hardDeleteBoard, id)
+	return err
+}
+
+const insertCardTag = `-- name: InsertCardTag :exec
+INSERT INTO card_tags (card_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type InsertCardTagParams struct {
+	CardID string
+	TagID  string
+}
+
+func (q *Queries) InsertCardTag(ctx context.Context, arg InsertCardTagParams) error {
+	_, err := q.db.Exec(ctx, insertCardTag, arg.CardID, arg.TagID)
 	return err
 }
 
