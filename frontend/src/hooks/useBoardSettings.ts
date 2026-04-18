@@ -11,6 +11,7 @@ export function useBoardSettings(boardId: string) {
   const updateField = async (fieldKey: string, value: string | number) => {
     const res = await fetch(`${API_URL}/boards/${boardId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [fieldKey]: value }),
     });
