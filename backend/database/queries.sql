@@ -22,6 +22,7 @@ SELECT
     c.priority,
     c.is_done,
     c.completed_at,
+    c.created_at,
     c.created_by,
     u.full_name AS assignee_name,
     COUNT(cs.id) AS total_subtasks,

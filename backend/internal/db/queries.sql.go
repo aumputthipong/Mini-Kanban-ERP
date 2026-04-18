@@ -556,6 +556,7 @@ SELECT
     c.priority,
     c.is_done,
     c.completed_at,
+    c.created_at,
     c.created_by,
     u.full_name AS assignee_name,
     COUNT(cs.id) AS total_subtasks,
@@ -580,6 +581,7 @@ type GetCardsByColumnIDsRow struct {
 	Priority          *string
 	IsDone            bool
 	CompletedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
 	CreatedBy         *string
 	AssigneeName      *string
 	TotalSubtasks     int64
@@ -607,6 +609,7 @@ func (q *Queries) GetCardsByColumnIDs(ctx context.Context, dollar_1 []string) ([
 			&i.Priority,
 			&i.IsDone,
 			&i.CompletedAt,
+			&i.CreatedAt,
 			&i.CreatedBy,
 			&i.AssigneeName,
 			&i.TotalSubtasks,
