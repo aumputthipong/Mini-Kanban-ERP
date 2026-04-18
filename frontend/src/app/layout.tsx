@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 
 import "./globals.css";
 import { MuiProvider } from "@/components/providers/MuiProvider";
+import { ToastContainer } from "@/components/ui/ToastContainer";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -35,6 +36,7 @@ export default function RootLayout({
         <MuiProvider>
           <Navbar />
           <div className="flex-1 flex flex-col min-h-0">{children}</div>
+          <ToastContainer />
         </MuiProvider>
       </body>
     </html>
