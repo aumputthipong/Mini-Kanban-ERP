@@ -2,9 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, Clock, User } from "lucide-react";
-import type { BoardMember } from "@/types/board";
+import { Calendar, Clock, User, Tag } from "lucide-react";
+import type { BoardMember, Tag as TagType } from "@/types/board";
 import { FormState } from "./CardDetailModal";
+import { TagSelector } from "./TagSelector";
 import { formatThaiDate } from "@/utils/date_helper";
 import { QUICK_DATE_OPTIONS, QUICK_HOURS_OPTIONS } from "@/utils/quickSelect";
 import { getAvatarColor } from "@/utils/avatar";
@@ -13,12 +14,14 @@ interface CardFormFieldsProps {
   form: FormState;
   members: BoardMember[];
   assigneeName?: string;
+  boardId: string;
   onChange: (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onTagsChange: (tags: TagType[]) => void;
   error: string | null;
   canEdit: boolean;
 }
 
-export function CardFormFields({ form, members, assigneeName, onChange, error, canEdit }: CardFormFieldsProps) {
+export function CardFormFields({ form, members, assigneeName, boardId, onChange, onTagsChange, error, canEdit }: CardFormFieldsProps) {
   const [showQuickDates, setShowQuickDates] = useState(false);
   const [showQuickHours, setShowQuickHours] = useState(false);
 
@@ -211,6 +214,19 @@ export function CardFormFields({ form, members, assigneeName, onChange, error, c
             {form.estimated_hours ? `${form.estimated_hours}h` : "—"}
           </p>
         )}
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-2">
+          <Tag size={10} /> Tags
+        </label>
+        <TagSelector
+          boardId={boardId}
+          selected={form.tags}
+          onChange={onTagsChange}
+          canEdit={canEdit}
+        />
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}

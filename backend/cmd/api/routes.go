@@ -18,6 +18,7 @@ func setupRoutes(
 	authHandler *handler.AuthHandler,
 	oauthHandler *handler.OAuthHandler,
 	subtaskHandler *handler.SubtaskHandler,
+	tagHandler *handler.TagHandler,
 	hub *websocket.Hub,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -71,6 +72,13 @@ func setupRoutes(
 				r.Post("/", httputil.MakeHandler(boardHandler.AddBoardMember))
 				r.Delete("/{userID}", httputil.MakeHandler(boardHandler.RemoveBoardMember))
 				r.Patch("/{userID}", httputil.MakeHandler(boardHandler.UpdateMemberRole))
+			})
+
+			// Tags — nested ใน /{boardID}
+			r.Route("/{boardID}/tags", func(r chi.Router) {
+				r.Get("/", httputil.MakeHandler(tagHandler.GetBoardTags))
+				r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
+				r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
 			})
 		})
 		r.Route("/api/cards", func(r chi.Router) {

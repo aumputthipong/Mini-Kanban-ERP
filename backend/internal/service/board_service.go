@@ -36,6 +36,13 @@ type SubtaskData struct {
 	Position float64
 }
 
+type TagData struct {
+	ID      string
+	BoardID string
+	Name    string
+	Color   string
+}
+
 type CardData struct {
 	ID                string
 	ColumnID          string
@@ -53,6 +60,7 @@ type CardData struct {
 	Subtasks          []SubtaskData
 	TotalSubtasks     int64
 	CompletedSubtasks int64
+	Tags              []TagData
 }
 
 type BoardSummaryData struct {
@@ -235,8 +243,31 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 		return nil, fmt.Errorf("fetch cards: %w", err)
 	}
 
+	// 3. Batch load tags for all cards
+	cardIDs := make([]string, len(cards))
+	for i, card := range cards {
+		cardIDs[i] = card.ID
+	}
+	tagRows, err := s.queries.GetTagsByCardIDs(ctx, cardIDs)
+	if err != nil {
+		return nil, fmt.Errorf("fetch card tags: %w", err)
+	}
+	tagsByCard := make(map[string][]TagData)
+	for _, row := range tagRows {
+		tagsByCard[row.CardID] = append(tagsByCard[row.CardID], TagData{
+			ID:      row.ID,
+			BoardID: row.BoardID,
+			Name:    row.Name,
+			Color:   row.Color,
+		})
+	}
+
 	cardsByColumn := make(map[string][]CardData)
 	for _, card := range cards {
+		tags := tagsByCard[card.ID]
+		if tags == nil {
+			tags = []TagData{}
+		}
 		cardsByColumn[card.ColumnID] = append(cardsByColumn[card.ColumnID], CardData{
 			ID:                card.ID,
 			ColumnID:          card.ColumnID,
@@ -253,6 +284,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			CreatedBy:         card.CreatedBy,
 			TotalSubtasks:     card.TotalSubtasks,
 			CompletedSubtasks: card.CompletedSubtasks,
+			Tags:              tags,
 		})
 	}
 
