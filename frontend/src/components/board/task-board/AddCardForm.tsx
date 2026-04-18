@@ -1,27 +1,38 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus } from "lucide-react";
 
 interface AddCardFormProps {
   onAdd: (title: string) => void;
+  defaultOpen?: boolean;
+  onDismiss?: () => void;
 }
 
-export function AddCardForm({ onAdd }: AddCardFormProps) {
-  const [isAdding, setIsAdding] = useState(false);
+export function AddCardForm({ onAdd, defaultOpen = false, onDismiss }: AddCardFormProps) {
+  const [isAdding, setIsAdding] = useState(defaultOpen);
   const [cardTitle, setCardTitle] = useState("");
   const addInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (defaultOpen) {
+      setIsAdding(true);
+      setTimeout(() => addInputRef.current?.focus(), 0);
+    }
+  }, [defaultOpen]);
 
   const handleSubmit = () => {
     if (!cardTitle.trim()) return;
     onAdd(cardTitle.trim());
     setCardTitle("");
-    setIsAdding(false);
+    if (onDismiss) onDismiss();
+    else setIsAdding(false);
   };
 
   const handleCancel = () => {
     setCardTitle("");
-    setIsAdding(false);
+    if (onDismiss) onDismiss();
+    else setIsAdding(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
