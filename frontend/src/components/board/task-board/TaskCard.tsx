@@ -27,6 +27,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { formatThaiDate } from "@/utils/date_helper";
 import { getAvatarColor } from "@/utils/avatar";
 import { PriorityBadge } from "@/components/board/task-board/PriorityBadge";
+import { TagChip } from "@/components/board/task-board/TagChip";
 
 interface CardProps {
   card: Card;
@@ -85,9 +86,25 @@ export const TaskCard = memo(function TaskCard({
       >
         <div className="flex items-start gap-3">
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-            {card.priority && !card.is_done && (
-              <PriorityBadge priority={card.priority} />
-            )}
+            {(card.priority && !card.is_done) || (card.tags && card.tags.length > 0) ? (
+              <div className="flex flex-wrap items-center gap-1">
+                {card.priority && !card.is_done && (
+                  <PriorityBadge priority={card.priority} />
+                )}
+                {card.tags && card.tags.length > 0 && (
+                  <>
+                    {card.tags.slice(0, 3).map((tag) => (
+                      <TagChip key={tag.id} tag={tag} />
+                    ))}
+                    {card.tags.length > 3 && (
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        +{card.tags.length - 3}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : null}
 
             <p
               className={`text-sm font-semibold leading-snug transition-all line-clamp-2  ${

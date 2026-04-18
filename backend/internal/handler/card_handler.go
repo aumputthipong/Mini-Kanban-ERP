@@ -71,6 +71,7 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 		AssigneeID:     req.AssigneeID,
 		Priority:       req.Priority,
 		EstimatedHours: req.EstimatedHours,
+		TagIDs:         req.TagIDs,
 	})
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update card", err)

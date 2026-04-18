@@ -1,6 +1,7 @@
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardWebSocket } from "@/contexts/BoardWebSocketContext";
 import { POSITION_GAP } from "@/utils/boardPosition";
+import { API_URL } from "@/lib/constants";
 import type { Card, CardUpdateForm } from "@/types/board";
 
 export function useCardActions(boardId: string) {
@@ -44,6 +45,7 @@ export function useCardActions(boardId: string) {
       ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
       : null;
 
+    // Optimistic store update (includes tags)
     updateCard({
       ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
       title: form.title,
@@ -53,8 +55,26 @@ export function useCardActions(boardId: string) {
       assignee_name: newAssigneeName,
       priority: (form.priority as Card["priority"]) || null,
       estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+      tags: form.tags,
     });
 
+    // Persist via REST (handles tag_ids through service layer)
+    fetch(`${API_URL}/cards/${cardId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: form.title,
+        description: form.description || null,
+        due_date: form.due_date || null,
+        assignee_id: newAssigneeId,
+        priority: form.priority || null,
+        estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+        tag_ids: form.tags.map((t) => t.id),
+      }),
+    }).catch(() => {});
+
+    // Broadcast to other clients via WebSocket (non-tag fields)
     sendMessage({
       type: "CARD_UPDATED",
       payload: {

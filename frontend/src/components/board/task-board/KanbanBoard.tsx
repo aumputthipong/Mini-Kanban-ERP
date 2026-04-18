@@ -1,7 +1,7 @@
 // components/board/KanbanBoard.tsx
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -16,7 +16,6 @@ import { KanbanColumn } from "@/components/board/task-board/Column";
 import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import type { Card } from "@/types/board";
-import { usePanBoard } from "@/hooks/usePanBoard";
 import { PriorityBadge } from "./PriorityBadge";
 
 function DragPreview({ card }: { card: Card }) {
@@ -50,9 +49,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     columnId: string;
     beforeCardId: string | null;
   } | null>(null);
-
-  const boardScrollRef = useRef<HTMLDivElement>(null);
-  usePanBoard(boardScrollRef);
 
   const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
   const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
@@ -164,10 +160,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div
-        ref={boardScrollRef}
-        className="board-scroll flex gap-6 overflow-x-auto overflow-y-auto h-full items-start snap-x snap-mandatory scroll-smooth"
-      >
+      <div className="board-scroll flex gap-6 items-stretch snap-x snap-mandatory">
         {todoColumns.map((col) => (
           <KanbanColumn key={col.id} {...columnProps(col)} />
         ))}
