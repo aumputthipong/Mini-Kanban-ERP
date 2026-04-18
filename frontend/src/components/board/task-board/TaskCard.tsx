@@ -43,7 +43,7 @@ export const TaskCard = memo(function TaskCard({
 }: CardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const { handleAddSubtask, handleToggleSubtask } = useBoardActions(boardId);
+  const { handleAddSubtask } = useBoardActions(boardId);
   const canEdit = useCanEdit(card);
 
   const totalSubtasks = card.total_subtasks ?? 0;
@@ -114,54 +114,29 @@ export const TaskCard = memo(function TaskCard({
           </div>
         </div>
 
-        {/* Subtasks inline */}
         {totalSubtasks > 0 && (
-          <div className="flex flex-col gap-1 pl-7">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden ">
-                <div
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    completedSubtasks === totalSubtasks
-                      ? "bg-emerald-500"
-                      : "bg-blue-400"
-                  }`}
-                  style={{
-                    width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%`,
-                  }}
-                />
-              </div>
-              <span
-                className={`text-[10px] font-semibold ${
-                  completedSubtasks === totalSubtasks
-                    ? "text-emerald-500"
-                    : "text-slate-400"
-                }`}
-              >
-                {completedSubtasks}/{totalSubtasks}
-              </span>
-            </div>
-            {card.subtasks?.map((st) => (
+          <div className="flex items-center gap-2 pl-2">
+            <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
               <div
-                key={st.id}
-                className="flex items-center gap-2"
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  checked={st.is_done}
-                  onChange={() =>
-                    handleToggleSubtask(card.id, st.id, st.is_done)
-                  }
-                  className="rounded border-slate-300 text-blue-500 focus:ring-blue-400 cursor-pointer"
-                />
-                <span
-                  className={`text-xs ${st.is_done ? "line-through text-slate-400" : "text-slate-600"}`}
-                >
-                  {st.title}
-                </span>
-              </div>
-            ))}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  completedSubtasks === totalSubtasks
+                    ? "bg-emerald-500"
+                    : "bg-blue-400"
+                }`}
+                style={{
+                  width: `${Math.round((completedSubtasks / totalSubtasks) * 100)}%`,
+                }}
+              />
+            </div>
+            <span
+              className={`text-[10px] font-semibold ${
+                completedSubtasks === totalSubtasks
+                  ? "text-emerald-500"
+                  : "text-slate-400"
+              }`}
+            >
+              {completedSubtasks}/{totalSubtasks}
+            </span>
           </div>
         )}
 
@@ -197,22 +172,24 @@ export const TaskCard = memo(function TaskCard({
         </div>
       </div>
 
-      <CardDetailModal
-        card={card}
-        boardId={boardId}
-        isOpen={isDetailOpen}
-        onClose={() => setIsDetailOpen(false)}
-        onUpdated={(cardId, form) => {
-          onSaveCard(cardId, form);
-          setIsDetailOpen(false);
-        }}
-        onDelete={(cardId) => {
-          onDeleteCard(cardId);
-          setIsDetailOpen(false);
-        }}
-        onAddSubtask={handleAddSubtask}
-        canEdit={canEdit}
-      />
+      {isDetailOpen && (
+        <CardDetailModal
+          card={card}
+          boardId={boardId}
+          isOpen={isDetailOpen}
+          onClose={() => setIsDetailOpen(false)}
+          onUpdated={(cardId, form) => {
+            onSaveCard(cardId, form);
+            setIsDetailOpen(false);
+          }}
+          onDelete={(cardId) => {
+            onDeleteCard(cardId);
+            setIsDetailOpen(false);
+          }}
+          onAddSubtask={handleAddSubtask}
+          canEdit={canEdit}
+        />
+      )}
     </>
   );
 });
