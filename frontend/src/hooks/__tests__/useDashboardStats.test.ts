@@ -20,6 +20,7 @@ function makeCard(overrides: Partial<Card> & { updated_at?: string } = {}): Card
     estimated_hours: null,
     is_done: false,
     completed_at: null,
+    created_at: null,
     created_by: null,
     total_subtasks: 0,
     completed_subtasks: 0,

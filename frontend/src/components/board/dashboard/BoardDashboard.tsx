@@ -94,7 +94,8 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const doneCount = columns.flatMap((c) => c.cards).filter((c) => c.is_done).length;
+  const allCards = columns.flatMap((c) => c.cards);
+  const doneCount = allCards.filter((c) => c.is_done).length;
 
   const urgentForUser = [
     ...stats.overdueCards.filter((c) => c.assignee_id === currentUserId),
@@ -163,6 +164,7 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
             totalHours={stats.totalHours}
             columnStats={stats.columnStats}
             insights={stats.insights}
+            allCards={allCards}
           />
         )}
 

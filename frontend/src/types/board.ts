@@ -19,6 +19,7 @@ export interface Card {
   estimated_hours: number | null;
   is_done: boolean;
   completed_at: string | null;
+  created_at: string | null;
   created_by: string | null;
   total_subtasks: number;      // เพิ่ม — มาจาก COUNT
   completed_subtasks: number;      // เพิ่ม — มาจาก COUNT
