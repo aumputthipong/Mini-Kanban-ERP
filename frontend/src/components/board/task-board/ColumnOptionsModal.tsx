@@ -29,6 +29,7 @@ interface ColumnOptionsModalProps {
   initialTitle: string;
   initialCategory: "TODO" | "DONE";
   initialColor: string | null;
+  cardCount: number;
   onSave: (title: string, category: "TODO" | "DONE", color: string | null) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -40,6 +41,7 @@ export function ColumnOptionsModal({
   initialTitle,
   initialCategory,
   initialColor,
+  cardCount,
   onSave,
   onDelete,
   onClose,
@@ -175,11 +177,23 @@ export function ColumnOptionsModal({
             </div>
           </div>
 
+          {cardCount > 0 && (
+            <div className="mx-5 mb-2 px-3 py-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg">
+              คอลัมน์นี้มี {cardCount} การ์ด — กรุณาย้ายออกให้หมดก่อนลบ
+            </div>
+          )}
+
           {/* footer */}
           <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
             <button
               onClick={() => setConfirmDeleteOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
+              disabled={cardCount > 0}
+              title={
+                cardCount > 0
+                  ? "กรุณาย้ายการ์ดออกให้หมดก่อนลบคอลัมน์"
+                  : "Delete column"
+              }
+              className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors disabled:text-slate-300 disabled:hover:bg-transparent disabled:cursor-not-allowed"
             >
               <Trash2 size={14} /> Delete column
             </button>
@@ -206,7 +220,7 @@ export function ColumnOptionsModal({
       <ConfirmDialog
         open={confirmDeleteOpen}
         title="Delete column?"
-        description="All cards in this column will be permanently deleted."
+        description="This column is empty and will be permanently removed."
         confirmLabel="Delete"
         destructive
         onConfirm={() => { setConfirmDeleteOpen(false); onClose(); onDelete(); }}

@@ -18,6 +18,8 @@ import { CardFormFields } from "./CardFormFields";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { SubtaskItem } from "../task-board/subtask/SubtaskItem";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { StatusDropdown } from "./StatusDropdown";
+import { useBoardStore } from "@/store/useBoardStore";
 
 export interface FormState {
   title: string;
@@ -69,7 +71,10 @@ export function CardDetailModal({
     handleToggleSubtask,
     handleDeleteSubtask,
     handleUpdateSubtaskTitle,
+    handleChangeColumn,
   } = useBoardActions(boardId);
+
+  const columns = useBoardStore((s) => s.columns);
 
   // sync subtasks when modal opens
   useEffect(() => {
@@ -151,6 +156,12 @@ export function CardDetailModal({
                 </p>
               )}
             </div>
+            <StatusDropdown
+              columns={columns}
+              currentColumnId={card.column_id}
+              onChange={(newColId) => handleChangeColumn(card.id, newColId)}
+              disabled={!canEdit}
+            />
             <button
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors shrink-0"

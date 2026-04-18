@@ -138,6 +138,7 @@ export const KanbanColumn = memo(function KanbanColumn({
         initialTitle={title}
         initialCategory={category}
         initialColor={color ?? null}
+        cardCount={cards.length}
         onSave={(t, cat, col) => onUpdateColumn(id, t, cat, col)}
         onDelete={() => onDeleteColumn(id)}
         onClose={() => setOptionsOpen(false)}
