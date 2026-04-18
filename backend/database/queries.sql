@@ -291,3 +291,28 @@ SET
     is_done = $2,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1;
+
+
+-- name: GetTagsByBoardID :many
+SELECT * FROM tags WHERE board_id = $1 ORDER BY name ASC;
+
+-- name: GetTagsByCardIDs :many
+SELECT ct.card_id, t.id, t.board_id, t.name, t.color, t.created_at
+FROM tags t
+JOIN card_tags ct ON ct.tag_id = t.id
+WHERE ct.card_id = ANY($1::uuid[])
+ORDER BY ct.card_id, t.name ASC;
+
+-- name: CreateTag :one
+INSERT INTO tags (board_id, name, color)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: DeleteTag :exec
+DELETE FROM tags WHERE id = $1 AND board_id = $2;
+
+-- name: ClearCardTags :exec
+DELETE FROM card_tags WHERE card_id = $1;
+
+-- name: InsertCardTag :exec
+INSERT INTO card_tags (card_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;

@@ -82,8 +82,11 @@ func run(ctx context.Context, cfg config) error {
 	authService := service.NewAuthService(queries)
 	subtaskService := service.NewSubtaskService(pool)
 
+	tagService := service.NewTagService(pool, queries)
+
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
+	tagHandler := handler.NewTagHandler(tagService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
 	oauthHandler := handler.NewOAuthHandler(
 		cfg.GoogleClientID,
@@ -94,7 +97,7 @@ func run(ctx context.Context, cfg config) error {
 		cfg.Production,
 	)
 
-	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, hub)
+	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, hub)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: middleware.CORS(cfg.FrontendURL, router),

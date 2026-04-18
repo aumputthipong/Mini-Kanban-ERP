@@ -12,6 +12,7 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     assignee_id: card.assignee_id ?? "",
     priority: card.priority ?? "",
     estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
+    tags: card.tags ?? [],
   });
 
   const [members, setMembers] = useState<BoardMember[]>([]);
@@ -26,6 +27,7 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
       assignee_id: card.assignee_id ?? "",
       priority: card.priority ?? "",
       estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
+      tags: card.tags ?? [],
     });
     setError(null);
   }, [card]);
@@ -47,13 +49,16 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
   }, [isOpen, boardId]);
 
   // คำนวณว่ามีการแก้ไขข้อมูลหรือไม่
+  const cardTagIds = (card.tags ?? []).map((t) => t.id).sort().join(",");
+  const formTagIds = form.tags.map((t) => t.id).sort().join(",");
   const isDirty =
     form.title !== card.title ||
     form.description !== (card.description ?? "") ||
     form.due_date !== (card.due_date ?? "") ||
     form.assignee_id !== (card.assignee_id ?? "") ||
     form.priority !== (card.priority ?? "") ||
-    form.estimated_hours !== (card.estimated_hours != null ? String(card.estimated_hours) : "");
+    form.estimated_hours !== (card.estimated_hours != null ? String(card.estimated_hours) : "") ||
+    formTagIds !== cardTagIds;
 
   // Helper สำหรับ Update State
   const handleChange = (field: keyof FormState) => (

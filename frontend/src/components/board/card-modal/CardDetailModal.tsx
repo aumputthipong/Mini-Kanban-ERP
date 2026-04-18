@@ -12,7 +12,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import type { Card } from "@/types/board";
+import type { Card, Tag } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { CardFormFields } from "./CardFormFields";
 import { useBoardActions } from "@/hooks/useBoardActions";
@@ -26,6 +26,7 @@ export interface FormState {
   assignee_id: string;
   priority: string;
   estimated_hours: string;
+  tags: Tag[];
 }
 
 interface CardDetailModalProps {
@@ -252,7 +253,9 @@ export function CardDetailModal({
                 form={form}
                 members={members}
                 assigneeName={assigneeName}
+                boardId={boardId}
                 onChange={handleChange}
+                onTagsChange={(tags) => handleChange("tags")({ target: { value: tags } } as never)}
                 error={error}
                 canEdit={canEdit}
               />

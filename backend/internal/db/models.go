@@ -54,6 +54,11 @@ type CardSubtask struct {
 	UpdatedAt *time.Time
 }
 
+type CardTag struct {
+	CardID string
+	TagID  string
+}
+
 type Column struct {
 	ID        string
 	BoardID   string
@@ -63,6 +68,14 @@ type Column struct {
 	Color     *string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+}
+
+type Tag struct {
+	ID        string
+	BoardID   string
+	Name      string
+	Color     string
+	CreatedAt pgtype.Timestamptz
 }
 
 type TimeLog struct {
