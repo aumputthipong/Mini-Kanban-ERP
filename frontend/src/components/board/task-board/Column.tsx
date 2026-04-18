@@ -149,11 +149,6 @@ export const KanbanColumn = memo(function KanbanColumn({
             {dropIndicatorBeforeId === null && <DropIndicator />}
           </div>
         </SortableContext>
-
-        {/* Add Card footer */}
-        <div className="shrink-0 px-4 pb-4 pt-1">
-          <AddCardForm onAdd={(title) => onAddCard(id, title)} />
-        </div>
       </div>
 
       <ColumnOptionsModal
