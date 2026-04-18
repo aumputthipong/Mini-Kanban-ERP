@@ -74,7 +74,7 @@ export const TaskCard = memo(function TaskCard({
         {...listeners}
         {...attributes}
         onClick={() => setIsDetailOpen(true)}
-        className={`group relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 ${
+        className={`group relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 select-none ${
           isDragging
             ? "opacity-0 pointer-events-none"
             : card.is_done

@@ -7,7 +7,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { TaskCard } from "./TaskCard";
 import { AddCardForm } from "./AddCardForm";
 import type { Card, Column } from "@/types/board";
@@ -28,6 +28,7 @@ interface ColumnProps {
   onUpdateColumn: (columnId: string, title: string, category: "TODO" | "DONE", color: string | null) => void;
   filterAssigneeId?: string | null;
   filterPriorities?: string[];
+  filterTagIds?: string[];
   dropIndicatorBeforeId?: string | null;
 }
 
@@ -49,10 +50,12 @@ export const KanbanColumn = memo(function KanbanColumn({
   onUpdateColumn,
   filterAssigneeId,
   filterPriorities,
+  filterTagIds,
   dropIndicatorBeforeId,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [topAddOpen, setTopAddOpen] = useState(false);
 
   const visibleCards = useMemo(
     () =>
@@ -61,9 +64,12 @@ export const KanbanColumn = memo(function KanbanColumn({
           (filterAssigneeId == null || card.assignee_id === filterAssigneeId) &&
           (filterPriorities == null ||
             filterPriorities.length === 0 ||
-            filterPriorities.includes(card.priority ?? "")),
+            filterPriorities.includes(card.priority ?? "")) &&
+          (filterTagIds == null ||
+            filterTagIds.length === 0 ||
+            (card.tags?.some((t) => filterTagIds.includes(t.id)) ?? false)),
       ),
-    [cards, filterAssigneeId, filterPriorities],
+    [cards, filterAssigneeId, filterPriorities, filterTagIds],
   );
 
   const colorHex = getColumnColorHex(color);
@@ -96,6 +102,14 @@ export const KanbanColumn = memo(function KanbanColumn({
               </span>
 
               <button
+                onClick={() => setTopAddOpen(true)}
+                title="Add card"
+                className="cursor-pointer text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+              >
+                <Plus size={16} />
+              </button>
+
+              <button
                 onClick={() => setOptionsOpen(true)}
                 className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
               >
@@ -105,12 +119,22 @@ export const KanbanColumn = memo(function KanbanColumn({
           </div>
         </div>
 
-        {/* Card List — scrollable */}
+        {/* Card List — fills remaining column height */}
         <SortableContext
           items={cards.map((c) => c.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="px-4 pb-4 flex flex-col gap-2">
+          <div className="px-4 pb-4 flex flex-col gap-2 flex-1">
+            {topAddOpen && (
+              <AddCardForm
+                defaultOpen
+                onAdd={(title) => {
+                  onAddCard(id, title);
+                  setTopAddOpen(false);
+                }}
+                onDismiss={() => setTopAddOpen(false)}
+              />
+            )}
             {visibleCards.map((card) => (
                 <div key={card.id}>
                   {dropIndicatorBeforeId === card.id && <DropIndicator />}

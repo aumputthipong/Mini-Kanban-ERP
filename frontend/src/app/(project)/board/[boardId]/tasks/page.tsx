@@ -7,6 +7,7 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { Plus } from "lucide-react";
 import { MemberFilterBar } from "@/components/board/task-board/MemberFilterBar";
 import { PriorityFilterDropdown } from "@/components/board/task-board/PriorityFilterDropdown";
+import { TagFilterDropdown } from "@/components/board/task-board/TagFilterDropdown";
 
 interface PageProps {
   params: Promise<{ boardId: string }>;
@@ -82,6 +83,7 @@ function BoardToolbar({ boardId }: { boardId: string }) {
       <MemberFilterBar />
       <div className="w-px h-5 bg-slate-300 mx-1" />
       <PriorityFilterDropdown />
+      <TagFilterDropdown boardId={boardId} />
       <div className="w-px h-5 bg-slate-300 mx-1" />
       <AddColumnButton onAdd={handleAddColumn} />
     </div>
