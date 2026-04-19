@@ -317,3 +317,41 @@ DELETE FROM card_tags WHERE card_id = $1;
 
 -- name: InsertCardTag :exec
 INSERT INTO card_tags (card_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+-- name: CreateActivity :one
+INSERT INTO activities (board_id, actor_id, event_type, entity_type, entity_id, payload)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, board_id, actor_id, event_type, entity_type, entity_id, payload, created_at;
+
+-- name: ListActivitiesByBoard :many
+SELECT
+    a.id,
+    a.board_id,
+    a.actor_id,
+    a.event_type,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.created_at,
+    u.full_name AS actor_name
+FROM activities a
+LEFT JOIN users u ON a.actor_id = u.id
+WHERE a.board_id = $1
+ORDER BY a.created_at DESC
+LIMIT $2;
+
+-- name: ListActivitiesByBoardBefore :many
+SELECT
+    a.id,
+    a.board_id,
+    a.actor_id,
+    a.event_type,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.created_at,
+    u.full_name AS actor_name
+FROM activities a
+LEFT JOIN users u ON a.actor_id = u.id
+WHERE a.board_id = $1 AND a.created_at < $2
+ORDER BY a.created_at DESC
+LIMIT $3;

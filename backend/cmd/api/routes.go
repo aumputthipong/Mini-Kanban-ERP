@@ -19,6 +19,7 @@ func setupRoutes(
 	oauthHandler *handler.OAuthHandler,
 	subtaskHandler *handler.SubtaskHandler,
 	tagHandler *handler.TagHandler,
+	activityHandler *handler.ActivityHandler,
 	hub *websocket.Hub,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -80,6 +81,8 @@ func setupRoutes(
 				r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
 				r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
 			})
+
+			r.Get("/{boardID}/activities", httputil.MakeHandler(activityHandler.ListByBoard))
 		})
 		r.Route("/api/cards", func(r chi.Router) {
 			r.Post("/", httputil.MakeHandler(boardHandler.CreateCard))

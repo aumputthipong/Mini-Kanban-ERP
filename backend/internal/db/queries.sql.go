@@ -46,6 +46,44 @@ func (q *Queries) ClearCardTags(ctx context.Context, cardID string) error {
 	return err
 }
 
+const createActivity = `-- name: CreateActivity :one
+INSERT INTO activities (board_id, actor_id, event_type, entity_type, entity_id, payload)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, board_id, actor_id, event_type, entity_type, entity_id, payload, created_at
+`
+
+type CreateActivityParams struct {
+	BoardID    string
+	ActorID    string
+	EventType  string
+	EntityType string
+	EntityID   *string
+	Payload    []byte
+}
+
+func (q *Queries) CreateActivity(ctx context.Context, arg CreateActivityParams) (Activity, error) {
+	row := q.db.QueryRow(ctx, createActivity,
+		arg.BoardID,
+		arg.ActorID,
+		arg.EventType,
+		arg.EntityType,
+		arg.EntityID,
+		arg.Payload,
+	)
+	var i Activity
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.ActorID,
+		&i.EventType,
+		&i.EntityType,
+		&i.EntityID,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createBoard = `-- name: CreateBoard :one
 INSERT INTO boards (id, title, created_at, updated_at)
 VALUES (gen_random_uuid(), $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -1042,6 +1080,137 @@ type InsertCardTagParams struct {
 func (q *Queries) InsertCardTag(ctx context.Context, arg InsertCardTagParams) error {
 	_, err := q.db.Exec(ctx, insertCardTag, arg.CardID, arg.TagID)
 	return err
+}
+
+const listActivitiesByBoard = `-- name: ListActivitiesByBoard :many
+SELECT
+    a.id,
+    a.board_id,
+    a.actor_id,
+    a.event_type,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.created_at,
+    u.full_name AS actor_name
+FROM activities a
+LEFT JOIN users u ON a.actor_id = u.id
+WHERE a.board_id = $1
+ORDER BY a.created_at DESC
+LIMIT $2
+`
+
+type ListActivitiesByBoardParams struct {
+	BoardID string
+	Limit   int32
+}
+
+type ListActivitiesByBoardRow struct {
+	ID         string
+	BoardID    string
+	ActorID    string
+	EventType  string
+	EntityType string
+	EntityID   *string
+	Payload    []byte
+	CreatedAt  time.Time
+	ActorName  *string
+}
+
+func (q *Queries) ListActivitiesByBoard(ctx context.Context, arg ListActivitiesByBoardParams) ([]ListActivitiesByBoardRow, error) {
+	rows, err := q.db.Query(ctx, listActivitiesByBoard, arg.BoardID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivitiesByBoardRow
+	for rows.Next() {
+		var i ListActivitiesByBoardRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.ActorID,
+			&i.EventType,
+			&i.EntityType,
+			&i.EntityID,
+			&i.Payload,
+			&i.CreatedAt,
+			&i.ActorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActivitiesByBoardBefore = `-- name: ListActivitiesByBoardBefore :many
+SELECT
+    a.id,
+    a.board_id,
+    a.actor_id,
+    a.event_type,
+    a.entity_type,
+    a.entity_id,
+    a.payload,
+    a.created_at,
+    u.full_name AS actor_name
+FROM activities a
+LEFT JOIN users u ON a.actor_id = u.id
+WHERE a.board_id = $1 AND a.created_at < $2
+ORDER BY a.created_at DESC
+LIMIT $3
+`
+
+type ListActivitiesByBoardBeforeParams struct {
+	BoardID   string
+	CreatedAt time.Time
+	Limit     int32
+}
+
+type ListActivitiesByBoardBeforeRow struct {
+	ID         string
+	BoardID    string
+	ActorID    string
+	EventType  string
+	EntityType string
+	EntityID   *string
+	Payload    []byte
+	CreatedAt  time.Time
+	ActorName  *string
+}
+
+func (q *Queries) ListActivitiesByBoardBefore(ctx context.Context, arg ListActivitiesByBoardBeforeParams) ([]ListActivitiesByBoardBeforeRow, error) {
+	rows, err := q.db.Query(ctx, listActivitiesByBoardBefore, arg.BoardID, arg.CreatedAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivitiesByBoardBeforeRow
+	for rows.Next() {
+		var i ListActivitiesByBoardBeforeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.ActorID,
+			&i.EventType,
+			&i.EntityType,
+			&i.EntityID,
+			&i.Payload,
+			&i.CreatedAt,
+			&i.ActorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const moveBoardToTrash = `-- name: MoveBoardToTrash :exec

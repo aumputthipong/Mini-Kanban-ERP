@@ -43,23 +43,52 @@ export function useDashboardStats() {
     const dueSoonCards: ExtendedCard[] = [];
     let staleCount = 0;
 
-    // สำหรับเก็บข้อมูลว่าใครถืองานกี่ชิ้น
-    const assigneeCount: Record<string, { name: string; count: number }> = {};
+    const columnMeta: Record<string, { title: string; category: "TODO" | "DONE"; position: number }> = {};
+    columns.forEach((col) => {
+      columnMeta[col.id] = { title: col.title, category: col.category, position: col.position };
+    });
+
+    const assigneeCount: Record<
+      string,
+      {
+        name: string;
+        active: number;
+        done: number;
+        count: number;
+        byColumn: Record<string, { title: string; category: "TODO" | "DONE"; position: number; count: number }>;
+      }
+    > = {};
 
     allCards.forEach((card) => {
-      const isDone = card.column_id === doneColumnId;
+      const meta = columnMeta[card.column_id];
+      const isDone = meta ? meta.category === "DONE" : card.column_id === doneColumnId;
       if (isDone) doneCount++;
 
       if (card.estimated_hours) {
         totalHours += card.estimated_hours;
       }
 
-      // ตรวจสอบ Workload (นับเฉพาะงานที่ยังไม่เสร็จ)
-      if (!isDone && card.assignee_id && card.assignee_name) {
+      if (card.assignee_id && card.assignee_name) {
         if (!assigneeCount[card.assignee_id]) {
-          assigneeCount[card.assignee_id] = { name: card.assignee_name, count: 0 };
+          assigneeCount[card.assignee_id] = {
+            name: card.assignee_name,
+            active: 0,
+            done: 0,
+            count: 0,
+            byColumn: {},
+          };
         }
-        assigneeCount[card.assignee_id].count++;
+        const entry = assigneeCount[card.assignee_id];
+        entry.count++;
+        if (isDone) entry.done++;
+        else entry.active++;
+
+        if (meta) {
+          if (!entry.byColumn[card.column_id]) {
+            entry.byColumn[card.column_id] = { ...meta, count: 0 };
+          }
+          entry.byColumn[card.column_id].count++;
+        }
       }
 
       // ตรวจสอบ Due Date
@@ -99,11 +128,11 @@ export function useDashboardStats() {
     if (activeTasks > 0) {
       let maxAssignee = { name: "", count: 0 };
       for (const id in assigneeCount) {
-        if (assigneeCount[id].count > maxAssignee.count) {
-          maxAssignee = assigneeCount[id];
+        if (assigneeCount[id].active > maxAssignee.count) {
+          maxAssignee = { name: assigneeCount[id].name, count: assigneeCount[id].active };
         }
       }
-      
+
       const workloadPercentage = Math.round((maxAssignee.count / activeTasks) * 100);
       if (workloadPercentage >= 40 && maxAssignee.count > 2) {
         insights.push(`Bottleneck detected: ${maxAssignee.name} is holding ${workloadPercentage}% of active tasks.`);
@@ -130,7 +159,15 @@ export function useDashboardStats() {
       overdueCards,
       dueSoonCards,
       insights,
-      workload: Object.values(assigneeCount).sort((a, b) => b.count - a.count),
+      workload: Object.values(assigneeCount)
+        .map((u) => ({
+          name: u.name,
+          count: u.count,
+          active: u.active,
+          done: u.done,
+          byColumn: Object.values(u.byColumn).sort((a, b) => a.position - b.position),
+        }))
+        .sort((a, b) => b.active - a.active || b.count - a.count),
       columnStats,
     };
   }, [columns]);
