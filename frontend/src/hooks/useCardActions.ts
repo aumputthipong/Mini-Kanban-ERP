@@ -67,14 +67,32 @@ export function useCardActions(boardId: string) {
 
   const handleUpdateCard = (cardId: string, form: CardUpdateForm) => {
     const { boardMembers, columns, updateCard } = useBoardStore.getState();
+    const original = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
     const newAssigneeId = form.assignee_id || null;
     const newAssigneeName = newAssigneeId
       ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
       : null;
 
+    // Compute which fields actually changed before optimistic update
+    const changedFields: string[] = [];
+    if (original) {
+      if (form.title !== (original.title ?? "")) changedFields.push("title");
+      if ((form.description || null) !== original.description) changedFields.push("description");
+      if ((form.due_date || null) !== original.due_date) changedFields.push("due_date");
+      if (newAssigneeId !== original.assignee_id) changedFields.push("assignee_id");
+      if ((form.priority || null) !== original.priority) changedFields.push("priority");
+      const newHours = form.estimated_hours ? parseFloat(form.estimated_hours) : null;
+      if (newHours !== original.estimated_hours) changedFields.push("estimated_hours");
+      const oldTagIds = new Set((original.tags ?? []).map((t) => t.id));
+      const newTagIds = new Set(form.tags.map((t) => t.id));
+      const tagsChanged =
+        oldTagIds.size !== newTagIds.size || [...newTagIds].some((id) => !oldTagIds.has(id));
+      if (tagsChanged) changedFields.push("tags");
+    }
+
     // Optimistic store update (includes tags)
     updateCard({
-      ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
+      ...original!,
       title: form.title,
       description: form.description || null,
       due_date: form.due_date || null,
@@ -101,7 +119,6 @@ export function useCardActions(boardId: string) {
       }),
     }).catch(() => {});
 
-    // Broadcast to other clients via WebSocket (non-tag fields)
     sendMessage({
       type: "CARD_UPDATED",
       payload: {
@@ -113,6 +130,7 @@ export function useCardActions(boardId: string) {
         assignee_name: newAssigneeName,
         priority: form.priority || null,
         estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+        changed_fields: changedFields,
       },
     });
   };
