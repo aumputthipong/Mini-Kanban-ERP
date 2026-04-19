@@ -66,11 +66,24 @@ export function useDragActions() {
     if (!resolved) return;
     const { overColumnId, overCardId } = resolved;
 
+    // Determine whether to place BEFORE or AFTER the over card.
+    // Compare translated center of the dragged card vs center of the over card —
+    // if the drag is past the midpoint, treat it as "after". Handles both
+    // same-column downward moves and cross-column drops onto a bottom card.
+    let placeAfter = false;
+    const activeTranslated = active.rect.current.translated;
+    if (overCardId && over.rect && activeTranslated) {
+      const overMidY = over.rect.top + over.rect.height / 2;
+      const activeMidY = activeTranslated.top + activeTranslated.height / 2;
+      placeAfter = activeMidY > overMidY;
+    }
+
     const newPosition = calcPositionFromColumns(
       freshColumns,
       overColumnId,
       overCardId,
       activeCardId,
+      placeAfter,
     );
 
     moveCard(activeCardId, overColumnId, newPosition);
