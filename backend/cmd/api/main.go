@@ -75,7 +75,9 @@ func run(ctx context.Context, cfg config) error {
 
 	queries := db.New(pool)
 
-	hub := websocket.NewHub(queries)
+	activityService := service.NewActivityService(queries)
+
+	hub := websocket.NewHub(queries, activityService)
 	go hub.Run()
 
 	boardService := service.NewBoardService(pool, queries)
@@ -87,6 +89,7 @@ func run(ctx context.Context, cfg config) error {
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
 	tagHandler := handler.NewTagHandler(tagService)
+	activityHandler := handler.NewActivityHandler(activityService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
 	oauthHandler := handler.NewOAuthHandler(
 		cfg.GoogleClientID,
@@ -97,7 +100,7 @@ func run(ctx context.Context, cfg config) error {
 		cfg.Production,
 	)
 
-	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, hub)
+	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, activityHandler, hub)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: middleware.CORS(cfg.FrontendURL, router),

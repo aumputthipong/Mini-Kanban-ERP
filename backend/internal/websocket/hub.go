@@ -1,6 +1,9 @@
 package websocket
 
-import "github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+import (
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
+)
 
 // Hub ทำหน้าที่จัดการ Client และแยกห้องตาม Board ID
 type Hub struct {
@@ -12,6 +15,7 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	queries    *db.Queries
+	activities *service.ActivityService
 }
 
 // สร้าง Struct สำหรับผูกข้อความเข้ากับ Board ID
@@ -20,13 +24,14 @@ type BroadcastMessage struct {
 	Message []byte
 }
 
-func NewHub(queries *db.Queries) *Hub {
+func NewHub(queries *db.Queries, activities *service.ActivityService) *Hub {
 	return &Hub{
 		rooms:      make(map[string]map[*Client]bool), // ประกาศ Map เปล่า
 		broadcast:  make(chan BroadcastMessage),       // ใช้ Channel แบบใหม่
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		queries:    queries,
+		activities: activities,
 	}
 }
 

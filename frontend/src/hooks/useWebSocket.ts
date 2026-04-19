@@ -1,5 +1,6 @@
 "use client";
 import { useBoardStore } from '@/store/useBoardStore';
+import { useActivityStore } from '@/store/useActivityStore';
 import { useEffect, useRef, useCallback } from 'react';
 
 
@@ -70,6 +71,11 @@ export const useWebSocket = (url: string) => {
 
         if (parsedData.type === 'COLUMN_DELETED') {
           useBoardStore.getState().removeColumnFromStore(parsedData.payload.column_id);
+        }
+
+        if (parsedData.type === 'ACTIVITY_CREATED') {
+          useActivityStore.getState().prependActivity(parsedData.payload);
+          return;
         }
 
         if (parsedData.type === 'COLUMN_UPDATED') {
