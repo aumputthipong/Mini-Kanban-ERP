@@ -1,36 +1,33 @@
 package websocket
 
 import (
-	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 )
 
-// Hub ทำหน้าที่จัดการ Client และแยกห้องตาม Board ID
+// Hub จัดการ client connections แยกเป็น room ตาม board ID.
+// Hub delegate write operations ให้ BoardCommandService — ไม่ถือ *db.Queries โดยตรง
 type Hub struct {
-	// เปลี่ยนจาก clients map[*Client]bool
-	// เป็น rooms โดยใช้ boardID (string) เป็น Key และ Value คือ map ของ Client
 	rooms map[string]map[*Client]bool
 
-	broadcast  chan BroadcastMessage // สร้าง Struct ใหม่เพื่อระบุว่าข้อความนี้ของห้องไหน
+	broadcast  chan BroadcastMessage
 	register   chan *Client
 	unregister chan *Client
-	queries    *db.Queries
+	boardCmd   *service.BoardCommandService
 	activities *service.ActivityService
 }
 
-// สร้าง Struct สำหรับผูกข้อความเข้ากับ Board ID
 type BroadcastMessage struct {
 	BoardID string
 	Message []byte
 }
 
-func NewHub(queries *db.Queries, activities *service.ActivityService) *Hub {
+func NewHub(boardCmd *service.BoardCommandService, activities *service.ActivityService) *Hub {
 	return &Hub{
-		rooms:      make(map[string]map[*Client]bool), // ประกาศ Map เปล่า
-		broadcast:  make(chan BroadcastMessage),       // ใช้ Channel แบบใหม่
+		rooms:      make(map[string]map[*Client]bool),
+		broadcast:  make(chan BroadcastMessage),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		queries:    queries,
+		boardCmd:   boardCmd,
 		activities: activities,
 	}
 }
