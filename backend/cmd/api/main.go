@@ -76,8 +76,9 @@ func run(ctx context.Context, cfg config) error {
 	queries := db.New(pool)
 
 	activityService := service.NewActivityService(queries)
+	boardCmdService := service.NewBoardCommandService(queries)
 
-	hub := websocket.NewHub(queries, activityService)
+	hub := websocket.NewHub(boardCmdService, activityService)
 	go hub.Run()
 
 	boardService := service.NewBoardService(pool, queries)
