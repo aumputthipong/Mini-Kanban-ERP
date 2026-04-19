@@ -425,24 +425,37 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 	log.Printf("Updated card [%s] successfully", cardIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
 
-	fields := []string{}
-	if title != "" {
-		fields = append(fields, "title")
+	// Prefer client-computed changed_fields (accurate diff including tags).
+	// Fall back to non-empty value heuristic only when absent (backwards compat).
+	var fields []string
+	if rawFields, ok := payload["changed_fields"].([]interface{}); ok {
+		for _, f := range rawFields {
+			if s, ok := f.(string); ok && s != "" {
+				fields = append(fields, s)
+			}
+		}
+	} else {
+		if title != "" {
+			fields = append(fields, "title")
+		}
+		if description != "" {
+			fields = append(fields, "description")
+		}
+		if dueDate != "" {
+			fields = append(fields, "due_date")
+		}
+		if assigneeID != "" {
+			fields = append(fields, "assignee_id")
+		}
+		if priority != "" {
+			fields = append(fields, "priority")
+		}
+		if estimatedHours != 0 {
+			fields = append(fields, "estimated_hours")
+		}
 	}
-	if description != "" {
-		fields = append(fields, "description")
-	}
-	if dueDate != "" {
-		fields = append(fields, "due_date")
-	}
-	if assigneeID != "" {
-		fields = append(fields, "assignee_id")
-	}
-	if priority != "" {
-		fields = append(fields, "priority")
-	}
-	if estimatedHours != 0 {
-		fields = append(fields, "estimated_hours")
+	if len(fields) == 0 {
+		return // no-op edit → no activity
 	}
 	c.recordActivity(ctx, service.EventCardUpdated, service.EntityCard, strPtr(cardIDStr), service.CardUpdatedPayload{
 		Title:  title,
