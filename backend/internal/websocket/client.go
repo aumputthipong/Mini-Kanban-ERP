@@ -10,6 +10,7 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -97,6 +98,54 @@ func (c *Client) ReadPump() {
 	}
 }
 
+// recordActivity persists an activity row and broadcasts ACTIVITY_CREATED to the room.
+// Logs errors but doesn't interrupt flow — activity feed is secondary.
+func (c *Client) recordActivity(ctx context.Context, eventType, entityType string, entityID *string, payload any) {
+	if c.hub.activities == nil {
+		return
+	}
+	if _, err := uuid.Parse(c.userID); err != nil {
+		return
+	}
+	act, err := c.hub.activities.Record(ctx, service.RecordParams{
+		BoardID:    c.boardID,
+		ActorID:    c.userID,
+		EventType:  eventType,
+		EntityType: entityType,
+		EntityID:   entityID,
+		Payload:    payload,
+	})
+	if err != nil {
+		log.Printf("Failed to record activity [%s]: %v", eventType, err)
+		return
+	}
+
+	var payloadRaw json.RawMessage = act.Payload
+	if len(payloadRaw) == 0 {
+		payloadRaw = json.RawMessage("{}")
+	}
+
+	broadcastPayload := map[string]interface{}{
+		"id":          act.ID,
+		"board_id":    act.BoardID,
+		"actor_id":    act.ActorID,
+		"event_type":  act.EventType,
+		"entity_type": act.EntityType,
+		"entity_id":   act.EntityID,
+		"payload":     payloadRaw,
+		"created_at":  act.CreatedAt.UTC().Format(time.RFC3339Nano),
+	}
+	msg := WSMessage{Type: "ACTIVITY_CREATED", Payload: broadcastPayload}
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal ACTIVITY_CREATED: %v", err)
+		return
+	}
+	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+}
+
+func strPtr(s string) *string { return &s }
+
 func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) {
 	cardIDStr, ok1 := payload["card_id"].(string)
 	newColumnIDStr, ok2 := payload["new_column_id"].(string)
@@ -164,6 +213,15 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 
 	log.Printf("Moved card [%s] to column [%s] at position [%f] (isDone=%v)", cardIDStr, newColumnIDStr, position, isDone)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	var cardTitle string
+	if card, err := c.hub.queries.GetCard(ctx, cardIDStr); err == nil {
+		cardTitle = card.Title
+	}
+	c.recordActivity(ctx, service.EventCardMoved, service.EntityCard, strPtr(cardIDStr), service.CardMovedPayload{
+		Title:        cardTitle,
+		ToColumnID:   newColumnIDStr,
+	})
 }
 
 func (c *Client) handleCardCreated(payload map[string]interface{}) {
@@ -238,6 +296,11 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 	}
 
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	c.recordActivity(ctx, service.EventCardCreated, service.EntityCard, strPtr(newCard.ID), service.CardCreatedPayload{
+		Title:    newCard.Title,
+		ColumnID: newCard.ColumnID,
+	})
 }
 
 func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte) {
@@ -255,6 +318,11 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	var cardTitle string
+	if card, err := c.hub.queries.GetCard(ctx, cardIDStr); err == nil {
+		cardTitle = card.Title
+	}
+
 	if err := c.hub.queries.DeleteCard(ctx, cardIDStr); err != nil {
 		log.Printf("Failed to delete card: %v", err)
 		return
@@ -262,6 +330,10 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 
 	log.Printf("Deleted card [%s]", cardIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+
+	c.recordActivity(ctx, service.EventCardDeleted, service.EntityCard, strPtr(cardIDStr), service.CardDeletedPayload{
+		Title: cardTitle,
+	})
 }
 
 func (c *Client) WritePump() {
@@ -352,6 +424,30 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 
 	log.Printf("Updated card [%s] successfully", cardIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: rawMsg}
+
+	fields := []string{}
+	if title != "" {
+		fields = append(fields, "title")
+	}
+	if description != "" {
+		fields = append(fields, "description")
+	}
+	if dueDate != "" {
+		fields = append(fields, "due_date")
+	}
+	if assigneeID != "" {
+		fields = append(fields, "assignee_id")
+	}
+	if priority != "" {
+		fields = append(fields, "priority")
+	}
+	if estimatedHours != 0 {
+		fields = append(fields, "estimated_hours")
+	}
+	c.recordActivity(ctx, service.EventCardUpdated, service.EntityCard, strPtr(cardIDStr), service.CardUpdatedPayload{
+		Title:  title,
+		Fields: fields,
+	})
 }
 
 
@@ -429,6 +525,15 @@ func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
 
 	log.Printf("Toggled card [%s] done=%v → column [%s]", cardIDStr, isDone, targetCol.ID)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	var cardTitle string
+	if card, err := c.hub.queries.GetCard(ctx, cardIDStr); err == nil {
+		cardTitle = card.Title
+	}
+	c.recordActivity(ctx, service.EventCardDoneToggled, service.EntityCard, strPtr(cardIDStr), service.CardDoneToggledPayload{
+		Title:  cardTitle,
+		IsDone: isDone,
+	})
 }
 
 func (c *Client) handleColumnCreated(payload map[string]interface{}) {
@@ -494,6 +599,10 @@ func (c *Client) handleColumnCreated(payload map[string]interface{}) {
 
 	log.Printf("Created column [%s] '%s' at position [%f]", newCol.ID, newCol.Title, newCol.Position)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	c.recordActivity(ctx, service.EventColumnCreated, service.EntityColumn, strPtr(newCol.ID), service.ColumnCreatedPayload{
+		Title: newCol.Title,
+	})
 }
 
 func (c *Client) handleColumnRenamed(payload map[string]interface{}) {
@@ -534,6 +643,10 @@ func (c *Client) handleColumnRenamed(payload map[string]interface{}) {
 
 	log.Printf("Renamed column [%s] to '%s'", columnIDStr, title)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	c.recordActivity(ctx, service.EventColumnRenamed, service.EntityColumn, strPtr(columnIDStr), service.ColumnRenamedPayload{
+		NewTitle: title,
+	})
 }
 
 func (c *Client) handleColumnDeleted(payload map[string]interface{}) {
@@ -569,6 +682,8 @@ func (c *Client) handleColumnDeleted(payload map[string]interface{}) {
 
 	log.Printf("Deleted column [%s]", columnIDStr)
 	c.hub.broadcast <- BroadcastMessage{BoardID: c.boardID, Message: msgBytes}
+
+	c.recordActivity(ctx, service.EventColumnDeleted, service.EntityColumn, strPtr(columnIDStr), service.ColumnDeletedPayload{})
 }
 
 func (c *Client) handleColumnUpdated(payload map[string]interface{}) {

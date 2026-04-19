@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Activity struct {
+	ID         string
+	BoardID    string
+	ActorID    string
+	EventType  string
+	EntityType string
+	EntityID   *string
+	Payload    []byte
+	CreatedAt  time.Time
+}
+
 type Board struct {
 	ID        string
 	Title     string
