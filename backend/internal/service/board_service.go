@@ -25,6 +25,7 @@ type ColumnData struct {
 	Title    string
 	Position float64
 	Category string
+	Color    *string
 	Cards    []CardData
 }
 
@@ -305,6 +306,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			Title:    col.Title,
 			Position: col.Position,
 			Category: col.Category,
+			Color:    col.Color,
 			Cards:    colCards,
 		})
 	}

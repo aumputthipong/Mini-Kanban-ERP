@@ -6,16 +6,20 @@ import { Trash2, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // ── colour palette ────────────────────────────────────────────────────────────
-export const COLUMN_COLOR_PALETTE: { key: string | null; hex: string | null; label: string }[] = [
-  { key: null,      hex: null,      label: "Default" },
-  { key: "slate",   hex: "#94a3b8", label: "Slate"   },
-  { key: "blue",    hex: "#60a5fa", label: "Blue"    },
-  { key: "purple",  hex: "#a78bfa", label: "Purple"  },
-  { key: "green",   hex: "#34d399", label: "Green"   },
-  { key: "amber",   hex: "#fbbf24", label: "Amber"   },
-  { key: "rose",    hex: "#fb7185", label: "Rose"    },
-  { key: "pink",    hex: "#f472b6", label: "Pink"    },
-  { key: "cyan",    hex: "#22d3ee", label: "Cyan"    },
+export const COLUMN_COLOR_PALETTE: {
+  key: string | null;
+  hex: string | null;
+  label: string;
+}[] = [
+  { key: null, hex: null, label: "Default" },
+  { key: "slate", hex: "#94a3b8", label: "Slate" },
+  { key: "blue", hex: "#60a5fa", label: "Blue" },
+  { key: "purple", hex: "#a78bfa", label: "Purple" },
+  { key: "green", hex: "#34d399", label: "Green" },
+  { key: "amber", hex: "#fbbf24", label: "Amber" },
+  { key: "rose", hex: "#fb7185", label: "Rose" },
+  { key: "pink", hex: "#f472b6", label: "Pink" },
+  { key: "cyan", hex: "#22d3ee", label: "Cyan" },
 ];
 
 export function getColumnColorHex(key?: string | null): string | null {
@@ -30,7 +34,11 @@ interface ColumnOptionsModalProps {
   initialCategory: "TODO" | "DONE";
   initialColor: string | null;
   cardCount: number;
-  onSave: (title: string, category: "TODO" | "DONE", color: string | null) => void;
+  onSave: (
+    title: string,
+    category: "TODO" | "DONE",
+    color: string | null,
+  ) => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -61,7 +69,9 @@ export function ColumnOptionsModal({
   // Escape to close
   useEffect(() => {
     if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [open, onClose]);
@@ -80,10 +90,7 @@ export function ColumnOptionsModal({
   return createPortal(
     <>
       {/* backdrop */}
-      <div
-        className="fixed inset-0 z-[9998] bg-black/30"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-[9998] bg-black/30" onClick={onClose} />
 
       {/* panel */}
       <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">
@@ -112,7 +119,9 @@ export function ColumnOptionsModal({
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave();
+                }}
                 className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
               />
             </div>
@@ -171,7 +180,8 @@ export function ColumnOptionsModal({
                     className="w-3 h-3 rounded-full inline-block"
                     style={{ backgroundColor: selectedHex }}
                   />
-                  Selected: {COLUMN_COLOR_PALETTE.find((c) => c.key === color)?.label}
+                  Selected:{" "}
+                  {COLUMN_COLOR_PALETTE.find((c) => c.key === color)?.label}
                 </div>
               )}
             </div>
@@ -179,7 +189,8 @@ export function ColumnOptionsModal({
 
           {cardCount > 0 && (
             <div className="mx-5 mb-2 px-3 py-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg">
-              คอลัมน์นี้มี {cardCount} การ์ด — กรุณาย้ายออกให้หมดก่อนลบ
+              This column contains {cardCount} cards — please move them all out
+              before deleting.
             </div>
           )}
 
@@ -223,10 +234,14 @@ export function ColumnOptionsModal({
         description="This column is empty and will be permanently removed."
         confirmLabel="Delete"
         destructive
-        onConfirm={() => { setConfirmDeleteOpen(false); onClose(); onDelete(); }}
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          onClose();
+          onDelete();
+        }}
         onCancel={() => setConfirmDeleteOpen(false)}
       />
     </>,
-    document.body
+    document.body,
   );
 }

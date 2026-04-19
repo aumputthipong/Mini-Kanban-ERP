@@ -117,6 +117,7 @@ func ToColumnResponse(col service.ColumnData) dto.ColumnResponse {
         Title:    col.Title,
         Position: col.Position,
         Category: col.Category,
+        Color:    col.Color,
         Cards:    cards,
     }
 }
