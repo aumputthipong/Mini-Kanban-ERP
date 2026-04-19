@@ -68,6 +68,25 @@ export function useCardActions(boardId: string) {
   const handleUpdateCard = (cardId: string, form: CardUpdateForm) => {
     const { boardMembers, columns, updateCard } = useBoardStore.getState();
     const newAssigneeId = form.assignee_id || null;
+    const original = columns.flatMap((c) => c.cards).find((c) => c.id === cardId);
+    // Diff form vs current card to build changed_fields — only fields that actually changed
+    // are sent as activity log entries (tags included).
+    const changedFields: string[] = [];
+    if (original) {
+      const newEstimated = form.estimated_hours ? parseFloat(form.estimated_hours) : null;
+      if (form.title !== original.title) changedFields.push("title");
+      if ((form.description || null) !== (original.description ?? null)) changedFields.push("description");
+      if ((form.due_date || null) !== (original.due_date ?? null)) changedFields.push("due_date");
+      if (newAssigneeId !== (original.assignee_id ?? null)) changedFields.push("assignee_id");
+      if ((form.priority || null) !== (original.priority ?? null)) changedFields.push("priority");
+      if (newEstimated !== (original.estimated_hours ?? null)) changedFields.push("estimated_hours");
+      const oldTagIds = new Set((original.tags ?? []).map((t) => t.id));
+      const newTagIds = new Set(form.tags.map((t) => t.id));
+      const tagsChanged =
+        oldTagIds.size !== newTagIds.size ||
+        [...newTagIds].some((id) => !oldTagIds.has(id));
+      if (tagsChanged) changedFields.push("tags");
+    }
     const newAssigneeName = newAssigneeId
       ? (boardMembers.find((m) => m.user_id === newAssigneeId)?.full_name ?? null)
       : null;
@@ -113,6 +132,7 @@ export function useCardActions(boardId: string) {
         assignee_name: newAssigneeName,
         priority: form.priority || null,
         estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+        changed_fields: changedFields,
       },
     });
   };
