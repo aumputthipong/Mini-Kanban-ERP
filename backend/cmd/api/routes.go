@@ -101,8 +101,7 @@ func setupRoutes(
 		r.Route("/api/trash", func(r chi.Router) {
 			r.Get("/", httputil.MakeHandler(boardHandler.GetTrash))
 			r.Delete("/{boardID}", httputil.MakeHandler(boardHandler.HardDelete))
-
-			// r.Patch("/{boardID}",    boardHandler.RestoreBoard)
+			r.Patch("/{boardID}/restore", httputil.MakeHandler(boardHandler.RestoreBoard))
 		})
 
 	})
