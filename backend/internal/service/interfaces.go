@@ -18,6 +18,7 @@ type BoardServicer interface {
 	MoveBoardToTrash(ctx context.Context, boardID string) error
 	GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error)
 	HardDeleteBoard(ctx context.Context, id string) error
+	RestoreBoard(ctx context.Context, id string) error
 
 	// Member
 	GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)
