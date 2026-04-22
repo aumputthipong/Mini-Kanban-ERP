@@ -138,3 +138,17 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+func (h *BoardHandler) RestoreBoard(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID format", err)
+	}
+
+	if err := h.boardService.RestoreBoard(r.Context(), boardID); err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to restore board", err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
