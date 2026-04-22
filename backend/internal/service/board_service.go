@@ -193,6 +193,10 @@ func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {
 	return s.queries.HardDeleteBoard(ctx, id)
 }
 
+func (s *BoardService) RestoreBoard(ctx context.Context, id string) error {
+	return s.queries.RestoreBoardFromTrash(ctx, id)
+}
+
 func (s *BoardService) UpdateBoard(ctx context.Context, id string, title *string, budget *float64) (db.Board, error) {
 	existingBoard, err := s.queries.GetBoardByID(ctx, id)
 	if err != nil {
