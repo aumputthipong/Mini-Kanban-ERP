@@ -11,14 +11,15 @@ import (
 // *BoardService implement interface นี้โดยอัตโนมัติ (Go implicit interface)
 type BoardServicer interface {
 	// Board
-	GetAllBoards(ctx context.Context) ([]BoardSummaryData, error)
+	GetAllBoards(ctx context.Context, userID string) ([]BoardSummaryData, error)
 	GetBoardWithCards(ctx context.Context, boardID string) ([]ColumnData, error)
 	CreateBoard(ctx context.Context, title string, ownerID string) (string, error)
 	UpdateBoard(ctx context.Context, id string, title *string, budget *float64) (db.Board, error)
 	MoveBoardToTrash(ctx context.Context, boardID string) error
-	GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error)
+	GetTrashedBoards(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error)
 	HardDeleteBoard(ctx context.Context, id string) error
 	RestoreBoard(ctx context.Context, id string) error
+	GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error)
 
 	// Member
 	GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)

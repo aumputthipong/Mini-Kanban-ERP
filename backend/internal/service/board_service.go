@@ -139,13 +139,13 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string, ownerID st
 	return board.ID, nil
 }
 
-func (s *BoardService) GetAllBoards(ctx context.Context) ([]BoardSummaryData, error) {
-	stats, err := s.queries.GetActiveBoardsWithStats(ctx)
+func (s *BoardService) GetAllBoards(ctx context.Context, userID string) ([]BoardSummaryData, error) {
+	stats, err := s.queries.GetActiveBoardsWithStats(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	memberRows, err := s.queries.GetMembersForActiveBoards(ctx)
+	memberRows, err := s.queries.GetMembersForActiveBoards(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +185,15 @@ func (s *BoardService) MoveBoardToTrash(ctx context.Context, boardID string) err
 	return s.queries.MoveBoardToTrash(ctx, boardID)
 }
 
-func (s *BoardService) GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
-	return s.queries.GetTrashedBoards(ctx)
+func (s *BoardService) GetTrashedBoards(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
+	return s.queries.GetTrashedBoardsForOwner(ctx, userID)
+}
+
+func (s *BoardService) GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error) {
+	return s.queries.GetBoardMemberRole(ctx, db.GetBoardMemberRoleParams{
+		BoardID: boardID,
+		UserID:  userID,
+	})
 }
 
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {

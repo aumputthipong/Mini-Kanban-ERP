@@ -332,6 +332,7 @@ SELECT
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
     COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
 FROM boards b
+JOIN board_members me ON me.board_id = b.id AND me.user_id = $1
 LEFT JOIN columns col ON col.board_id = b.id
 LEFT JOIN cards   c   ON c.column_id  = col.id
 WHERE b.deleted_at IS NULL
@@ -347,8 +348,8 @@ type GetActiveBoardsWithStatsRow struct {
 	DoneCards  int32
 }
 
-func (q *Queries) GetActiveBoardsWithStats(ctx context.Context) ([]GetActiveBoardsWithStatsRow, error) {
-	rows, err := q.db.Query(ctx, getActiveBoardsWithStats)
+func (q *Queries) GetActiveBoardsWithStats(ctx context.Context, userID string) ([]GetActiveBoardsWithStatsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveBoardsWithStats, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -787,6 +788,9 @@ FROM board_members bm
 JOIN users  u ON u.id  = bm.user_id
 JOIN boards b ON b.id  = bm.board_id
 WHERE b.deleted_at IS NULL
+  AND b.id IN (
+    SELECT bm2.board_id FROM board_members bm2 WHERE bm2.user_id = $1
+  )
 ORDER BY bm.joined_at ASC
 `
 
@@ -796,8 +800,8 @@ type GetMembersForActiveBoardsRow struct {
 	FullName string
 }
 
-func (q *Queries) GetMembersForActiveBoards(ctx context.Context) ([]GetMembersForActiveBoardsRow, error) {
-	rows, err := q.db.Query(ctx, getMembersForActiveBoards)
+func (q *Queries) GetMembersForActiveBoards(ctx context.Context, userID string) ([]GetMembersForActiveBoardsRow, error) {
+	rows, err := q.db.Query(ctx, getMembersForActiveBoards, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -977,28 +981,29 @@ func (q *Queries) GetTagsByCardIDs(ctx context.Context, dollar_1 []string) ([]Ge
 	return items, nil
 }
 
-const getTrashedBoards = `-- name: GetTrashedBoards :many
-SELECT id, title, deleted_at 
-FROM boards 
-WHERE deleted_at IS NOT NULL 
-ORDER BY deleted_at DESC
+const getTrashedBoardsForOwner = `-- name: GetTrashedBoardsForOwner :many
+SELECT b.id, b.title, b.deleted_at
+FROM boards b
+JOIN board_members bm ON bm.board_id = b.id AND bm.user_id = $1 AND bm.role = 'owner'
+WHERE b.deleted_at IS NOT NULL
+ORDER BY b.deleted_at DESC
 `
 
-type GetTrashedBoardsRow struct {
+type GetTrashedBoardsForOwnerRow struct {
 	ID        string
 	Title     string
 	DeletedAt pgtype.Timestamptz
 }
 
-func (q *Queries) GetTrashedBoards(ctx context.Context) ([]GetTrashedBoardsRow, error) {
-	rows, err := q.db.Query(ctx, getTrashedBoards)
+func (q *Queries) GetTrashedBoardsForOwner(ctx context.Context, userID string) ([]GetTrashedBoardsForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, getTrashedBoardsForOwner, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetTrashedBoardsRow
+	var items []GetTrashedBoardsForOwnerRow
 	for rows.Next() {
-		var i GetTrashedBoardsRow
+		var i GetTrashedBoardsForOwnerRow
 		if err := rows.Scan(&i.ID, &i.Title, &i.DeletedAt); err != nil {
 			return nil, err
 		}
