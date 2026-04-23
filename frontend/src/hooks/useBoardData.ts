@@ -22,6 +22,10 @@ export function useBoardData(boardId: string) {
           fetch(`${API_URL}/boards/${boardId}/members`, { credentials: "include" }),
         ]);
 
+        if (boardRes.status === 404) {
+          setError("NOT_FOUND");
+          return;
+        }
         if (!boardRes.ok) throw new Error(`Failed to load board (${boardRes.status})`);
 
         const [boardData, meData, membersData] = await Promise.all([

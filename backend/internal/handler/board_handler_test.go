@@ -45,7 +45,7 @@ const validCardID   = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 func TestGetAllBoards_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+		GetAllBoardsFn: func(ctx context.Context, userID string) ([]service.BoardSummaryData, error) {
 			return []service.BoardSummaryData{
 				{ID: "id-1", Title: "Board A"},
 				{ID: "id-2", Title: "Board B"},
@@ -53,7 +53,7 @@ func TestGetAllBoards_Success(t *testing.T) {
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/boards", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetAllBoards)(w, req)
@@ -68,12 +68,12 @@ func TestGetAllBoards_Success(t *testing.T) {
 
 func TestGetAllBoards_DBError(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+		GetAllBoardsFn: func(ctx context.Context, userID string) ([]service.BoardSummaryData, error) {
 			return nil, errors.New("connection refused")
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/boards", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetAllBoards)(w, req)
@@ -392,14 +392,14 @@ func TestUpdateBoard_ServiceError(t *testing.T) {
 
 func TestGetTrash_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
-			return []db.GetTrashedBoardsRow{
+		GetTrashedBoardsFn: func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
+			return []db.GetTrashedBoardsForOwnerRow{
 				{ID: "b-1", Title: "Old Board"},
 			}, nil
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetTrash)(w, req)
@@ -413,12 +413,12 @@ func TestGetTrash_Success(t *testing.T) {
 
 func TestGetTrash_ServiceError(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
+		GetTrashedBoardsFn: func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
 			return nil, errors.New("db error")
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetTrash)(w, req)

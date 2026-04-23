@@ -113,6 +113,7 @@ SELECT
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
     COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
 FROM boards b
+JOIN board_members me ON me.board_id = b.id AND me.user_id = $1
 LEFT JOIN columns col ON col.board_id = b.id
 LEFT JOIN cards   c   ON c.column_id  = col.id
 WHERE b.deleted_at IS NULL
@@ -128,13 +129,17 @@ FROM board_members bm
 JOIN users  u ON u.id  = bm.user_id
 JOIN boards b ON b.id  = bm.board_id
 WHERE b.deleted_at IS NULL
+  AND b.id IN (
+    SELECT bm2.board_id FROM board_members bm2 WHERE bm2.user_id = $1
+  )
 ORDER BY bm.joined_at ASC;
 
--- name: GetTrashedBoards :many
-SELECT id, title, deleted_at 
-FROM boards 
-WHERE deleted_at IS NOT NULL 
-ORDER BY deleted_at DESC;
+-- name: GetTrashedBoardsForOwner :many
+SELECT b.id, b.title, b.deleted_at
+FROM boards b
+JOIN board_members bm ON bm.board_id = b.id AND bm.user_id = $1 AND bm.role = 'owner'
+WHERE b.deleted_at IS NOT NULL
+ORDER BY b.deleted_at DESC;
 
 -- name: HardDeleteBoard :exec
 -- ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)

@@ -100,7 +100,7 @@ func run(ctx context.Context, cfg config) error {
 		cfg.Production,
 	)
 
-	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, activityHandler, hub)
+	router := setupRoutes(boardService, boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, activityHandler, hub)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: middleware.CORS(cfg.FrontendURL, router),
