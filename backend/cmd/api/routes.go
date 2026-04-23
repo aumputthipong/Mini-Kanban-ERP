@@ -8,12 +8,14 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 func setupRoutes(
+	boardService service.BoardServicer,
 	boardHandler *handler.BoardHandler,
 	authHandler *handler.AuthHandler,
 	oauthHandler *handler.OAuthHandler,
@@ -60,29 +62,34 @@ func setupRoutes(
 		r.Get("/api/auth/me", httputil.MakeHandler(authHandler.Me))
 		r.Get("/api/users", httputil.MakeHandler(boardHandler.GetAllUsers))
 
+		requireBoardMember := middleware.RequireBoardMember(boardService)
+
 		r.Route("/api/boards", func(r chi.Router) {
 			r.Get("/", httputil.MakeHandler(boardHandler.GetAllBoards))
 			r.Post("/", httputil.MakeHandler(boardHandler.CreateBoard))
-			r.Get("/{boardID}", httputil.MakeHandler(boardHandler.GetBoardData))
-			r.Patch("/{boardID}", httputil.MakeHandler(boardHandler.UpdateBoard))
-			r.Delete("/{boardID}", httputil.MakeHandler(boardHandler.MoveToTrash))
 
-			// Members — nested ใน /{boardID}
-			r.Route("/{boardID}/members", func(r chi.Router) {
-				r.Get("/", httputil.MakeHandler(boardHandler.GetBoardMembers))
-				r.Post("/", httputil.MakeHandler(boardHandler.AddBoardMember))
-				r.Delete("/{userID}", httputil.MakeHandler(boardHandler.RemoveBoardMember))
-				r.Patch("/{userID}", httputil.MakeHandler(boardHandler.UpdateMemberRole))
+			// Per-board routes — gated by membership
+			r.Route("/{boardID}", func(r chi.Router) {
+				r.Use(requireBoardMember)
+				r.Get("/", httputil.MakeHandler(boardHandler.GetBoardData))
+				r.Patch("/", httputil.MakeHandler(boardHandler.UpdateBoard))
+				r.Delete("/", httputil.MakeHandler(boardHandler.MoveToTrash))
+
+				r.Route("/members", func(r chi.Router) {
+					r.Get("/", httputil.MakeHandler(boardHandler.GetBoardMembers))
+					r.Post("/", httputil.MakeHandler(boardHandler.AddBoardMember))
+					r.Delete("/{userID}", httputil.MakeHandler(boardHandler.RemoveBoardMember))
+					r.Patch("/{userID}", httputil.MakeHandler(boardHandler.UpdateMemberRole))
+				})
+
+				r.Route("/tags", func(r chi.Router) {
+					r.Get("/", httputil.MakeHandler(tagHandler.GetBoardTags))
+					r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
+					r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
+				})
+
+				r.Get("/activities", httputil.MakeHandler(activityHandler.ListByBoard))
 			})
-
-			// Tags — nested ใน /{boardID}
-			r.Route("/{boardID}/tags", func(r chi.Router) {
-				r.Get("/", httputil.MakeHandler(tagHandler.GetBoardTags))
-				r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
-				r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
-			})
-
-			r.Get("/{boardID}/activities", httputil.MakeHandler(activityHandler.ListByBoard))
 		})
 		r.Route("/api/cards", func(r chi.Router) {
 			r.Post("/", httputil.MakeHandler(boardHandler.CreateCard))

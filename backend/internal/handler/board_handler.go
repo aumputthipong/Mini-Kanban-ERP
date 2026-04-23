@@ -22,7 +22,11 @@ func NewBoardHandler(boardService service.BoardServicer) *BoardHandler {
 }
 
 func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) error {
-	boards, err := h.boardService.GetAllBoards(r.Context())
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+	}
+	boards, err := h.boardService.GetAllBoards(r.Context(), userID)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch boards", err)
 	}
@@ -115,7 +119,11 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error
 }
 
 func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error {
-	boards, err := h.boardService.GetTrashedBoards(r.Context())
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+	}
+	boards, err := h.boardService.GetTrashedBoards(r.Context(), userID)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to get trash", err)
 	}

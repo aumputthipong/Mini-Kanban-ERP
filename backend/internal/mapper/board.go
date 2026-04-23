@@ -9,9 +9,7 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 )
 
-func ToTrashedBoardDTO(b db.GetTrashedBoardsRow) dto.TrashedBoardDTO {
-	// DeletedAt ยังเป็น pgtype.Timestamptz เพราะ schema ใช้ TIMESTAMP WITH TIME ZONE
-	// ต้องเช็ค .Valid ก่อนดึงค่า
+func ToTrashedBoardDTO(b db.GetTrashedBoardsForOwnerRow) dto.TrashedBoardDTO {
 	var deletedAt time.Time
 	if b.DeletedAt.Valid {
 		deletedAt = b.DeletedAt.Time
@@ -23,7 +21,7 @@ func ToTrashedBoardDTO(b db.GetTrashedBoardsRow) dto.TrashedBoardDTO {
 	}
 }
 
-func ToTrashedBoardDTOs(boards []db.GetTrashedBoardsRow) []dto.TrashedBoardDTO {
+func ToTrashedBoardDTOs(boards []db.GetTrashedBoardsForOwnerRow) []dto.TrashedBoardDTO {
 	result := make([]dto.TrashedBoardDTO, len(boards))
 	for i, b := range boards {
 		result[i] = ToTrashedBoardDTO(b)
