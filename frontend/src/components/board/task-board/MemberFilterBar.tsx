@@ -28,19 +28,66 @@ export function MemberFilterBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const sortedMembers = boardMembers.filter(Boolean).sort((a, b) => {
-    if (a.user_id === currentUserId) return -1;
-    if (b.user_id === currentUserId) return 1;
-    return 0;
-  });
+  const otherMembers = boardMembers
+    .filter(Boolean)
+    .filter((m) => m.user_id !== currentUserId);
 
   const MAX_DISPLAY = 3;
-  const visibleMembers = sortedMembers.slice(0, MAX_DISPLAY);
-  const hiddenMembers = sortedMembers.slice(MAX_DISPLAY); // เปลี่ยนจาก hiddenCount เป็น array
+  const visibleMembers = otherMembers.slice(0, MAX_DISPLAY);
+  const hiddenMembers = otherMembers.slice(MAX_DISPLAY);
   const isFiltering = filterAssigneeId !== null;
+  const isMineActive = filterAssigneeId === currentUserId;
+
+  const me = boardMembers.find((m) => m?.user_id === currentUserId);
+  const myInitial = me?.full_name?.charAt(0).toUpperCase() ?? "?";
+  const myColor = currentUserId ? getAvatarColor(currentUserId) : "bg-slate-400";
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== "m" && e.key !== "M") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (!currentUserId) return;
+      setFilterAssigneeId(isMineActive ? null : currentUserId);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [currentUserId, isMineActive, setFilterAssigneeId]);
 
   return (
     <div className="flex items-center gap-2">
+      {/* My Tasks pill — 1-click filter ของตัวเอง */}
+      {currentUserId && (
+        <button
+          onClick={() =>
+            setFilterAssigneeId(isMineActive ? null : currentUserId)
+          }
+          title="Show only my cards (M)"
+          className={`cursor-pointer flex items-center gap-2 pl-1 pr-3 h-8 rounded-full border text-xs font-semibold transition-all
+            ${
+              isMineActive
+                ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200"
+                : "bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:text-blue-600"
+            }`}
+        >
+          <span
+            className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-[11px] font-bold ${myColor}`}
+          >
+            {myInitial}
+          </span>
+          My Tasks
+        </button>
+      )}
+
+      <div className="w-px h-5 bg-slate-200 mx-1" />
+
       {/* ปุ่ม All */}
       <button
         onClick={() => setFilterAssigneeId(null)}
@@ -58,7 +105,6 @@ export function MemberFilterBar() {
       <div className="flex items-center gap-1.5">
         {visibleMembers.map((member) => {
           const isActive = filterAssigneeId === member.user_id;
-          const isYou = member.user_id === currentUserId;
           const isMuted = isFiltering && !isActive;
           const initial = member.full_name?.charAt(0).toUpperCase() ?? "?";
           const color = getAvatarColor(member.user_id);
@@ -67,7 +113,7 @@ export function MemberFilterBar() {
             <button
               key={member.user_id}
               onClick={() => toggle(member.user_id)}
-              title={member.full_name + (isYou ? " (You)" : "")}
+              title={member.full_name}
               className={`cursor-pointer relative flex items-center justify-center w-7 h-7 rounded-full text-white text-[11px] font-bold transition-all duration-200
                 ${color}
                 ${isActive ? "ring-2 ring-offset-1 ring-blue-500 scale-110 z-10 shadow-md" : "hover:scale-105 hover:z-10"}
@@ -75,11 +121,6 @@ export function MemberFilterBar() {
               `}
             >
               {initial}
-              {isYou && (
-                <span className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 text-[9px] text-slate-400 font-normal whitespace-nowrap">
-                  Me
-                </span>
-              )}
             </button>
           );
         })}
