@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/constants";
+import { useToastStore } from "@/store/useToastStore";
 
 // กำหนด Type ว่า Options สามารถรับอะไรได้บ้าง (ขยายจาก RequestInit ปกติของ fetch)
 interface FetchOptions extends Omit<RequestInit, "body"> {
@@ -43,6 +44,12 @@ export async function apiClient<T = any>(
       errorMessage = errorData.error || errorData.message || errorMessage;
     } catch (e) {
       errorMessage = response.statusText || errorMessage;
+    }
+    if (response.status === 403) {
+      useToastStore.getState().show({
+        message: errorMessage || "You don't have permission to perform this action",
+        duration: 5000,
+      });
     }
     throw new Error(errorMessage);
   }
