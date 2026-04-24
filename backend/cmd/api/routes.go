@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/core"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
@@ -68,27 +69,46 @@ func setupRoutes(
 			r.Get("/", httputil.MakeHandler(boardHandler.GetAllBoards))
 			r.Post("/", httputil.MakeHandler(boardHandler.CreateBoard))
 
-			// Per-board routes — gated by membership
+			// Per-board routes — gated by membership, then by role per action
 			r.Route("/{boardID}", func(r chi.Router) {
 				r.Use(requireBoardMember)
+
+				// Read — any member
 				r.Get("/", httputil.MakeHandler(boardHandler.GetBoardData))
-				r.Patch("/", httputil.MakeHandler(boardHandler.UpdateBoard))
-				r.Delete("/", httputil.MakeHandler(boardHandler.MoveToTrash))
+				r.Get("/activities", httputil.MakeHandler(activityHandler.ListByBoard))
+
+				// Update board title/budget — manager+
+				r.With(middleware.RequireBoardRole(core.RoleManager)).
+					Patch("/", httputil.MakeHandler(boardHandler.UpdateBoard))
+
+				// Move to trash — owner only
+				r.With(middleware.RequireBoardRole(core.RoleOwner)).
+					Delete("/", httputil.MakeHandler(boardHandler.MoveToTrash))
 
 				r.Route("/members", func(r chi.Router) {
+					// View member list — any member
 					r.Get("/", httputil.MakeHandler(boardHandler.GetBoardMembers))
-					r.Post("/", httputil.MakeHandler(boardHandler.AddBoardMember))
-					r.Delete("/{userID}", httputil.MakeHandler(boardHandler.RemoveBoardMember))
-					r.Patch("/{userID}", httputil.MakeHandler(boardHandler.UpdateMemberRole))
+
+					// Invite / change role / remove — manager+
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.RequireBoardRole(core.RoleManager))
+						r.Post("/", httputil.MakeHandler(boardHandler.AddBoardMember))
+						r.Delete("/{userID}", httputil.MakeHandler(boardHandler.RemoveBoardMember))
+						r.Patch("/{userID}", httputil.MakeHandler(boardHandler.UpdateMemberRole))
+					})
 				})
 
 				r.Route("/tags", func(r chi.Router) {
+					// Read — any member
 					r.Get("/", httputil.MakeHandler(tagHandler.GetBoardTags))
-					r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
-					r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
-				})
 
-				r.Get("/activities", httputil.MakeHandler(activityHandler.ListByBoard))
+					// Create / delete — manager+
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.RequireBoardRole(core.RoleManager))
+						r.Post("/", httputil.MakeHandler(tagHandler.CreateBoardTag))
+						r.Delete("/{tagID}", httputil.MakeHandler(tagHandler.DeleteBoardTag))
+					})
+				})
 			})
 		})
 		r.Route("/api/cards", func(r chi.Router) {
@@ -106,9 +126,16 @@ func setupRoutes(
 		})
 
 		r.Route("/api/trash", func(r chi.Router) {
+			// List trashed boards — filtered to owner inside handler
 			r.Get("/", httputil.MakeHandler(boardHandler.GetTrash))
-			r.Delete("/{boardID}", httputil.MakeHandler(boardHandler.HardDelete))
-			r.Patch("/{boardID}/restore", httputil.MakeHandler(boardHandler.RestoreBoard))
+
+			// Hard delete / restore — owner only (membership + role checked per board)
+			r.Route("/{boardID}", func(r chi.Router) {
+				r.Use(requireBoardMember)
+				r.Use(middleware.RequireBoardRole(core.RoleOwner))
+				r.Delete("/", httputil.MakeHandler(boardHandler.HardDelete))
+				r.Patch("/restore", httputil.MakeHandler(boardHandler.RestoreBoard))
+			})
 		})
 
 	})

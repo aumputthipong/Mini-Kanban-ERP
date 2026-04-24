@@ -1,7 +1,16 @@
 -- name: GetAllBoards :many
-SELECT id, title, created_at 
-FROM boards 
+SELECT id, title, created_at
+FROM boards
 ORDER BY created_at DESC;
+
+-- name: GetBoardIDByColumn :one
+SELECT board_id FROM columns WHERE id = $1;
+
+-- name: GetBoardIDByCard :one
+SELECT col.board_id
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+WHERE c.id = $1;
 
 -- name: GetColumnsByBoardID :many
 SELECT id, board_id, title, position, category, color, created_at, updated_at

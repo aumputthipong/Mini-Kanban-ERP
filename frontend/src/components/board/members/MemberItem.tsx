@@ -3,6 +3,7 @@ import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import type { BoardMember } from "@/types/board";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useCanManageBoard } from "@/hooks/useBoardRole";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -26,6 +27,7 @@ interface MemberItemProps {
 export function MemberItem({ member, isLoading, onRoleChange, onRemove }: MemberItemProps) {
   const isOwner = member.role === "owner";
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const canManage = useCanManageBoard();
 
   return (
     <>
@@ -47,9 +49,9 @@ export function MemberItem({ member, isLoading, onRoleChange, onRemove }: Member
         </div>
 
         <div className="flex items-center gap-2">
-          {isOwner ? (
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ROLE_COLORS.owner}`}>
-              {ROLE_LABELS.owner}
+          {isOwner || !canManage ? (
+            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ROLE_COLORS[member.role] ?? ROLE_COLORS.member}`}>
+              {ROLE_LABELS[member.role] ?? member.role}
             </span>
           ) : (
             <select
@@ -63,7 +65,7 @@ export function MemberItem({ member, isLoading, onRoleChange, onRemove }: Member
             </select>
           )}
 
-          {!isOwner && (
+          {!isOwner && canManage && (
             <button
               onClick={() => setConfirmOpen(true)}
               disabled={isLoading}
