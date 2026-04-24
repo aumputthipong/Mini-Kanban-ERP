@@ -432,6 +432,12 @@ func TestGetTrash_ServiceError(t *testing.T) {
 
 func TestCreateCard_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, userID string) (string, error) {
+			return "member", nil
+		},
 		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 			assert.Equal(t, validColumnID, arg.ColumnID)
 			assert.Equal(t, "Test Card", arg.Title)
@@ -493,6 +499,12 @@ func TestCreateCard_InvalidJSON(t *testing.T) {
 
 func TestCreateCard_ServiceError(t *testing.T) {
 	svc := &mock.MockBoardService{
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, userID string) (string, error) {
+			return "member", nil
+		},
 		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 			return db.CreateCardRow{}, errors.New("db error")
 		},
@@ -513,7 +525,17 @@ func TestCreateCard_ServiceError(t *testing.T) {
 // ────────────────────────────────────────────────
 
 func TestUpdateCard_Success(t *testing.T) {
+	userID := validUserID
 	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{ID: validCardID, ColumnID: validColumnID, CreatedBy: &userID}, nil
+		},
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, uid string) (string, error) {
+			return "member", nil
+		},
 		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
 			assert.Equal(t, validCardID, arg.ID)
 			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "Updated"}, nil
@@ -523,6 +545,7 @@ func TestUpdateCard_Success(t *testing.T) {
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
+	req = withUserID(req, validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.UpdateCard)(w, req)
@@ -560,7 +583,17 @@ func TestUpdateCard_InvalidJSON(t *testing.T) {
 }
 
 func TestUpdateCard_ServiceError(t *testing.T) {
+	userID := validUserID
 	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{ID: validCardID, ColumnID: validColumnID, CreatedBy: &userID}, nil
+		},
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, uid string) (string, error) {
+			return "member", nil
+		},
 		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
 			return db.Card{}, errors.New("db error")
 		},
@@ -569,6 +602,7 @@ func TestUpdateCard_ServiceError(t *testing.T) {
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
+	req = withUserID(req, validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.UpdateCard)(w, req)

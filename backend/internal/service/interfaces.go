@@ -20,6 +20,8 @@ type BoardServicer interface {
 	HardDeleteBoard(ctx context.Context, id string) error
 	RestoreBoard(ctx context.Context, id string) error
 	GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error)
+	GetBoardIDByColumn(ctx context.Context, columnID string) (string, error)
+	GetBoardIDByCard(ctx context.Context, cardID string) (string, error)
 
 	// Member
 	GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)
