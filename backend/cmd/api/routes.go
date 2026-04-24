@@ -89,6 +89,9 @@ func setupRoutes(
 					// View member list — any member
 					r.Get("/", httputil.MakeHandler(boardHandler.GetBoardMembers))
 
+					// Leave board — any member (except owner, enforced in handler)
+					r.Delete("/me", httputil.MakeHandler(boardHandler.LeaveBoard))
+
 					// Invite / change role / remove — manager+
 					r.Group(func(r chi.Router) {
 						r.Use(middleware.RequireBoardRole(core.RoleManager))
