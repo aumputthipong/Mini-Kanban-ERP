@@ -13,6 +13,7 @@ import { AddCardForm } from "./AddCardForm";
 import type { Card, Column } from "@/types/board";
 import { FormState } from "../card-modal/CardDetailModal";
 import { ColumnOptionsModal, getColumnColorHex } from "./ColumnOptionsModal";
+import { useCanManageBoard } from "@/hooks/useBoardRole";
 
 interface ColumnProps {
   id: string;
@@ -61,6 +62,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id });
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [topAddOpen, setTopAddOpen] = useState(false);
+  const canManage = useCanManageBoard();
 
   const visibleCards = useMemo(
     () =>
@@ -121,12 +123,15 @@ const colorHex = getColumnColorHex(color);
                 <Plus size={16} />
               </button>
 
-              <button
-                onClick={() => setOptionsOpen(true)}
-                className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => setOptionsOpen(true)}
+                  title="Column options"
+                  className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+              )}
             </div>
           </div>
         </div>
