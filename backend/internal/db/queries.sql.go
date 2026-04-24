@@ -408,8 +408,8 @@ func (q *Queries) GetAllActiveBoards(ctx context.Context) ([]GetAllActiveBoardsR
 }
 
 const getAllBoards = `-- name: GetAllBoards :many
-SELECT id, title, created_at 
-FROM boards 
+SELECT id, title, created_at
+FROM boards
 ORDER BY created_at DESC
 `
 
@@ -486,6 +486,31 @@ func (q *Queries) GetBoardByID(ctx context.Context, id string) (Board, error) {
 		&i.DeletedAt,
 	)
 	return i, err
+}
+
+const getBoardIDByCard = `-- name: GetBoardIDByCard :one
+SELECT col.board_id
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+WHERE c.id = $1
+`
+
+func (q *Queries) GetBoardIDByCard(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardIDByCard, id)
+	var board_id string
+	err := row.Scan(&board_id)
+	return board_id, err
+}
+
+const getBoardIDByColumn = `-- name: GetBoardIDByColumn :one
+SELECT board_id FROM columns WHERE id = $1
+`
+
+func (q *Queries) GetBoardIDByColumn(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardIDByColumn, id)
+	var board_id string
+	err := row.Scan(&board_id)
+	return board_id, err
 }
 
 const getBoardMemberRole = `-- name: GetBoardMemberRole :one

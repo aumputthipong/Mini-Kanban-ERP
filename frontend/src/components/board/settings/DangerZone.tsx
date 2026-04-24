@@ -12,6 +12,7 @@ interface EditableFieldProps {
   fieldKey: "title" | "budget";
   prefix?: string;
   onSave: (fieldKey: string, value: string | number) => Promise<void>;
+  readOnly?: boolean;
 }
 
 export function EditableField({
@@ -22,6 +23,7 @@ export function EditableField({
   fieldKey,
   prefix,
   onSave,
+  readOnly = false,
 }: EditableFieldProps) {
   const [value, setValue] = useState(String(initialValue || ""));
   const [isEditing, setIsEditing] = useState(false);
@@ -76,16 +78,22 @@ export function EditableField({
       <div className="flex-1 max-w-md">
         {!isEditing ? (
           <div
-            onClick={() => setIsEditing(true)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-white hover:border-blue-400 transition-colors group flex justify-between items-center"
+            onClick={() => !readOnly && setIsEditing(true)}
+            className={`px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg transition-colors group flex justify-between items-center ${
+              readOnly
+                ? "cursor-default"
+                : "cursor-pointer hover:bg-white hover:border-blue-400"
+            }`}
           >
             <span className="text-slate-700 font-medium">
               {prefix}
               {value || <span className="text-slate-400 italic font-normal">Not set</span>}
             </span>
-            <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-              Click to edit
-            </span>
+            {!readOnly && (
+              <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                Click to edit
+              </span>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
