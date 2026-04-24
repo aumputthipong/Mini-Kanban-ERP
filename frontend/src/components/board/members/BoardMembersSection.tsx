@@ -4,6 +4,7 @@
 import { useBoardMembers } from "../../../hooks/useBoardMembers";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberItem } from "./MemberItem";
+import { useCanInviteMembers } from "@/hooks/useBoardRole";
 
 interface BoardMembersSectionProps {
   boardId: string;
@@ -20,6 +21,7 @@ export function BoardMembersSection({ boardId }: BoardMembersSectionProps) {
     removeMember,
     changeRole,
   } = useBoardMembers(boardId);
+  const canInvite = useCanInviteMembers();
 
   return (
     <div className="py-6 border-b border-slate-200">
@@ -34,11 +36,13 @@ export function BoardMembersSection({ boardId }: BoardMembersSectionProps) {
 
         {/* Content */}
         <div className="flex-1 flex flex-col gap-4">
-          <AddMemberForm
-            nonMembers={nonMembers}
-            isAdding={isAdding}
-            onAdd={addMember}
-          />
+          {canInvite && (
+            <AddMemberForm
+              nonMembers={nonMembers}
+              isAdding={isAdding}
+              onAdd={addMember}
+            />
+          )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 

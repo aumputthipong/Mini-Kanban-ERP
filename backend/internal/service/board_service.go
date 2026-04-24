@@ -196,6 +196,14 @@ func (s *BoardService) GetBoardMemberRole(ctx context.Context, boardID, userID s
 	})
 }
 
+func (s *BoardService) GetBoardIDByColumn(ctx context.Context, columnID string) (string, error) {
+	return s.queries.GetBoardIDByColumn(ctx, columnID)
+}
+
+func (s *BoardService) GetBoardIDByCard(ctx context.Context, cardID string) (string, error) {
+	return s.queries.GetBoardIDByCard(ctx, cardID)
+}
+
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {
 	return s.queries.HardDeleteBoard(ctx, id)
 }
