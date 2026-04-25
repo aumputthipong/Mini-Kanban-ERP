@@ -196,6 +196,9 @@ RETURNING *;
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = $1 LIMIT 1;
 
+-- name: GetUserByID :one
+SELECT id, email, full_name FROM users WHERE id = $1 LIMIT 1;
+
 -- name: GetUserByProviderID :one
 SELECT * FROM users 
 WHERE provider = $1 AND provider_id = $2 

@@ -52,4 +52,5 @@ type AuthServicer interface {
 	Register(ctx context.Context, arg RegisterParams) (db.User, error)
 	Login(ctx context.Context, email, password string) (db.User, error)
 	UpsertOAuthUser(ctx context.Context, email, fullName, provider, providerID string) (db.User, error)
+	GetUserByID(ctx context.Context, userID string) (db.GetUserByIDRow, error)
 }
