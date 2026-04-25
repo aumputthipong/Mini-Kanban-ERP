@@ -155,6 +155,14 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) error {
 	if !ok || userID == "" {
 		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
 	}
-	httputil.RespondJSON(w, http.StatusOK, map[string]string{"user_id": userID})
+	user, err := h.authService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load user", err)
+	}
+	httputil.RespondJSON(w, http.StatusOK, map[string]string{
+		"user_id":   user.ID,
+		"email":     user.Email,
+		"full_name": user.FullName,
+	})
 	return nil
 }
