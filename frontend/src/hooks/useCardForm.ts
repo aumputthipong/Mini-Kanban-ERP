@@ -1,6 +1,6 @@
 // components/kanban/card-modal/useCardForm.ts
-import { useState, useEffect } from "react";
-import type { Card, BoardMember } from "@/types/board";
+import { useState, useEffect, useCallback } from "react";
+import type { Card, BoardMember, Tag } from "@/types/board";
 import { API_URL } from "@/lib/constants";
 import { FormState } from "../components/board/card-modal/CardDetailModal"; // หรือย้าย type FormState มาไว้ที่นี่
 
@@ -60,12 +60,17 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     form.estimated_hours !== (card.estimated_hours != null ? String(card.estimated_hours) : "") ||
     formTagIds !== cardTagIds;
 
-  // Helper สำหรับ Update State
+  // Helper สำหรับ Update State (text/select inputs)
   const handleChange = (field: keyof FormState) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
+
+  // Setter สำหรับ tags (ไม่ผ่าน ChangeEvent เพราะเป็น array)
+  const setTags = useCallback((tags: Tag[]) => {
+    setForm((prev) => ({ ...prev, tags }));
+  }, []);
 
   const validate = () => {
     if (!form.title.trim()) {
@@ -84,6 +89,7 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     isDirty,
     assigneeName,
     handleChange,
+    setTags,
     validate,
   };
 }
