@@ -1,10 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Users, Activity as ActivityIcon } from "lucide-react";
+import {
+  Users,
+  Activity as ActivityIcon,
+  Plus,
+  ArrowRight,
+  Pencil,
+  Trash2,
+  Check,
+  Undo2,
+} from "lucide-react";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import type { Activity } from "@/types/activity";
 import type { BoardMember } from "@/types/board";
+import { useBoardStore } from "@/store/useBoardStore";
 
 interface WorkloadColumnBreakdown {
   title: string;
@@ -111,16 +121,37 @@ function relativeTime(iso: string): string {
   return `${d}d ago`;
 }
 
-function describeActivity(a: Activity): { action: string; target: string; dest: string } {
+// Pretty field names for "card.updated" — converts raw DB keys into human labels.
+const FIELD_LABELS: Record<string, string> = {
+  title: "title",
+  description: "description",
+  due_date: "due date",
+  assignee_id: "assignee",
+  priority: "priority",
+  estimated_hours: "estimate",
+  tags: "tags",
+  column_id: "column",
+  is_done: "status",
+};
+
+function describeActivity(
+  a: Activity,
+  columnTitleById: Map<string, string>,
+): { action: string; target: string; dest: string } {
   const p = (a.payload ?? {}) as Record<string, any>;
   const title = typeof p.title === "string" ? p.title : "";
   switch (a.event_type) {
     case "card.created":
       return { action: "created card", target: title, dest: "" };
-    case "card.moved":
-      return { action: "moved card", target: title, dest: "" };
-    case "card.updated":
-      return { action: "updated card", target: title, dest: Array.isArray(p.fields) ? p.fields.join(", ") : "" };
+    case "card.moved": {
+      const toCol = typeof p.to_column_id === "string" ? columnTitleById.get(p.to_column_id) : undefined;
+      return { action: "moved card", target: title, dest: toCol ?? "" };
+    }
+    case "card.updated": {
+      const fields = Array.isArray(p.fields) ? p.fields : [];
+      const pretty = fields.map((f: string) => FIELD_LABELS[f] ?? f).join(", ");
+      return { action: "updated card", target: title, dest: pretty };
+    }
     case "card.deleted":
       return { action: "deleted card", target: title, dest: "" };
     case "card.done_toggled":
@@ -136,17 +167,52 @@ function describeActivity(a: Activity): { action: string; target: string; dest: 
   }
 }
 
-function colorForEvent(eventType: string): string {
-  if (eventType.startsWith("card.created") || eventType === "column.created") return "bg-blue-500";
-  if (eventType === "card.done_toggled") return "bg-emerald-500";
-  if (eventType.startsWith("card.moved")) return "bg-amber-500";
-  if (eventType.endsWith(".deleted")) return "bg-rose-500";
-  if (eventType.endsWith(".updated") || eventType.endsWith(".renamed")) return "bg-violet-500";
-  return "bg-slate-400";
+// Tiny action badge that overlays the bottom-right of the avatar — encodes the
+// event type so the avatar color stays bound to the actor (not the action).
+function eventBadge(eventType: string, payload: Record<string, any>): {
+  Icon: typeof Plus;
+  bg: string;
+} {
+  if (eventType === "card.done_toggled") {
+    return payload.is_done
+      ? { Icon: Check, bg: "bg-emerald-500" }
+      : { Icon: Undo2, bg: "bg-slate-400" };
+  }
+  if (eventType.startsWith("card.created") || eventType === "column.created") {
+    return { Icon: Plus, bg: "bg-blue-500" };
+  }
+  if (eventType === "card.moved") {
+    return { Icon: ArrowRight, bg: "bg-amber-500" };
+  }
+  if (eventType.endsWith(".deleted")) {
+    return { Icon: Trash2, bg: "bg-rose-500" };
+  }
+  if (eventType.endsWith(".updated") || eventType.endsWith(".renamed")) {
+    return { Icon: Pencil, bg: "bg-violet-500" };
+  }
+  return { Icon: Pencil, bg: "bg-slate-400" };
+}
+
+function formatAbsoluteTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabContentProps) {
   const { activities, loading, error } = useActivityFeed(boardId);
+  const columns = useBoardStore((s) => s.columns);
+  const columnTitleById = useMemo(() => {
+    const map = new Map<string, string>();
+    columns.forEach((c) => map.set(c.id, c.title));
+    return map;
+  }, [columns]);
 
   // Merge workload with full member list so members with 0 assigned cards still appear.
   const fullWorkload = useMemo<WorkloadUser[]>(() => {
@@ -183,7 +249,7 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
         {fullWorkload.length === 0 ? (
           <p className="text-sm text-slate-400">No board members yet.</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col divide-y divide-slate-100">
             {fullWorkload.map((user, index) => {
               const maxTotal = Math.max(...fullWorkload.map((u) => u.count), 1);
               const barWidth =
@@ -191,18 +257,24 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
               const activePct = user.count > 0 ? (user.active / user.count) * 100 : 0;
               const donePct = user.count > 0 ? (user.done / user.count) * 100 : 0;
               const isHeavy = user.active >= OVERCAPACITY_THRESHOLD;
+              const isIdle = user.count === 0;
               const todoCols = user.byColumn.filter((c) => c.category === "TODO");
               const doneCols = user.byColumn.filter((c) => c.category === "DONE");
               return (
-                <div key={index} className="group relative flex flex-col gap-1.5">
+                <div
+                  key={index}
+                  className="group relative flex flex-col gap-1.5 py-3 first:pt-1 last:pb-1"
+                >
                   <div className="flex justify-between items-center text-sm gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${avatarColor(user.name)}`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-opacity ${avatarColor(user.name)} ${isIdle ? "opacity-50" : ""}`}
                       >
                         {initials(user.name)}
                       </div>
-                      <span className="font-medium text-slate-700 truncate">{user.name}</span>
+                      <span className={`font-medium truncate ${isIdle ? "text-slate-400" : "text-slate-700"}`}>
+                        {user.name}
+                      </span>
                     </div>
                     <span className="text-xs text-slate-500 shrink-0">
                       {user.count === 0 ? (
@@ -232,43 +304,64 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
                     </div>
                   </div>
 
-                  {/* Tooltip */}
-                  <div className="pointer-events-none absolute left-0 top-full mt-1.5 z-10 hidden group-hover:block w-60 rounded-lg bg-slate-900 text-white text-xs shadow-xl border border-slate-700 p-3">
-                    <p className="font-semibold mb-2 pb-1.5 border-b border-slate-700">{user.name}&apos;s Workload</p>
-                    {todoCols.length > 0 && (
-                      <div className="mb-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-slate-300 font-medium">Active</p>
-                          <p className="text-slate-100 font-semibold tabular-nums">{user.active} tasks</p>
-                        </div>
-                        <ul className="space-y-0.5">
-                          {todoCols.map((c) => (
-                            <li key={c.title} className="flex justify-between items-center gap-2 text-slate-200">
-                              <span className="truncate">└ {c.title}</span>
-                              <span className="font-semibold text-slate-100 tabular-nums">{c.count}</span>
-                            </li>
-                          ))}
-                        </ul>
+                  {/* Tooltip — clean light card */}
+                  <div className="pointer-events-none absolute left-0 top-full mt-2 z-20 hidden group-hover:block w-64 rounded-xl bg-white text-xs shadow-xl border border-slate-200 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                      <p className="font-semibold text-slate-700 truncate">{user.name}</p>
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                        Workload
+                      </span>
+                    </div>
+
+                    {todoCols.length === 0 && doneCols.length === 0 ? (
+                      <p className="px-3 py-3 text-slate-400">No tasks assigned yet.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {todoCols.length > 0 && (
+                          <div className="px-3 py-2.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="flex items-center gap-1.5 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                Active
+                              </span>
+                              <span className="text-slate-700 font-semibold tabular-nums">{user.active}</span>
+                            </div>
+                            <ul className="space-y-1">
+                              {todoCols.map((c) => (
+                                <li
+                                  key={c.title}
+                                  className="flex justify-between items-center gap-2 text-slate-600"
+                                >
+                                  <span className="truncate">{c.title}</span>
+                                  <span className="font-semibold text-slate-700 tabular-nums">{c.count}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {doneCols.length > 0 && (
+                          <div className="px-3 py-2.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="flex items-center gap-1.5 text-emerald-600 font-semibold uppercase tracking-wider text-[10px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                Done
+                              </span>
+                              <span className="text-slate-700 font-semibold tabular-nums">{user.done}</span>
+                            </div>
+                            <ul className="space-y-1">
+                              {doneCols.map((c) => (
+                                <li
+                                  key={c.title}
+                                  className="flex justify-between items-center gap-2 text-slate-600"
+                                >
+                                  <span className="truncate">{c.title}</span>
+                                  <span className="font-semibold text-slate-700 tabular-nums">{c.count}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {doneCols.length > 0 && (
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-emerald-300 font-medium">Done</p>
-                          <p className="text-slate-100 font-semibold tabular-nums">{user.done} tasks</p>
-                        </div>
-                        <ul className="space-y-0.5">
-                          {doneCols.map((c) => (
-                            <li key={c.title} className="flex justify-between items-center gap-2 text-slate-200">
-                              <span className="truncate">└ {c.title}</span>
-                              <span className="font-semibold text-slate-100 tabular-nums">{c.count}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {todoCols.length === 0 && doneCols.length === 0 && (
-                      <p className="text-slate-400">No tasks assigned yet.</p>
                     )}
                   </div>
                 </div>
@@ -295,35 +388,55 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
         ) : visibleActivities.length === 0 ? (
           <p className="text-sm text-slate-400">No activity yet.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-slate-100">
             {visibleActivities.slice(0, 10).map((event) => {
               const actorName = event.actor_name ?? "Someone";
-              const { action, target, dest } = describeActivity(event);
+              const { action, target, dest } = describeActivity(event, columnTitleById);
+              const payload = (event.payload ?? {}) as Record<string, any>;
+              const { Icon: BadgeIcon, bg: badgeBg } = eventBadge(event.event_type, payload);
               return (
-                <li key={event.id} className="flex items-start gap-3">
-                  <div
-                    className={`w-6 h-6 rounded-full ${colorForEvent(event.event_type)} flex items-center justify-center text-white text-[9px] font-bold shrink-0 mt-0.5`}
-                  >
-                    {actorName[0]?.toUpperCase() ?? "?"}
+                <li key={event.id} className="flex items-start gap-3 py-3 first:pt-1 last:pb-1">
+                  {/* Avatar — color is bound to the actor (matches Workload). */}
+                  <div className="relative shrink-0 mt-0.5">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor(actorName)}`}
+                    >
+                      {initials(actorName)}
+                    </div>
+                    {/* Action badge */}
+                    <div
+                      className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full ${badgeBg} ring-2 ring-white flex items-center justify-center`}
+                    >
+                      <BadgeIcon size={8} strokeWidth={3} className="text-white" />
+                    </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-700 leading-snug">
-                      <span className="font-semibold">{actorName}</span>{" "}
-                      {action}
+                    <p className="text-xs leading-snug">
+                      <span className="font-semibold text-slate-800">{actorName}</span>{" "}
+                      <span className="text-slate-500">{action}</span>
                       {target && (
                         <>
                           {" "}
-                          <span className="font-bold text-slate-900">&ldquo;{target}&rdquo;</span>
+                          <span className="font-semibold text-slate-800">&ldquo;{target}&rdquo;</span>
                         </>
                       )}
                       {dest && (
                         <>
-                          {" "}
-                          → <span className="text-indigo-600 font-medium">{dest}</span>
+                          {event.event_type === "card.moved" ? (
+                            <span className="text-slate-500"> to </span>
+                          ) : (
+                            <span className="text-slate-400"> · </span>
+                          )}
+                          <span className="text-indigo-600 font-medium">{dest}</span>
                         </>
                       )}
                     </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{relativeTime(event.created_at)}</p>
+                    <p
+                      className="text-[10px] text-slate-400 mt-0.5"
+                      title={formatAbsoluteTime(event.created_at)}
+                    >
+                      {relativeTime(event.created_at)}
+                    </p>
                   </div>
                 </li>
               );
