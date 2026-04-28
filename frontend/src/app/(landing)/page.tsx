@@ -196,27 +196,29 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Right — two stacked task cards, slightly tilted */}
-          <div className="relative h-80 lg:h-96 hidden md:block">
-            <div className="absolute top-0 right-0 w-60 rotate-3 shadow-xl shadow-slate-900/15">
-              <TaskCard
-                priority="MEDIUM"
-                title="Design API for auth system"
-                subtasks={["Endpoint spec", "Token flow", "Wire to FE"]}
-                done={[true, true, false]}
-                progress={0.66}
-                avatarInitial="A"
-              />
-            </div>
-            <div className="absolute bottom-0 left-0 w-56 -rotate-3 shadow-xl shadow-slate-900/10">
-              <TaskCard
-                priority="HIGH"
-                title="Setup Postgres on prod"
-                date="Apr 15"
-                strike
-                avatarInitial="N"
-                avatarClass="bg-emerald-500"
-              />
+          {/* Right — two task cards stacked & overlapping */}
+          <div className="relative h-80 hidden md:flex items-center justify-center">
+            <div className="relative w-72 h-72">
+              <div className="absolute top-0 right-0 w-60 rotate-3 shadow-2xl shadow-slate-900/20 z-10">
+                <TaskCard
+                  priority="MEDIUM"
+                  title="Design API for auth system"
+                  subtasks={["Endpoint spec", "Token flow", "Wire to FE"]}
+                  done={[true, true, false]}
+                  progress={0.66}
+                  avatarInitial="A"
+                />
+              </div>
+              <div className="absolute -bottom-4 -left-4 w-56 -rotate-6 shadow-xl shadow-slate-900/10">
+                <TaskCard
+                  priority="HIGH"
+                  title="Setup Postgres on prod"
+                  date="Apr 15"
+                  strike
+                  avatarInitial="N"
+                  avatarClass="bg-emerald-500"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -499,61 +501,22 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-slate-900 text-slate-100 px-6 md:px-12 pt-16 pb-8">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[0.95] pb-12 border-b border-slate-800">
-            Tasks sorted.
-            <br />
-            Team <span className="text-blue-400">synced.</span>
+      <footer className="bg-slate-900 text-slate-100 px-6 md:px-12 pt-16 pb-10">
+        <div className="max-w-2xl mx-auto flex flex-col items-center text-center">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Turtask
           </h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pt-10 text-xs">
-            <div className="md:col-span-1">
-              <div className="text-blue-400 font-semibold uppercase tracking-widest mb-3">
-                Turtask
-              </div>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Real-time Kanban for teams that ship.
-                <br />
-                Built in Bangkok.
-              </p>
-            </div>
-            <div>
-              <div className="text-blue-400 font-semibold uppercase tracking-widest mb-3">
-                Product
-              </div>
-              <ul className="space-y-1.5 text-slate-300">
-                <li>Boards</li>
-                <li>Workload</li>
-                <li>Calendar</li>
-              </ul>
-            </div>
-            <div>
-              <div className="text-blue-400 font-semibold uppercase tracking-widest mb-3">
-                Company
-              </div>
-              <ul className="space-y-1.5 text-slate-300">
-                <li>About</li>
-                <li>Changelog</li>
-                <li>Hiring</li>
-              </ul>
-            </div>
-            <div>
-              <div className="text-blue-400 font-semibold uppercase tracking-widest mb-3">
-                Resources
-              </div>
-              <ul className="space-y-1.5 text-slate-300">
-                <li>Docs</li>
-                <li>Guides</li>
-                <li>Support</li>
-              </ul>
-            </div>
-          </div>
+          <p className="mt-5 max-w-md text-sm text-slate-400 leading-relaxed">
+            A real-time Kanban workspace for small teams — drag a card,
+            assign a teammate, and watch the board sync instantly.
+          </p>
 
-          <div className="mt-12 pt-4 border-t border-slate-800 flex justify-between text-[11px] text-slate-500 font-medium">
-            <span>© 2026 Turtask Labs</span>
-            <span>v2.4.1 · 2026-04-28</span>
-          </div>
+          <div className="mt-8 w-12 h-px bg-slate-700" />
+
+          <p className="mt-6 text-xs text-slate-500">
+            © {new Date().getFullYear()} Turtask. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
