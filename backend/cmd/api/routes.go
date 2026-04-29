@@ -63,6 +63,11 @@ func setupRoutes(
 		r.Get("/api/auth/me", httputil.MakeHandler(authHandler.Me))
 		r.Get("/api/users", httputil.MakeHandler(boardHandler.GetAllUsers))
 
+		r.Route("/api/my-tasks", func(r chi.Router) {
+			r.Get("/", httputil.MakeHandler(boardHandler.GetMyTasks))
+			r.Post("/{cardID}/complete", httputil.MakeHandler(boardHandler.CompleteMyTask))
+		})
+
 		requireBoardMember := middleware.RequireBoardMember(boardService)
 
 		r.Route("/api/boards", func(r chi.Router) {

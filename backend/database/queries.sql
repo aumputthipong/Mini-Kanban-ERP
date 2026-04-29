@@ -12,6 +12,39 @@ FROM cards c
 JOIN columns col ON col.id = c.column_id
 WHERE c.id = $1;
 
+-- name: GetMyTasks :many
+-- Cards assigned to the user, not yet done, on boards that aren't trashed.
+-- Sorted: tasks with due_date first (oldest first), then no-due-date by created_at desc.
+SELECT
+    c.id,
+    c.title,
+    c.priority,
+    c.due_date,
+    c.estimated_hours,
+    c.is_done,
+    col.board_id,
+    b.title AS board_name
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+JOIN boards  b   ON b.id  = col.board_id
+WHERE c.assignee_id = $1
+  AND c.is_done = FALSE
+  AND b.deleted_at IS NULL
+ORDER BY
+    CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
+    c.due_date ASC,
+    c.created_at DESC;
+
+-- name: CompleteCardAsAssignee :execrows
+-- Atomic complete + move-to-DONE-column. Only succeeds if the caller is the
+-- card's assignee. Returns affected row count so the handler can 404 on miss.
+UPDATE cards
+SET column_id = $2,
+    is_done = TRUE,
+    completed_at = NOW()
+WHERE id = $1
+  AND assignee_id = $3;
+
 -- name: GetColumnsByBoardID :many
 SELECT id, board_id, title, position, category, color, created_at, updated_at
 FROM columns

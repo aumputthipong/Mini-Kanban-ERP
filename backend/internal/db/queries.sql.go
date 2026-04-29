@@ -46,6 +46,31 @@ func (q *Queries) ClearCardTags(ctx context.Context, cardID string) error {
 	return err
 }
 
+const completeCardAsAssignee = `-- name: CompleteCardAsAssignee :execrows
+UPDATE cards
+SET column_id = $2,
+    is_done = TRUE,
+    completed_at = NOW()
+WHERE id = $1
+  AND assignee_id = $3
+`
+
+type CompleteCardAsAssigneeParams struct {
+	ID         string
+	ColumnID   string
+	AssigneeID *string
+}
+
+// Atomic complete + move-to-DONE-column. Only succeeds if the caller is the
+// card's assignee. Returns affected row count so the handler can 404 on miss.
+func (q *Queries) CompleteCardAsAssignee(ctx context.Context, arg CompleteCardAsAssigneeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, completeCardAsAssignee, arg.ID, arg.ColumnID, arg.AssigneeID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createActivity = `-- name: CreateActivity :one
 INSERT INTO activities (board_id, actor_id, event_type, entity_type, entity_id, payload)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -835,6 +860,70 @@ func (q *Queries) GetMembersForActiveBoards(ctx context.Context, userID string) 
 	for rows.Next() {
 		var i GetMembersForActiveBoardsRow
 		if err := rows.Scan(&i.BoardID, &i.UserID, &i.FullName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMyTasks = `-- name: GetMyTasks :many
+SELECT
+    c.id,
+    c.title,
+    c.priority,
+    c.due_date,
+    c.estimated_hours,
+    c.is_done,
+    col.board_id,
+    b.title AS board_name
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+JOIN boards  b   ON b.id  = col.board_id
+WHERE c.assignee_id = $1
+  AND c.is_done = FALSE
+  AND b.deleted_at IS NULL
+ORDER BY
+    CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
+    c.due_date ASC,
+    c.created_at DESC
+`
+
+type GetMyTasksRow struct {
+	ID             string
+	Title          string
+	Priority       *string
+	DueDate        *time.Time
+	EstimatedHours pgtype.Numeric
+	IsDone         bool
+	BoardID        string
+	BoardName      string
+}
+
+// Cards assigned to the user, not yet done, on boards that aren't trashed.
+// Sorted: tasks with due_date first (oldest first), then no-due-date by created_at desc.
+func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTasksRow, error) {
+	rows, err := q.db.Query(ctx, getMyTasks, assigneeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMyTasksRow
+	for rows.Next() {
+		var i GetMyTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Priority,
+			&i.DueDate,
+			&i.EstimatedHours,
+			&i.IsDone,
+			&i.BoardID,
+			&i.BoardName,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
