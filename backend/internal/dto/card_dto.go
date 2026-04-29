@@ -29,6 +29,16 @@ type CardResponse struct {
 	Tags              []TagResponse `json:"tags"`
 }
 
+type MyTaskResponse struct {
+	ID             string   `json:"id"`
+	Title          string   `json:"title"`
+	BoardID        string   `json:"board_id"`
+	BoardName      string   `json:"board_name"`
+	Priority       *string  `json:"priority"`
+	DueDate        *string  `json:"due_date"`
+	EstimatedHours *float64 `json:"estimated_hours"`
+}
+
 type CreateCardRequest struct {
 	ColumnID   string  `json:"column_id"`
 	Title      string  `json:"title"`
