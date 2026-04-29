@@ -23,6 +23,10 @@ type BoardServicer interface {
 	GetBoardIDByColumn(ctx context.Context, columnID string) (string, error)
 	GetBoardIDByCard(ctx context.Context, cardID string) (string, error)
 
+	// My Tasks
+	GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error)
+	CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error)
+
 	// Member
 	GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)
 	AddBoardMember(ctx context.Context, boardID, userID, role string) error

@@ -204,6 +204,64 @@ func (s *BoardService) GetBoardIDByCard(ctx context.Context, cardID string) (str
 	return s.queries.GetBoardIDByCard(ctx, cardID)
 }
 
+// MyTaskData mirrors the row shape returned to the frontend's My Tasks page.
+type MyTaskData struct {
+	ID             string
+	Title          string
+	BoardID        string
+	BoardName      string
+	Priority       *string
+	DueDate        *time.Time
+	EstimatedHours *float64
+	IsDone         bool
+}
+
+func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error) {
+	rows, err := s.queries.GetMyTasks(ctx, &userID)
+	if err != nil {
+		return nil, fmt.Errorf("get my tasks: %w", err)
+	}
+	out := make([]MyTaskData, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, MyTaskData{
+			ID:             r.ID,
+			Title:          r.Title,
+			BoardID:        r.BoardID,
+			BoardName:      r.BoardName,
+			Priority:       r.Priority,
+			DueDate:        r.DueDate,
+			EstimatedHours: util.PgNumericToFloat64Ptr(r.EstimatedHours),
+			IsDone:         r.IsDone,
+		})
+	}
+	return out, nil
+}
+
+// CompleteMyTask marks a card done + moves it to the board's first DONE column.
+// Returns false if the caller is not the assignee (so handler can 404).
+func (s *BoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error) {
+	boardID, err := s.queries.GetBoardIDByCard(ctx, cardID)
+	if err != nil {
+		return false, fmt.Errorf("resolve board: %w", err)
+	}
+	doneCol, err := s.queries.GetColumnByBoardAndCategory(ctx, db.GetColumnByBoardAndCategoryParams{
+		BoardID:  boardID,
+		Category: "DONE",
+	})
+	if err != nil {
+		return false, fmt.Errorf("find DONE column: %w", err)
+	}
+	rows, err := s.queries.CompleteCardAsAssignee(ctx, db.CompleteCardAsAssigneeParams{
+		ID:         cardID,
+		ColumnID:   doneCol.ID,
+		AssigneeID: &userID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("complete card: %w", err)
+	}
+	return rows > 0, nil
+}
+
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {
 	return s.queries.HardDeleteBoard(ctx, id)
 }
