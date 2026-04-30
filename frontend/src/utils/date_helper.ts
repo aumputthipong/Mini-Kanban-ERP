@@ -37,3 +37,26 @@ export const getDaysRemainingText = (dueDateStr: string) => {
   if (diffDays === 1) return "Due tomorrow";
   return `In ${diffDays} days`;
 };
+
+// Compact relative label suitable for dense list rows (My Tasks).
+// Falls back to formatThaiDate if more than 7 days out.
+export const formatRelativeDueDate = (dueDateStr: string): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dueDate = new Date(dueDateStr);
+  dueDate.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round(
+    (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (diffDays < 0) {
+    const days = Math.abs(diffDays);
+    return days === 1 ? "1 day overdue" : `${days} days overdue`;
+  }
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays <= 7) return `In ${diffDays} days`;
+  return formatThaiDate(dueDateStr);
+};
