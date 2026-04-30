@@ -11,7 +11,7 @@ import {
 import { apiClient } from "@/lib/apiClient";
 import { TaskGroup } from "@/components/my-tasks/TaskGroup";
 import { ProjectGroup } from "@/components/my-tasks/ProjectGroup";
-import type { MyTask, MyTaskStatus } from "@/components/my-tasks/TaskRow";
+import { TaskRow, type MyTask, type MyTaskStatus } from "@/components/my-tasks/TaskRow";
 
 interface RawMyTask {
   id: string;
@@ -25,6 +25,9 @@ interface RawMyTask {
 }
 
 type ViewMode = "date" | "project";
+type DateTab = "soon" | "overdue";
+
+const SOON_WINDOW_DAYS = 7;
 
 const TODAY = (() => {
   const d = new Date();
@@ -32,13 +35,19 @@ const TODAY = (() => {
   return d;
 })();
 
-function dueBucket(t: MyTask): "overdue" | "today" | "upcoming" | "none" {
+const SOON_CUTOFF = (() => {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() + SOON_WINDOW_DAYS);
+  return d;
+})();
+
+function dueBucket(t: MyTask): "overdue" | "soon" | "later" | "none" {
   if (!t.due_date) return "none";
   const due = new Date(t.due_date);
   due.setHours(0, 0, 0, 0);
   if (due < TODAY) return "overdue";
-  if (due.getTime() === TODAY.getTime()) return "today";
-  return "upcoming";
+  if (due <= SOON_CUTOFF) return "soon";
+  return "later";
 }
 
 function compareDueDate(a: MyTask, b: MyTask): number {
@@ -55,6 +64,7 @@ export default function MyTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("date");
+  const [dateTab, setDateTab] = useState<DateTab>("soon");
 
   useEffect(() => {
     let cancelled = false;
@@ -90,25 +100,25 @@ export default function MyTasksPage() {
 
   const buckets = useMemo(() => {
     const overdue: MyTask[] = [];
-    const dueToday: MyTask[] = [];
-    const upcoming: MyTask[] = [];
+    const soon: MyTask[] = [];
+    const later: MyTask[] = [];
     const noDueDate: MyTask[] = [];
     for (const t of tasks) {
       switch (dueBucket(t)) {
         case "overdue":
           overdue.push(t);
           break;
-        case "today":
-          dueToday.push(t);
+        case "soon":
+          soon.push(t);
           break;
-        case "upcoming":
-          upcoming.push(t);
+        case "later":
+          later.push(t);
           break;
         default:
           noDueDate.push(t);
       }
     }
-    return { overdue, dueToday, upcoming, noDueDate };
+    return { overdue, soon, later, noDueDate };
   }, [tasks]);
 
   const statusCounts = useMemo(() => {
@@ -131,18 +141,18 @@ export default function MyTasksPage() {
     const groups = Array.from(byBoard.entries()).map(([boardId, v]) => {
       const sorted = [...v.tasks].sort(compareDueDate);
       const overdueCount = sorted.filter((t) => dueBucket(t) === "overdue").length;
-      const todayCount = sorted.filter((t) => dueBucket(t) === "today").length;
+      const soonCount = sorted.filter((t) => dueBucket(t) === "soon").length;
       return {
         boardId,
         boardName: v.name,
         tasks: sorted,
         overdueCount,
-        todayCount,
+        soonCount,
       };
     });
     groups.sort((a, b) => {
       if (a.overdueCount !== b.overdueCount) return b.overdueCount - a.overdueCount;
-      if (a.todayCount !== b.todayCount) return b.todayCount - a.todayCount;
+      if (a.soonCount !== b.soonCount) return b.soonCount - a.soonCount;
       return b.tasks.length - a.tasks.length;
     });
     return groups;
@@ -232,22 +242,22 @@ export default function MyTasksPage() {
               <span>overdue</span>
             </span>
           )}
-          {buckets.dueToday.length > 0 && (
+          {buckets.soon.length > 0 && (
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               <span className="font-semibold text-amber-600">
-                {buckets.dueToday.length}
+                {buckets.soon.length}
               </span>
-              <span>today</span>
+              <span>due soon</span>
             </span>
           )}
-          {buckets.upcoming.length > 0 && (
+          {buckets.later.length > 0 && (
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
               <span className="font-semibold text-slate-700">
-                {buckets.upcoming.length}
+                {buckets.later.length}
               </span>
-              <span>upcoming</span>
+              <span>later</span>
             </span>
           )}
           {buckets.noDueDate.length > 0 && (
@@ -277,21 +287,63 @@ export default function MyTasksPage() {
         </div>
       ) : view === "date" ? (
         <div>
+          {/* Tabs: Due soon vs Overdue */}
+          <div className="flex items-center gap-1 mb-3 border-b border-slate-200">
+            <DateTabButton
+              active={dateTab === "soon"}
+              onClick={() => setDateTab("soon")}
+              label="Due soon"
+              count={buckets.soon.length}
+              activeColor="text-amber-600 border-amber-500"
+            />
+            <DateTabButton
+              active={dateTab === "overdue"}
+              onClick={() => setDateTab("overdue")}
+              label="Overdue"
+              count={buckets.overdue.length}
+              activeColor="text-rose-600 border-rose-500"
+            />
+            <span className="ml-auto text-[11px] text-slate-400">
+              Due soon = within {SOON_WINDOW_DAYS} days
+            </span>
+          </div>
+
+          {dateTab === "soon" ? (
+            buckets.soon.length === 0 ? (
+              <div className="text-sm text-slate-400 py-6 px-1">
+                ไม่มีงานใกล้กำหนดในช่วง {SOON_WINDOW_DAYS} วันข้างหน้า
+              </div>
+            ) : (
+              <div className="border-t border-slate-200 mb-5">
+                {buckets.soon.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onComplete={handleCompleteTask}
+                  />
+                ))}
+              </div>
+            )
+          ) : buckets.overdue.length === 0 ? (
+            <div className="text-sm text-slate-400 py-6 px-1">
+              ไม่มีงานเลยกำหนด — ดีมาก 👍
+            </div>
+          ) : (
+            <div className="border-t border-slate-200 mb-5">
+              {buckets.overdue.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  onComplete={handleCompleteTask}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Always-visible secondary sections */}
           <TaskGroup
-            title="Overdue"
-            tasks={buckets.overdue}
-            headerColor="text-rose-600"
-            onCompleteTask={handleCompleteTask}
-          />
-          <TaskGroup
-            title="Due today"
-            tasks={buckets.dueToday}
-            headerColor="text-amber-600"
-            onCompleteTask={handleCompleteTask}
-          />
-          <TaskGroup
-            title="Upcoming"
-            tasks={buckets.upcoming}
+            title={`Later (>${SOON_WINDOW_DAYS} days)`}
+            tasks={buckets.later}
             headerColor="text-slate-700"
             onCompleteTask={handleCompleteTask}
           />
@@ -341,6 +393,43 @@ const TONE_STYLES = {
     value: "text-slate-800",
   },
 } as const;
+
+function DateTabButton({
+  active,
+  onClick,
+  label,
+  count,
+  activeColor,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  activeColor: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
+        active
+          ? activeColor
+          : "border-transparent text-slate-400 hover:text-slate-600"
+      }`}
+    >
+      {label}
+      <span
+        className={`text-[11px] font-bold tabular-nums px-1.5 rounded ${
+          active
+            ? "bg-slate-100 text-slate-700"
+            : "bg-slate-100 text-slate-400"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
 
 function StatusCard({
   label,
