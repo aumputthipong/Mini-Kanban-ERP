@@ -32,6 +32,7 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 			Title:          t.Title,
 			BoardID:        t.BoardID,
 			BoardName:      t.BoardName,
+			ColumnName:     t.ColumnName,
 			Priority:       t.Priority,
 			DueDate:        due,
 			EstimatedHours: t.EstimatedHours,

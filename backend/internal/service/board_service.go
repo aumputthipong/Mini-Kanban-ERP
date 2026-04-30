@@ -212,6 +212,7 @@ type MyTaskData struct {
 	Title          string
 	BoardID        string
 	BoardName      string
+	ColumnName     string
 	Priority       *string
 	DueDate        *time.Time
 	EstimatedHours *float64
@@ -231,6 +232,7 @@ func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskD
 			Title:          r.Title,
 			BoardID:        r.BoardID,
 			BoardName:      r.BoardName,
+			ColumnName:     r.ColumnName,
 			Priority:       r.Priority,
 			DueDate:        r.DueDate,
 			EstimatedHours: util.PgNumericToFloat64Ptr(r.EstimatedHours),
