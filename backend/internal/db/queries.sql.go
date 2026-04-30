@@ -886,6 +886,7 @@ SELECT
     c.is_done,
     col.board_id,
     b.title AS board_name,
+    col.title AS column_name,
     CASE
         WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
         WHEN col.category = 'TODO' THEN 'in_progress'
@@ -913,6 +914,7 @@ type GetMyTasksRow struct {
 	IsDone         bool
 	BoardID        string
 	BoardName      string
+	ColumnName     string
 	Status         string
 }
 
@@ -938,6 +940,7 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 			&i.IsDone,
 			&i.BoardID,
 			&i.BoardName,
+			&i.ColumnName,
 			&i.Status,
 		); err != nil {
 			return nil, err

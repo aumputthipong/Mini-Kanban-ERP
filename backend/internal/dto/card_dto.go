@@ -34,6 +34,7 @@ type MyTaskResponse struct {
 	Title          string   `json:"title"`
 	BoardID        string   `json:"board_id"`
 	BoardName      string   `json:"board_name"`
+	ColumnName     string   `json:"column_name"`
 	Priority       *string  `json:"priority"`
 	DueDate        *string  `json:"due_date"`
 	EstimatedHours *float64 `json:"estimated_hours"`
