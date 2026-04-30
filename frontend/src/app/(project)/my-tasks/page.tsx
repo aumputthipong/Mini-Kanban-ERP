@@ -12,12 +12,14 @@ import { apiClient } from "@/lib/apiClient";
 import { TaskGroup } from "@/components/my-tasks/TaskGroup";
 import { ProjectGroup } from "@/components/my-tasks/ProjectGroup";
 import { TaskRow, type MyTask, type MyTaskStatus } from "@/components/my-tasks/TaskRow";
+import { dateKey, formatDayLabel } from "@/utils/date_helper";
 
 interface RawMyTask {
   id: string;
   title: string;
   board_id: string;
   board_name: string;
+  column_name: string;
   priority: "low" | "medium" | "high" | null;
   due_date: string | null;
   estimated_hours: number | null;
@@ -25,7 +27,7 @@ interface RawMyTask {
 }
 
 type ViewMode = "date" | "project";
-type DateTab = "soon" | "overdue";
+type DateTab = "soon" | "overdue" | "none";
 
 const SOON_WINDOW_DAYS = 7;
 
@@ -131,6 +133,28 @@ export default function MyTasksPage() {
     return { todo, inProgress };
   }, [tasks]);
 
+  // 8 calendar days for Due soon sub-grouping (today + 7 days ahead).
+  const soonDays = useMemo(() => {
+    const days: Date[] = [];
+    for (let i = 0; i <= SOON_WINDOW_DAYS; i++) {
+      const d = new Date(TODAY);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, []);
+
+  const soonByDay = useMemo(() => {
+    const map = new Map<string, MyTask[]>();
+    for (const t of buckets.soon) {
+      if (!t.due_date) continue;
+      const list = map.get(t.due_date);
+      if (list) list.push(t);
+      else map.set(t.due_date, [t]);
+    }
+    return map;
+  }, [buckets.soon]);
+
   const projectGroups = useMemo(() => {
     const byBoard = new Map<string, { name: string; tasks: MyTask[] }>();
     for (const t of tasks) {
@@ -162,7 +186,8 @@ export default function MyTasksPage() {
   const showWidgets = !isLoading && !error && total > 0;
 
   return (
-    <main className="h-full overflow-y-auto p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="h-full overflow-y-auto">
+    <main className="p-6 md:p-8 max-w-5xl mx-auto">
       {/* Title row — toggle on right */}
       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
         <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
@@ -232,7 +257,7 @@ export default function MyTasksPage() {
 
       {/* Date meta — single subtle line under summary */}
       {showWidgets && (
-        <div className="flex items-center gap-3 mb-4 text-xs flex-wrap text-slate-500">
+        <div className="flex items-center gap-3 pb-4 mb-5 border-b border-slate-200 text-xs flex-wrap text-slate-500">
           {buckets.overdue.length > 0 && (
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
@@ -286,8 +311,8 @@ export default function MyTasksPage() {
           </p>
         </div>
       ) : view === "date" ? (
-        <div>
-          {/* Tabs: Due soon vs Overdue */}
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 md:p-5">
+          {/* Tabs: Due soon · Overdue · No date */}
           <div className="flex items-center gap-1 mb-3 border-b border-slate-200">
             <DateTabButton
               active={dateTab === "soon"}
@@ -303,19 +328,87 @@ export default function MyTasksPage() {
               count={buckets.overdue.length}
               activeColor="text-rose-600 border-rose-500"
             />
+            <DateTabButton
+              active={dateTab === "none"}
+              onClick={() => setDateTab("none")}
+              label="No date"
+              count={buckets.noDueDate.length}
+              activeColor="text-slate-700 border-slate-500"
+            />
             <span className="ml-auto text-[11px] text-slate-400">
               Due soon = within {SOON_WINDOW_DAYS} days
             </span>
           </div>
 
-          {dateTab === "soon" ? (
+          {dateTab === "soon" && (
             buckets.soon.length === 0 ? (
+              <>
+                <div className="text-sm text-slate-400 py-6 px-1 mb-5">
+                  ไม่มีงานใกล้กำหนดในช่วง {SOON_WINDOW_DAYS} วันข้างหน้า
+                </div>
+                <TaskGroup
+                  title={`Later (>${SOON_WINDOW_DAYS} days)`}
+                  tasks={buckets.later}
+                  headerColor="text-slate-700"
+                  onCompleteTask={handleCompleteTask}
+                />
+              </>
+            ) : (
+              <>
+                <div className="mb-5">
+                  {soonDays
+                    .map((d) => ({
+                      date: d,
+                      key: dateKey(d),
+                      list: soonByDay.get(dateKey(d)) ?? [],
+                    }))
+                    .filter((g) => g.list.length > 0)
+                    .map((g) => {
+                      const label = formatDayLabel(g.date, TODAY);
+                      return (
+                        <div key={g.key} className="mb-3 last:mb-0">
+                          <div className="flex items-center gap-2 mb-1 px-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                              {label}
+                            </span>
+                            <span className="text-[11px] font-semibold tabular-nums text-slate-500">
+                              {g.list.length}
+                            </span>
+                          </div>
+                          <div className="border-t border-slate-100">
+                            {g.list.map((task) => (
+                              <TaskRow
+                                key={task.id}
+                                task={task}
+                                onComplete={handleCompleteTask}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  <div className="text-[11px] text-slate-400 italic px-1 mt-3 pt-3 border-t border-slate-100">
+                    ✓ Nothing else due in the next {SOON_WINDOW_DAYS} days
+                  </div>
+                </div>
+                <TaskGroup
+                  title={`Later (>${SOON_WINDOW_DAYS} days)`}
+                  tasks={buckets.later}
+                  headerColor="text-slate-700"
+                  onCompleteTask={handleCompleteTask}
+                />
+              </>
+            )
+          )}
+
+          {dateTab === "overdue" && (
+            buckets.overdue.length === 0 ? (
               <div className="text-sm text-slate-400 py-6 px-1">
-                ไม่มีงานใกล้กำหนดในช่วง {SOON_WINDOW_DAYS} วันข้างหน้า
+                ไม่มีงานเลยกำหนด — ดีมาก 👍
               </div>
             ) : (
-              <div className="border-t border-slate-200 mb-5">
-                {buckets.soon.map((task) => (
+              <div className="border-t border-slate-100 mb-5">
+                {buckets.overdue.map((task) => (
                   <TaskRow
                     key={task.id}
                     task={task}
@@ -324,35 +417,25 @@ export default function MyTasksPage() {
                 ))}
               </div>
             )
-          ) : buckets.overdue.length === 0 ? (
-            <div className="text-sm text-slate-400 py-6 px-1">
-              ไม่มีงานเลยกำหนด — ดีมาก 👍
-            </div>
-          ) : (
-            <div className="border-t border-slate-200 mb-5">
-              {buckets.overdue.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  onComplete={handleCompleteTask}
-                />
-              ))}
-            </div>
           )}
 
-          {/* Always-visible secondary sections */}
-          <TaskGroup
-            title={`Later (>${SOON_WINDOW_DAYS} days)`}
-            tasks={buckets.later}
-            headerColor="text-slate-700"
-            onCompleteTask={handleCompleteTask}
-          />
-          <TaskGroup
-            title="No due date"
-            tasks={buckets.noDueDate}
-            headerColor="text-slate-500"
-            onCompleteTask={handleCompleteTask}
-          />
+          {dateTab === "none" && (
+            buckets.noDueDate.length === 0 ? (
+              <div className="text-sm text-slate-400 py-6 px-1">
+                ไม่มีงานที่ไม่มีกำหนด — งานทุกชิ้นมี due date
+              </div>
+            ) : (
+              <div className="border-t border-slate-100 mb-5">
+                {buckets.noDueDate.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onComplete={handleCompleteTask}
+                  />
+                ))}
+              </div>
+            )
+          )}
         </div>
       ) : (
         <div>
@@ -362,12 +445,15 @@ export default function MyTasksPage() {
               boardId={g.boardId}
               boardName={g.boardName}
               tasks={g.tasks}
+              overdueCount={g.overdueCount}
+              soonCount={g.soonCount}
               onCompleteTask={handleCompleteTask}
             />
           ))}
         </div>
       )}
     </main>
+    </div>
   );
 }
 
@@ -375,22 +461,22 @@ export default function MyTasksPage() {
 
 const TONE_STYLES = {
   slate: {
-    bg: "bg-white border-slate-200",
-    icon: "bg-slate-100 text-slate-600",
+    bg: "bg-slate-50",
+    icon: "bg-white text-slate-600 ring-1 ring-slate-200",
     label: "text-slate-500",
     value: "text-slate-800",
   },
   blue: {
-    bg: "bg-white border-slate-200",
-    icon: "bg-blue-50 text-blue-600",
-    label: "text-slate-500",
-    value: "text-slate-800",
+    bg: "bg-blue-50/60",
+    icon: "bg-white text-blue-600 ring-1 ring-blue-200",
+    label: "text-blue-700/70",
+    value: "text-blue-900",
   },
   amber: {
-    bg: "bg-white border-slate-200",
-    icon: "bg-amber-50 text-amber-600",
-    label: "text-slate-500",
-    value: "text-slate-800",
+    bg: "bg-amber-50/60",
+    icon: "bg-white text-amber-600 ring-1 ring-amber-200",
+    label: "text-amber-700/70",
+    value: "text-amber-900",
   },
 } as const;
 
@@ -444,7 +530,7 @@ function StatusCard({
 }) {
   const t = TONE_STYLES[tone];
   return (
-    <div className={`${t.bg} border rounded-lg px-3 py-2 flex items-center gap-2.5`}>
+    <div className={`${t.bg} rounded-lg px-3 py-2 flex items-center gap-2.5`}>
       <div
         className={`w-7 h-7 rounded-md ${t.icon} flex items-center justify-center shrink-0`}
       >

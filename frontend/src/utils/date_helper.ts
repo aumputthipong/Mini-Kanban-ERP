@@ -38,6 +38,30 @@ export const getDaysRemainingText = (dueDateStr: string) => {
   return `In ${diffDays} days`;
 };
 
+// YYYY-MM-DD key in local time — safe for grouping by calendar day.
+export const dateKey = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+// "Today" / "Tomorrow" / "Wed, Apr 30" — for sub-group headers.
+export const formatDayLabel = (date: Date, today: Date): string => {
+  const t = new Date(today);
+  t.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - t.getTime()) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+};
+
 // Compact relative label suitable for dense list rows (My Tasks).
 // Falls back to formatThaiDate if more than 7 days out.
 export const formatRelativeDueDate = (dueDateStr: string): string => {

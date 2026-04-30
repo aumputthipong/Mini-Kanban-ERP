@@ -32,6 +32,7 @@ SELECT
     c.is_done,
     col.board_id,
     b.title AS board_name,
+    col.title AS column_name,
     CASE
         WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
         WHEN col.category = 'TODO' THEN 'in_progress'
