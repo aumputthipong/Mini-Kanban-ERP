@@ -205,6 +205,8 @@ func (s *BoardService) GetBoardIDByCard(ctx context.Context, cardID string) (str
 }
 
 // MyTaskData mirrors the row shape returned to the frontend's My Tasks page.
+// Status is derived in SQL: "todo" for the first TODO column, "in_progress"
+// otherwise.
 type MyTaskData struct {
 	ID             string
 	Title          string
@@ -214,6 +216,7 @@ type MyTaskData struct {
 	DueDate        *time.Time
 	EstimatedHours *float64
 	IsDone         bool
+	Status         string
 }
 
 func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error) {
@@ -232,6 +235,7 @@ func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskD
 			DueDate:        r.DueDate,
 			EstimatedHours: util.PgNumericToFloat64Ptr(r.EstimatedHours),
 			IsDone:         r.IsDone,
+			Status:         r.Status,
 		})
 	}
 	return out, nil
