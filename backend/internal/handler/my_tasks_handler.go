@@ -35,6 +35,7 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 			Priority:       t.Priority,
 			DueDate:        due,
 			EstimatedHours: t.EstimatedHours,
+			Status:         t.Status,
 		})
 	}
 

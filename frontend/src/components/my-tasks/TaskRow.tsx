@@ -1,8 +1,12 @@
 "use client";
 
-import { Clock, Calendar } from "lucide-react";
+import Link from "next/link";
+import { Calendar, ChevronRight, Clock } from "lucide-react";
+import { PriorityBadge } from "@/components/board/task-board/PriorityBadge";
+import { formatRelativeDueDate, formatThaiDate } from "@/utils/date_helper";
 
-// 1. กำหนดและ Export Interface ให้ไฟล์อื่นเรียกใช้ได้
+export type MyTaskStatus = "todo" | "in_progress" | "done";
+
 export interface MyTask {
   id: string;
   title: string;
@@ -11,67 +15,73 @@ export interface MyTask {
   priority: "low" | "medium" | "high" | null;
   due_date: string | null;
   estimated_hours: number | null;
-  status: "todo" | "in_progress" | "done";
+  status: MyTaskStatus;
 }
 
 interface TaskRowProps {
   task: MyTask;
   onComplete: (taskId: string, boardId: string) => void;
+  showBoardName?: boolean;
 }
 
-export function TaskRow({ task, onComplete }: TaskRowProps) {
-  // ฟังก์ชันช่วยกำหนดสีตาม Priority
-  const getPriorityColor = (priority: MyTask["priority"]) => {
-    switch (priority) {
-      case "high":
-        return "text-red-600 bg-red-50 border-red-200";
-      case "medium":
-        return "text-amber-600 bg-amber-50 border-amber-200";
-      case "low":
-        return "text-emerald-600 bg-emerald-50 border-emerald-200";
-      default:
-        return "text-slate-500 bg-slate-50 border-slate-200";
-    }
+function dueDateTone(dueDateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr);
+  due.setHours(0, 0, 0, 0);
+  const diff = due.getTime() - today.getTime();
+  if (diff < 0) return "text-rose-600 font-semibold";
+  if (diff === 0) return "text-amber-600 font-semibold";
+  return "text-slate-500";
+}
+
+export function TaskRow({ task, onComplete, showBoardName = true }: TaskRowProps) {
+  const handleComplete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onComplete(task.id, task.board_id);
   };
 
   return (
-    <div className="group flex items-center gap-4 py-3 px-4 hover:bg-slate-50 border-b border-slate-100 transition-colors bg-white last:border-b-0">
-      
-      {/* Checkbox */}
+    <Link
+      href={`/board/${task.board_id}`}
+      className="group relative flex items-center gap-3 py-2 px-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+    >
+      {/* Checkbox — completes; stops navigation */}
       <button
-        onClick={() => onComplete(task.id, task.board_id)}
+        type="button"
+        onClick={handleComplete}
         className="w-5 h-5 shrink-0 rounded border border-slate-300 flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-colors"
         aria-label="Mark as complete"
       >
-        <div className="w-2.5 h-2.5 rounded-sm bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity" />
+        <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity" />
       </button>
 
-      {/* ข้อมูลหลัก (ชื่อ Task และ ชื่อ Board) */}
+      {/* Title + board chip */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-800 truncate">
             {task.title}
           </span>
-          <span className="px-2 py-0.5 text-[10px] font-semibold text-slate-500 bg-slate-100 rounded-md whitespace-nowrap">
-            {task.board_name}
-          </span>
+          {showBoardName && (
+            <span className="px-2 py-0.5 text-[10px] font-semibold text-slate-500 bg-slate-100 rounded-md whitespace-nowrap">
+              {task.board_name}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ข้อมูลเสริม (Tags ด้านขวา) */}
+      {/* Right meta */}
       <div className="flex items-center gap-3 shrink-0">
-        {task.priority && (
-          <span
-            className={`px-2 py-1 text-[10px] font-bold uppercase rounded border ${getPriorityColor(task.priority)}`}
-          >
-            {task.priority}
-          </span>
-        )}
+        {task.priority && <PriorityBadge priority={task.priority} />}
 
         {task.due_date && (
-          <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
+          <div
+            className={`flex items-center gap-1 text-xs ${dueDateTone(task.due_date)}`}
+            title={formatThaiDate(task.due_date)}
+          >
             <Calendar size={12} />
-            <span>{task.due_date}</span>
+            <span>{formatRelativeDueDate(task.due_date)}</span>
           </div>
         )}
 
@@ -81,8 +91,12 @@ export function TaskRow({ task, onComplete }: TaskRowProps) {
             <span>{task.estimated_hours}h</span>
           </div>
         )}
-      </div>
 
-    </div>
+        <ChevronRight
+          size={14}
+          className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
+        />
+      </div>
+    </Link>
   );
 }
