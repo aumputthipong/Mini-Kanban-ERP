@@ -5,6 +5,8 @@ import { Calendar, ChevronRight, Clock } from "lucide-react";
 import { PriorityBadge } from "@/components/board/task-board/PriorityBadge";
 import { formatRelativeDueDate, formatThaiDate } from "@/utils/date_helper";
 
+export type MyTaskStatus = "todo" | "in_progress" | "done";
+
 export interface MyTask {
   id: string;
   title: string;
@@ -13,7 +15,7 @@ export interface MyTask {
   priority: "low" | "medium" | "high" | null;
   due_date: string | null;
   estimated_hours: number | null;
-  status: "todo" | "in_progress" | "done";
+  status: MyTaskStatus;
 }
 
 interface TaskRowProps {
@@ -43,7 +45,7 @@ export function TaskRow({ task, onComplete, showBoardName = true }: TaskRowProps
   return (
     <Link
       href={`/board/${task.board_id}`}
-      className="group relative flex items-center gap-4 py-3 px-4 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors bg-white"
+      className="group relative flex items-center gap-3 py-2 px-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
     >
       {/* Checkbox — completes; stops navigation */}
       <button

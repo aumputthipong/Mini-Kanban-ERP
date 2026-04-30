@@ -871,6 +871,12 @@ func (q *Queries) GetMembersForActiveBoards(ctx context.Context, userID string) 
 }
 
 const getMyTasks = `-- name: GetMyTasks :many
+WITH first_todo AS (
+    SELECT board_id, MIN(position) AS first_pos
+    FROM columns
+    WHERE category = 'TODO'
+    GROUP BY board_id
+)
 SELECT
     c.id,
     c.title,
@@ -879,10 +885,16 @@ SELECT
     c.estimated_hours,
     c.is_done,
     col.board_id,
-    b.title AS board_name
+    b.title AS board_name,
+    CASE
+        WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
+        WHEN col.category = 'TODO' THEN 'in_progress'
+        ELSE 'todo'
+    END::text AS status
 FROM cards c
 JOIN columns col ON col.id = c.column_id
 JOIN boards  b   ON b.id  = col.board_id
+LEFT JOIN first_todo ft ON ft.board_id = col.board_id
 WHERE c.assignee_id = $1
   AND c.is_done = FALSE
   AND b.deleted_at IS NULL
@@ -901,10 +913,13 @@ type GetMyTasksRow struct {
 	IsDone         bool
 	BoardID        string
 	BoardName      string
+	Status         string
 }
 
 // Cards assigned to the user, not yet done, on boards that aren't trashed.
-// Sorted: tasks with due_date first (oldest first), then no-due-date by created_at desc.
+// Returns a derived `status`: cards in the first TODO column of their board
+// are "todo"; cards in any later TODO column are "in_progress". DONE-category
+// cards don't appear here because is_done is filtered out.
 func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTasksRow, error) {
 	rows, err := q.db.Query(ctx, getMyTasks, assigneeID)
 	if err != nil {
@@ -923,6 +938,7 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 			&i.IsDone,
 			&i.BoardID,
 			&i.BoardName,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}

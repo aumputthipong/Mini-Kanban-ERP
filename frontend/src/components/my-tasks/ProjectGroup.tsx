@@ -21,31 +21,31 @@ export function ProjectGroup({
   if (tasks.length === 0) return null;
 
   return (
-    <section className="mb-6">
-      <div className="flex items-center justify-between mb-3 px-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+    <section className="mb-5">
+      <div className="flex items-center justify-between mb-1 px-1">
+        <div className="flex items-center gap-2 min-w-0">
           <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${getAvatarColor(boardId)}`}
+            className={`w-2 h-2 rounded-full shrink-0 ${getAvatarColor(boardId)}`}
             aria-hidden
           />
-          <h3 className="text-sm font-bold text-slate-800 truncate">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 truncate">
             {boardName}
           </h3>
-          <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-500 rounded-full shrink-0">
+          <span className="text-[11px] font-semibold text-slate-400">
             {tasks.length}
           </span>
         </div>
 
         <Link
           href={`/board/${boardId}`}
-          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors shrink-0"
+          className="flex items-center gap-0.5 text-[11px] font-medium text-blue-600 hover:text-blue-700 transition-colors shrink-0"
         >
-          Open board
-          <ArrowUpRight size={12} />
+          Open
+          <ArrowUpRight size={11} />
         </Link>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="border-t border-slate-200">
         {tasks.map((task) => (
           <TaskRow
             key={task.id}
