@@ -37,6 +37,7 @@ type MyTaskResponse struct {
 	Priority       *string  `json:"priority"`
 	DueDate        *string  `json:"due_date"`
 	EstimatedHours *float64 `json:"estimated_hours"`
+	Status         string   `json:"status"`
 }
 
 type CreateCardRequest struct {

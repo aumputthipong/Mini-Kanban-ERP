@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckSquare, Calendar, FolderKanban } from "lucide-react";
+import {
+  CheckSquare,
+  Calendar,
+  FolderKanban,
+  Circle,
+  Loader2,
+} from "lucide-react";
 import { apiClient } from "@/lib/apiClient";
 import { TaskGroup } from "@/components/my-tasks/TaskGroup";
 import { ProjectGroup } from "@/components/my-tasks/ProjectGroup";
-
-export interface MyTask {
-  id: string;
-  title: string;
-  board_id: string;
-  board_name: string;
-  priority: "low" | "medium" | "high" | null;
-  due_date: string | null;
-  estimated_hours: number | null;
-  status: "todo" | "in_progress" | "done";
-}
+import type { MyTask, MyTaskStatus } from "@/components/my-tasks/TaskRow";
 
 interface RawMyTask {
   id: string;
@@ -25,6 +21,7 @@ interface RawMyTask {
   priority: "low" | "medium" | "high" | null;
   due_date: string | null;
   estimated_hours: number | null;
+  status: MyTaskStatus;
 }
 
 type ViewMode = "date" | "project";
@@ -65,7 +62,7 @@ export default function MyTasksPage() {
       try {
         const rows = await apiClient<RawMyTask[]>("/my-tasks");
         if (cancelled) return;
-        setTasks((rows ?? []).map((r) => ({ ...r, status: "todo" as const })));
+        setTasks(rows ?? []);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load tasks");
@@ -114,7 +111,16 @@ export default function MyTasksPage() {
     return { overdue, dueToday, upcoming, noDueDate };
   }, [tasks]);
 
-  // By-project grouping: tasks per board, sorted with overdue boards first.
+  const statusCounts = useMemo(() => {
+    let todo = 0;
+    let inProgress = 0;
+    for (const t of tasks) {
+      if (t.status === "in_progress") inProgress += 1;
+      else todo += 1;
+    }
+    return { todo, inProgress };
+  }, [tasks]);
+
   const projectGroups = useMemo(() => {
     const byBoard = new Map<string, { name: string; tasks: MyTask[] }>();
     for (const t of tasks) {
@@ -142,72 +148,117 @@ export default function MyTasksPage() {
     return groups;
   }, [tasks]);
 
+  const total = tasks.length;
+  const showWidgets = !isLoading && !error && total > 0;
+
   return (
-    <main className="h-full overflow-y-auto p-8 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6 border-b border-slate-200 pb-6">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-          <CheckSquare size={20} />
+    <main className="h-full overflow-y-auto p-6 md:p-8 max-w-5xl mx-auto">
+      {/* Title row — toggle on right */}
+      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
+        <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+          <CheckSquare size={18} />
         </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-800">My Tasks</h1>
-          <p className="text-sm text-slate-500 mt-1">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-slate-800 leading-tight">
+            My Tasks
+          </h1>
+          <p className="text-xs text-slate-500">
             งานทั้งหมดที่คุณรับผิดชอบจากทุกโปรเจกต์
           </p>
         </div>
-      </div>
-
-      {/* Stats + view toggle */}
-      {!isLoading && !error && tasks.length > 0 && (
-        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-          <div className="flex items-center gap-2 text-xs">
-            {buckets.overdue.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold border border-rose-200">
-                {buckets.overdue.length} overdue
-              </span>
-            )}
-            {buckets.dueToday.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold border border-amber-200">
-                {buckets.dueToday.length} today
-              </span>
-            )}
-            {buckets.upcoming.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 font-semibold border border-slate-200">
-                {buckets.upcoming.length} upcoming
-              </span>
-            )}
-            {buckets.noDueDate.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 font-medium border border-slate-200">
-                {buckets.noDueDate.length} no date
-              </span>
-            )}
-          </div>
-
-          <div className="inline-flex bg-slate-100 rounded-full p-0.5">
+        {showWidgets && (
+          <div className="inline-flex bg-slate-50 rounded-md border border-slate-200 p-0.5 text-[11px] shrink-0">
             <button
               type="button"
               onClick={() => setView("date")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+              className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
                 view === "date"
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white text-slate-700 shadow-sm font-semibold"
+                  : "text-slate-400 hover:text-slate-600"
               }`}
             >
-              <Calendar size={12} />
+              <Calendar size={11} />
               By date
             </button>
             <button
               type="button"
               onClick={() => setView("project")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+              className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
                 view === "project"
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white text-slate-700 shadow-sm font-semibold"
+                  : "text-slate-400 hover:text-slate-600"
               }`}
             >
-              <FolderKanban size={12} />
+              <FolderKanban size={11} />
               By project
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Compact horizontal summary cards */}
+      {showWidgets && (
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <StatusCard
+            label="Total"
+            value={total}
+            icon={<CheckSquare size={13} />}
+            tone="slate"
+          />
+          <StatusCard
+            label="To Do"
+            value={statusCounts.todo}
+            icon={<Circle size={13} />}
+            tone="blue"
+          />
+          <StatusCard
+            label="In Progress"
+            value={statusCounts.inProgress}
+            icon={<Loader2 size={13} />}
+            tone="amber"
+          />
+        </div>
+      )}
+
+      {/* Date meta — single subtle line under summary */}
+      {showWidgets && (
+        <div className="flex items-center gap-3 mb-4 text-xs flex-wrap text-slate-500">
+          {buckets.overdue.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              <span className="font-semibold text-rose-600">
+                {buckets.overdue.length}
+              </span>
+              <span>overdue</span>
+            </span>
+          )}
+          {buckets.dueToday.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="font-semibold text-amber-600">
+                {buckets.dueToday.length}
+              </span>
+              <span>today</span>
+            </span>
+          )}
+          {buckets.upcoming.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              <span className="font-semibold text-slate-700">
+                {buckets.upcoming.length}
+              </span>
+              <span>upcoming</span>
+            </span>
+          )}
+          {buckets.noDueDate.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+              <span className="font-medium text-slate-500">
+                {buckets.noDueDate.length}
+              </span>
+              <span>no date</span>
+            </span>
+          )}
         </div>
       )}
 
@@ -215,7 +266,7 @@ export default function MyTasksPage() {
         <p className="text-sm text-slate-400">Loading…</p>
       ) : error ? (
         <p className="text-sm text-rose-500">{error}</p>
-      ) : tasks.length === 0 ? (
+      ) : total === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl">
           <p className="text-sm text-slate-500 font-medium">
             ไม่มีงานค้างอยู่ — ยินดีด้วย 🎉
@@ -225,15 +276,15 @@ export default function MyTasksPage() {
           </p>
         </div>
       ) : view === "date" ? (
-        <div className="space-y-6">
+        <div>
           <TaskGroup
-            title="Overdue (เลยกำหนด)"
+            title="Overdue"
             tasks={buckets.overdue}
             headerColor="text-rose-600"
             onCompleteTask={handleCompleteTask}
           />
           <TaskGroup
-            title="Due Today (กำหนดส่งวันนี้)"
+            title="Due today"
             tasks={buckets.dueToday}
             headerColor="text-amber-600"
             onCompleteTask={handleCompleteTask}
@@ -265,5 +316,57 @@ export default function MyTasksPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// ─── StatusCard ───────────────────────────────────────────────────────────────
+
+const TONE_STYLES = {
+  slate: {
+    bg: "bg-white border-slate-200",
+    icon: "bg-slate-100 text-slate-600",
+    label: "text-slate-500",
+    value: "text-slate-800",
+  },
+  blue: {
+    bg: "bg-white border-slate-200",
+    icon: "bg-blue-50 text-blue-600",
+    label: "text-slate-500",
+    value: "text-slate-800",
+  },
+  amber: {
+    bg: "bg-white border-slate-200",
+    icon: "bg-amber-50 text-amber-600",
+    label: "text-slate-500",
+    value: "text-slate-800",
+  },
+} as const;
+
+function StatusCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  tone: keyof typeof TONE_STYLES;
+}) {
+  const t = TONE_STYLES[tone];
+  return (
+    <div className={`${t.bg} border rounded-lg px-3 py-2 flex items-center gap-2.5`}>
+      <div
+        className={`w-7 h-7 rounded-md ${t.icon} flex items-center justify-center shrink-0`}
+      >
+        {icon}
+      </div>
+      <span className={`text-xl font-bold tabular-nums leading-none ${t.value}`}>
+        {value}
+      </span>
+      <span className={`flex-1 min-w-0 text-[11px] font-semibold uppercase tracking-wider truncate text-right ${t.label}`}>
+        {label}
+      </span>
+    </div>
   );
 }
