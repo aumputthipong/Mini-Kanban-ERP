@@ -311,9 +311,9 @@ export default function MyTasksPage() {
           </p>
         </div>
       ) : view === "date" ? (
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 md:p-5">
+        <div>
           {/* Tabs: Due soon · Overdue · No date */}
-          <div className="flex items-center gap-1 mb-3 border-b border-slate-200">
+          <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
             <DateTabButton
               active={dateTab === "soon"}
               onClick={() => setDateTab("soon")}
@@ -349,52 +349,35 @@ export default function MyTasksPage() {
                 <TaskGroup
                   title={`Later (>${SOON_WINDOW_DAYS} days)`}
                   tasks={buckets.later}
-                  headerColor="text-slate-700"
+                  dotColor="bg-slate-400"
                   onCompleteTask={handleCompleteTask}
                 />
               </>
             ) : (
               <>
-                <div className="mb-5">
-                  {soonDays
-                    .map((d) => ({
-                      date: d,
-                      key: dateKey(d),
-                      list: soonByDay.get(dateKey(d)) ?? [],
-                    }))
-                    .filter((g) => g.list.length > 0)
-                    .map((g) => {
-                      const label = formatDayLabel(g.date, TODAY);
-                      return (
-                        <div key={g.key} className="mb-3 last:mb-0">
-                          <div className="flex items-center gap-2 mb-1 px-1">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                              {label}
-                            </span>
-                            <span className="text-[11px] font-semibold tabular-nums text-slate-500">
-                              {g.list.length}
-                            </span>
-                          </div>
-                          <div className="border-t border-slate-100">
-                            {g.list.map((task) => (
-                              <TaskRow
-                                key={task.id}
-                                task={task}
-                                onComplete={handleCompleteTask}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  <div className="text-[11px] text-slate-400 italic px-1 mt-3 pt-3 border-t border-slate-100">
-                    ✓ Nothing else due in the next {SOON_WINDOW_DAYS} days
-                  </div>
+                {soonDays
+                  .map((d) => ({
+                    date: d,
+                    key: dateKey(d),
+                    list: soonByDay.get(dateKey(d)) ?? [],
+                  }))
+                  .filter((g) => g.list.length > 0)
+                  .map((g) => (
+                    <TaskGroup
+                      key={g.key}
+                      title={formatDayLabel(g.date, TODAY)}
+                      tasks={g.list}
+                      dotColor="bg-amber-500"
+                      onCompleteTask={handleCompleteTask}
+                    />
+                  ))}
+                <div className="text-[11px] text-slate-400 italic px-1 mb-5 mt-1">
+                  ✓ Nothing else due in the next {SOON_WINDOW_DAYS} days
                 </div>
                 <TaskGroup
                   title={`Later (>${SOON_WINDOW_DAYS} days)`}
                   tasks={buckets.later}
-                  headerColor="text-slate-700"
+                  dotColor="bg-slate-400"
                   onCompleteTask={handleCompleteTask}
                 />
               </>
@@ -407,15 +390,12 @@ export default function MyTasksPage() {
                 ไม่มีงานเลยกำหนด — ดีมาก 👍
               </div>
             ) : (
-              <div className="border-t border-slate-100 mb-5">
-                {buckets.overdue.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onComplete={handleCompleteTask}
-                  />
-                ))}
-              </div>
+              <TaskGroup
+                title="Overdue"
+                tasks={buckets.overdue}
+                dotColor="bg-rose-500"
+                onCompleteTask={handleCompleteTask}
+              />
             )
           )}
 
@@ -425,15 +405,12 @@ export default function MyTasksPage() {
                 ไม่มีงานที่ไม่มีกำหนด — งานทุกชิ้นมี due date
               </div>
             ) : (
-              <div className="border-t border-slate-100 mb-5">
-                {buckets.noDueDate.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onComplete={handleCompleteTask}
-                  />
-                ))}
-              </div>
+              <TaskGroup
+                title="No due date"
+                tasks={buckets.noDueDate}
+                dotColor="bg-slate-400"
+                onCompleteTask={handleCompleteTask}
+              />
             )
           )}
         </div>

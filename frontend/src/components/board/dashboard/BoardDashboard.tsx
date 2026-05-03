@@ -97,16 +97,11 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
   const allCards = columns.flatMap((c) => c.cards);
   const doneCount = allCards.filter((c) => c.is_done).length;
 
-  const urgentForUser = [
-    ...stats.overdueCards.filter((c) => c.assignee_id === currentUserId),
-    ...stats.dueSoonCards.filter((c) => c.assignee_id === currentUserId),
-  ].slice(0, 3);
-  const focusTasks =
-    urgentForUser.length > 0
-      ? urgentForUser
-      : [...stats.overdueCards, ...stats.dueSoonCards].slice(0, 3);
-
-  const urgentCount = stats.overdueCards.length + stats.dueSoonCards.length;
+  const urgentCount =
+    stats.overdueCards.length +
+    stats.todayCards.length +
+    stats.tomorrowCards.length +
+    stats.thisWeekCards.length;
 
   return (
     <>
@@ -171,9 +166,10 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
         {activeTab === "Tasks" && (
           <TasksTabContent
             boardId={boardId}
-            focusTasks={focusTasks}
             overdueCards={stats.overdueCards}
-            dueSoonCards={stats.dueSoonCards}
+            todayCards={stats.todayCards}
+            tomorrowCards={stats.tomorrowCards}
+            thisWeekCards={stats.thisWeekCards}
             onSelectCard={setSelectedCard}
           />
         )}
