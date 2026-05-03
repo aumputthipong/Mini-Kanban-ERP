@@ -22,6 +22,9 @@ export function useDashboardStats() {
         totalHours: 0,
         overdueCards: [],
         dueSoonCards: [],
+        todayCards: [],
+        tomorrowCards: [],
+        thisWeekCards: [],
         insights: ["No tasks in this project yet. Create a task to see insights."],
         workload: [],
         columnStats: columns.map((col) => ({ id: col.id, title: col.title, category: col.category, count: 0 })),
@@ -31,8 +34,11 @@ export function useDashboardStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const threeDaysFromNow = new Date(today);
-    threeDaysFromNow.setDate(today.getDate() + 3);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7);
 
     // สมมติว่าคอลัมน์สุดท้ายคือ Done
     const doneColumnId = columns.length > 0 ? columns[columns.length - 1].id : null;
@@ -40,6 +46,9 @@ export function useDashboardStats() {
     let doneCount = 0;
     let totalHours = 0;
     const overdueCards: ExtendedCard[] = [];
+    const todayCards: ExtendedCard[] = [];
+    const tomorrowCards: ExtendedCard[] = [];
+    const thisWeekCards: ExtendedCard[] = [];
     const dueSoonCards: ExtendedCard[] = [];
     let staleCount = 0;
 
@@ -98,7 +107,14 @@ export function useDashboardStats() {
 
         if (dueDate < today) {
           overdueCards.push(card);
-        } else if (dueDate <= threeDaysFromNow) {
+        } else if (dueDate.getTime() === today.getTime()) {
+          todayCards.push(card);
+          dueSoonCards.push(card);
+        } else if (dueDate.getTime() === tomorrow.getTime()) {
+          tomorrowCards.push(card);
+          dueSoonCards.push(card);
+        } else if (dueDate <= weekEnd) {
+          thisWeekCards.push(card);
           dueSoonCards.push(card);
         }
       }
@@ -158,6 +174,9 @@ export function useDashboardStats() {
       totalHours,
       overdueCards,
       dueSoonCards,
+      todayCards,
+      tomorrowCards,
+      thisWeekCards,
       insights,
       workload: Object.values(assigneeCount)
         .map((u) => ({
