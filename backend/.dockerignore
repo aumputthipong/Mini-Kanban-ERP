@@ -1,0 +1,36 @@
+# VCS
+.git
+.gitignore
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.example.env
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test data
+testdata/
+
+# Docs (not needed in container)
+*.md
+docs/
