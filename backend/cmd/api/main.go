@@ -9,24 +9,38 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/migrate"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
+// version is set at build time via -ldflags "-X main.version=..."; defaults to "dev" locally.
+var version = "dev"
+
+const (
+	shutdownTimeout = 30 * time.Second
+	dbPoolMaxConns  = 25
+	dbPoolMinConns  = 5
+	dbPoolMaxIdle   = 5 * time.Minute
+)
+
 type config struct {
-	DBUrl            string
-	Port             string
-	FrontendURL      string
-	GoogleClientID   string
+	DBUrl              string
+	Port               string
+	FrontendURL        string
+	GoogleClientID     string
 	GoogleClientSecret string
-	GoogleRedirect   string
-	Production       bool
+	GoogleRedirect     string
+	MigrationsPath     string
+	SkipMigrations     bool
+	Production         bool
 }
 
 func loadConfig() config {
@@ -38,6 +52,8 @@ func loadConfig() config {
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirect:     os.Getenv("GOOGLE_REDIRECT_URL"),
+		MigrationsPath:     os.Getenv("MIGRATIONS_PATH"),
+		SkipMigrations:     os.Getenv("SKIP_MIGRATIONS") == "true",
 	}
 	if cfg.DBUrl == "" {
 		log.Fatal("DB_URL is required but not set")
@@ -51,11 +67,22 @@ func loadConfig() config {
 	if cfg.FrontendURL == "" {
 		cfg.FrontendURL = "http://localhost:3000"
 	}
+	if cfg.MigrationsPath == "" {
+		cfg.MigrationsPath = "database/migrations"
+	}
 	return cfg
 }
 
 func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dbURL)
+	poolCfg, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse db config: %w", err)
+	}
+	poolCfg.MaxConns = dbPoolMaxConns
+	poolCfg.MinConns = dbPoolMinConns
+	poolCfg.MaxConnIdleTime = dbPoolMaxIdle
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
@@ -66,6 +93,15 @@ func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 }
 
 func run(ctx context.Context, cfg config) error {
+	if !cfg.SkipMigrations {
+		log.Println("Running database migrations...")
+		if err := migrate.Run(cfg.MigrationsPath, cfg.DBUrl); err != nil {
+			return fmt.Errorf("migrations failed: %w", err)
+		}
+	} else {
+		log.Println("Skipping migrations (SKIP_MIGRATIONS=true)")
+	}
+
 	pool, err := initDB(ctx, cfg.DBUrl)
 	if err != nil {
 		return fmt.Errorf("database init failed: %w", err)
@@ -83,7 +119,6 @@ func run(ctx context.Context, cfg config) error {
 	boardService := service.NewBoardService(pool, queries)
 	authService := service.NewAuthService(queries)
 	subtaskService := service.NewSubtaskService(pool)
-
 	tagService := service.NewTagService(pool, queries)
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
@@ -100,25 +135,48 @@ func run(ctx context.Context, cfg config) error {
 		cfg.Production,
 	)
 
-	router := setupRoutes(boardService, boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, activityHandler, hub)
+	startedAt := time.Now()
+	router := setupRoutes(routerDeps{
+		boardService:    boardService,
+		boardHandler:    boardHandler,
+		authHandler:     authHandler,
+		oauthHandler:    oauthHandler,
+		subtaskHandler:  subtaskHandler,
+		tagHandler:      tagHandler,
+		activityHandler: activityHandler,
+		hub:             hub,
+		pool:            pool,
+		version:         version,
+		startedAt:       startedAt,
+	})
+
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: middleware.CORS(cfg.FrontendURL, router),
+		Addr:              ":" + cfg.Port,
+		Handler:           middleware.CORS(cfg.FrontendURL, router),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		log.Printf("Server is running on port %s\n", cfg.Port)
+		log.Printf("Server listening on :%s (version=%s)", cfg.Port, version)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("ListenAndServe: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("Shutting down server...")
-	return server.Shutdown(context.Background())
+	log.Println("Shutdown signal received — draining...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("graceful shutdown failed: %w", err)
+	}
+	log.Println("Server stopped cleanly")
+	return nil
 }
 
 func main() {
