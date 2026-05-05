@@ -1,87 +1,177 @@
-# Project Management Kanban
+# Turtask — Mini ERP Kanban
 
-A Real-time Kanban Board application designed for efficient task and project management. This project demonstrates a complete Full-Stack architecture with a clear separation of concerns, utilizing RESTful APIs for initial data fetching and WebSockets for real-time state synchronization.
+A real-time team task & project management web app. Multi-board Kanban with role-based permissions, optimistic drag-and-drop, WebSocket sync, a cross-board **My Tasks** view, and a per-board analytics dashboard.
 
-## Architecture & Tech Stack
+> Status: actively developed, single-author portfolio project.
 
-**Frontend**
-* Framework: Next.js (App Router) / React
-* State Management: Zustand
-* Drag & Drop: @dnd-kit/core
-* Styling: Tailwind CSS
-* HTTP Client: Native Fetch API
+---
 
-**Backend**
-* Language: Go (Golang)
-* Real-time Communication: Gorilla WebSocket
-* Database Tooling: sqlc (for type-safe SQL generation)
-* Database Driver: pgx (PostgreSQL Driver and Toolkit)
+## Highlights
 
-**Database**
-* PostgreSQL (Running on Docker)
-* Primary Keys: UUID v4
+- **Realtime sync** — card moves and edits broadcast to every viewer via a WebSocket hub
+- **Optimistic UI** — drag-and-drop updates locally first, reconciles with the server
+- **Permission matrix** — owner / manager / member, enforced at middleware + UI
+- **My Tasks** — cross-board work grouped by date *and* by project, with column-aware rows
+- **Project Overview** — Up Next list, Team Workload, Activity feed, auto bottleneck insights
+- **Type-safe SQL** — sqlc-generated queries; no ORM, no runtime surprises
 
-## Key Features
-* **Real-time Synchronization:** Card movements are instantly broadcasted to all connected clients via WebSockets.
-* **Optimistic UI Updates:** Drag and drop interactions update the local state immediately before server confirmation, ensuring a seamless user experience.
-* **Type-Safe Database Queries:** Utilizes `sqlc` to generate type-safe Go code from SQL statements, preventing runtime errors.
-* **Separation of Concerns:** Clear boundary between Data Transfer Objects (DTOs) constructed by the Go backend and UI rendering handled by Next.js.
+## Tech stack
 
-## Project Structure
+| Layer    | Tech                                                                 |
+|----------|----------------------------------------------------------------------|
+| Frontend | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · Zustand · @dnd-kit · NextAuth (Google) |
+| Backend  | Go 1.25 · chi · sqlc · pgx/v5 · Gorilla WebSocket · golang-migrate · JWT |
+| Database | PostgreSQL 15 · UUID v4 keys                                         |
+| Infra    | Docker · Docker Compose                                              |
+
+## Architecture
+
+```
+                 ┌────────────┐  HTTP (REST, JWT cookie)   ┌──────────────┐
+   Browser ───▶  │  Next.js   │ ───────────────────────▶  │   Go API     │
+                 │  (App      │ ◀───── WebSocket  ─────── │   chi +      │
+                 │   Router)  │        broadcast           │   WS Hub     │
+                 └────────────┘                            └──────┬───────┘
+                                                                  │ pgx
+                                                                  ▼
+                                                          ┌───────────────┐
+                                                          │ PostgreSQL    │
+                                                          │ (sqlc-typed)  │
+                                                          └───────────────┘
+```
+
+- **Layered backend** — handler → service → repository (sqlc generated)
+- **WebSocket hub** — per-board rooms; broadcasts card moves, edits, activities
+- **Frontend store** — single Zustand store; WS messages mutate it directly
+
+## Project structure
 
 ```text
 mini-erp-kanban/
-├── backend/                  # Go server and WebSocket hub
-│   ├── cmd/api/              # Application entry point (main.go)
-│   ├── database/             # SQL schemas and queries for sqlc
+├── backend/
+│   ├── cmd/api/              # main.go + routes.go (entrypoint)
+│   ├── database/
+│   │   ├── schema.sql        # base schema
+│   │   ├── migrations/       # golang-migrate up/down files
+│   │   └── queries.sql       # sqlc input
 │   ├── internal/
-│   │   ├── db/               # Generated type-safe DB code
-│   │   └── websocket/        # Hub and Client implementation for WS
-├── frontend/                 # Next.js web application
+│   │   ├── handler/          # HTTP handlers
+│   │   ├── service/          # business logic + permission checks
+│   │   ├── middleware/       # auth, CORS, board-membership, role gating
+│   │   ├── db/               # sqlc-generated code (do not edit by hand)
+│   │   ├── websocket/        # Hub + Client
+│   │   ├── migrate/          # startup migration runner
+│   │   ├── token/            # JWT issuance/validation
+│   │   └── ...
+│   ├── Dockerfile
+│   └── .env.example
+├── frontend/
 │   ├── src/
-│   │   ├── app/              # Next.js routing and main pages
-│   │   ├── components/       # Reusable UI components (KanbanCard, Column)
-│   │   ├── hooks/            # Custom React hooks (useWebSocket)
-│   │   └── store/            # Zustand global state (useBoardStore)
+│   │   ├── app/              # App Router pages
+│   │   ├── components/       # UI (board, my-tasks, dashboard, ...)
+│   │   ├── hooks/            # useWebSocket, useDashboardStats, ...
+│   │   ├── store/            # Zustand stores
+│   │   └── lib/              # apiClient, constants
+│   ├── Dockerfile
+│   └── .env.example
+├── docker-compose.yml        # dev: Postgres only
+└── docker-compose.prod.yml   # full stack: db + backend + frontend
 ```
-##Getting Started
-Prerequisites
-Node.js (v18 or higher)
 
-Go (v1.20 or higher)
+---
 
-PostgreSQL (or Docker to run the database container)
+## Quick start
 
-### 1. Database Setup
-Ensure PostgreSQL is running and execute the schema files located in backend/database/schema.sql to create the boards, columns, and cards tables.
+### Prerequisites
 
-### 2. Backend Setup
-Navigate to the backend directory:
+- Docker + Docker Compose **or**
+- Node.js 20+ · Go 1.25+ · PostgreSQL 15 (running locally)
+
+### Option A — Full stack via Docker (recommended)
 
 ```bash
+git clone <repo-url>
+cd mini-erp-kanban
+
+# Create root .env for compose vars
+cat > .env <<'EOF'
+POSTGRES_USER=erp_user
+POSTGRES_PASSWORD=erp_password
+POSTGRES_DB=erp_kanban
+JWT_SECRET=$(openssl rand -base64 32)
+FRONTEND_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_WS_URL=ws://localhost:8080/ws
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URL=http://localhost:8080/api/auth/google/callback
+EOF
+
+docker compose -f docker-compose.prod.yml up --build
+```
+
+Then open <http://localhost:3000>. Migrations run automatically on backend startup.
+
+### Option B — Local dev (Postgres in Docker, backend + frontend on host)
+
+```bash
+# 1. Database
+docker compose up -d                          # uses docker-compose.yml (Postgres only)
+
+# 2. Backend
 cd backend
-```
-Generate type-safe database models (if schema or queries have changed):
-```bash
-sqlc generate
-```
-Start the Go server:
-```bash
-go run cmd/api/main.go
-```
-The backend API and WebSocket hub will be available at http://localhost:8080.
-### 3. Frontend Setup
-Navigate to the frontend directory:
+cp .env.example .env                          # then edit values
+go run ./cmd/api                              # migrations run on boot
 
-```bash
+# 3. Frontend (new shell)
 cd frontend
-```
-Install dependencies:
-```bash
+cp .env.example .env.local
 npm install
-```
-Start the Next.js development server:
-```bash
 npm run dev
 ```
-Open http://localhost:3000 in your browser to view the application.
+
+Open <http://localhost:3000>.
+
+### Verifying the install
+
+```bash
+curl http://localhost:8080/healthz | jq
+# { "status": "ok", "version": "dev", "uptime_seconds": 12, "db_connected": true }
+```
+
+---
+
+## Environment variables
+
+Both `backend/.env.example` and `frontend/.env.example` document every variable the code reads. Required:
+
+- `JWT_SECRET` — 32+ random bytes (`openssl rand -base64 32`)
+- `DB_URL` — Postgres connection string
+- `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` — frontend ↔ backend URLs
+
+Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`.
+
+## Common tasks
+
+| Task                                | Command                                                    |
+|-------------------------------------|------------------------------------------------------------|
+| Run backend tests                   | `cd backend && go test ./...`                              |
+| Run frontend tests                  | `cd frontend && npm test`                                  |
+| Type check frontend                 | `cd frontend && npx tsc --noEmit`                          |
+| Regenerate sqlc code                | `cd backend && sqlc generate`                              |
+| Add a migration                     | create `database/migrations/00000N_name.{up,down}.sql`     |
+| Build production images             | `docker compose -f docker-compose.prod.yml build`          |
+| Inspect health                      | `curl localhost:8080/healthz`                              |
+
+## Deployment notes
+
+- Container images are multi-stage: backend ends on `distroless/static:nonroot`, frontend on `node:20-alpine` with `output: "standalone"`.
+- Migrations run on every backend startup (idempotent — uses `golang-migrate`). Set `SKIP_MIGRATIONS=true` to disable.
+- Connection pool defaults: `MaxConns=25`, `MinConns=5`, `MaxConnIdleTime=5m`. Tune via `DB_URL` query params if needed.
+- Graceful shutdown: 30 s drain on `SIGTERM` / `SIGINT`.
+
+See the deployment-readiness checklist in `docs/DEPLOY.md` (work in progress).
+
+## License
+
+Personal project — no license assigned yet.
