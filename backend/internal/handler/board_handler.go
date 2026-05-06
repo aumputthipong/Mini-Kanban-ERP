@@ -21,6 +21,15 @@ func NewBoardHandler(boardService service.BoardServicer) *BoardHandler {
 	}
 }
 
+// GetAllBoards lists every board the caller is a member of.
+//
+// @Summary  List my boards
+// @Tags     boards
+// @Produce  json
+// @Security CookieAuth
+// @Success  200 {array}  dto.BoardSummaryResponse
+// @Failure  401 {object} httputil.ErrorResponse
+// @Router   /api/boards [get]
 func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
@@ -46,6 +55,17 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+// GetBoardData returns the columns + cards for one board (full board view).
+//
+// @Summary  Get board contents
+// @Tags     boards
+// @Produce  json
+// @Security CookieAuth
+// @Param    boardID path     string  true  "Board UUID"
+// @Success  200     {array}  dto.ColumnResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  404     {object} httputil.ErrorResponse "not a member or board not found"
+// @Router   /api/boards/{boardID} [get]
 func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) error {
 	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
@@ -60,6 +80,17 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) erro
 	httputil.RespondJSON(w, http.StatusOK, mapper.ToColumnResponses(columns))
 	return nil
 }
+// CreateBoard creates a new board owned by the caller.
+//
+// @Summary  Create board
+// @Tags     boards
+// @Accept   json
+// @Produce  json
+// @Security CookieAuth
+// @Param    payload body     dto.CreateBoardRequest true  "Board title"
+// @Success  201     {object} map[string]string      "id"
+// @Failure  400     {object} httputil.ErrorResponse
+// @Router   /api/boards [post]
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateBoardRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
@@ -84,6 +115,19 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
+// UpdateBoard updates a board's title and/or budget. Manager+ only.
+//
+// @Summary  Update board
+// @Tags     boards
+// @Accept   json
+// @Produce  json
+// @Security CookieAuth
+// @Param    boardID path     string                 true  "Board UUID"
+// @Param    payload body     dto.UpdateBoardRequest true  "Fields to update"
+// @Success  200     {object} dto.BoardSummaryResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  403     {object} httputil.ErrorResponse "not a manager"
+// @Router   /api/boards/{boardID} [patch]
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error {
 	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
@@ -104,6 +148,15 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
+// MoveToTrash soft-deletes a board (sets deleted_at). Owner only.
+//
+// @Summary  Move board to trash
+// @Tags     boards
+// @Security CookieAuth
+// @Param    boardID path string true "Board UUID"
+// @Success  204
+// @Failure  403 {object} httputil.ErrorResponse "not the owner"
+// @Router   /api/boards/{boardID} [delete]
 func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error {
 	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
@@ -118,6 +171,14 @@ func (h *BoardHandler) MoveToTrash(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
+// GetTrash lists soft-deleted boards owned by the caller.
+//
+// @Summary  List trashed boards
+// @Tags     trash
+// @Produce  json
+// @Security CookieAuth
+// @Success  200 {array} dto.TrashedBoardDTO
+// @Router   /api/trash [get]
 func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
@@ -132,6 +193,15 @@ func (h *BoardHandler) GetTrash(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// HardDelete permanently removes a trashed board. Owner only.
+//
+// @Summary  Permanently delete trashed board
+// @Tags     trash
+// @Security CookieAuth
+// @Param    boardID path string true "Board UUID"
+// @Success  204
+// @Failure  403 {object} httputil.ErrorResponse
+// @Router   /api/trash/{boardID} [delete]
 func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error {
 	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {
@@ -146,6 +216,14 @@ func (h *BoardHandler) HardDelete(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// RestoreBoard restores a soft-deleted board. Owner only.
+//
+// @Summary  Restore trashed board
+// @Tags     trash
+// @Security CookieAuth
+// @Param    boardID path string true "Board UUID"
+// @Success  204
+// @Router   /api/trash/{boardID}/restore [patch]
 func (h *BoardHandler) RestoreBoard(w http.ResponseWriter, r *http.Request) error {
 	boardID, err := httputil.GetUUIDParam(r, "boardID")
 	if err != nil {

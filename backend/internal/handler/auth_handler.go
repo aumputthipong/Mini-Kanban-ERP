@@ -45,6 +45,17 @@ type oauthRequest struct {
 	ProviderID string `json:"provider_id" validate:"required"`
 }
 
+// Register creates a new credentials user and sets an auth cookie.
+//
+// @Summary  Register
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     registerRequest    true  "Email, full name, password (min 8)"
+// @Success  201     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse "validation error"
+// @Failure  409     {object} httputil.ErrorResponse "email already in use"
+// @Router   /api/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	var req registerRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
@@ -77,6 +88,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// Login authenticates with email + password and sets an auth cookie.
+//
+// @Summary  Login
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     loginRequest        true  "Credentials"
+// @Success  200     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  401     {object} httputil.ErrorResponse  "invalid credentials"
+// @Router   /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	var req loginRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
@@ -105,6 +127,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// OAuthCallback upserts the user from a verified OAuth provider payload and
+// sets an auth cookie. Called by the frontend after NextAuth completes the
+// provider handshake.
+//
+// @Summary  OAuth callback (programmatic)
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     oauthRequest       true  "Verified provider payload"
+// @Success  200     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Router   /api/auth/oauth [post]
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) error {
 	var req oauthRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
@@ -130,6 +164,12 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+// Logout clears the auth cookie. Always returns 204.
+//
+// @Summary  Logout
+// @Tags     auth
+// @Success  204
+// @Router   /api/auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -142,6 +182,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// Me returns the authenticated user's profile.
+//
+// @Summary  Current user
+// @Tags     auth
+// @Produce  json
+// @Security CookieAuth
+// @Success  200 {object} authUserResponse
+// @Failure  401 {object} httputil.ErrorResponse
+// @Router   /api/auth/me [get]
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
