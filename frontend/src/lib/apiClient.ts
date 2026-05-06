@@ -1,14 +1,29 @@
 import { API_URL } from "@/lib/constants";
 import { useToastStore } from "@/store/useToastStore";
 
-// กำหนด Type ว่า Options สามารถรับอะไรได้บ้าง (ขยายจาก RequestInit ปกติของ fetch)
+/**
+ * Same as fetch's RequestInit but with an opinionated `data` field that gets
+ * JSON-stringified into the body. Use `data` for any non-GET request — it
+ * also flips the default method to POST when set.
+ */
 interface FetchOptions extends Omit<RequestInit, "body"> {
-  data?: unknown; // ใช้รับข้อมูลที่จะส่งไปเป็น JSON body
+  data?: unknown;
 }
 
 /**
- * ฟังก์ชันหลักสำหรับเรียก API
- * <T> คือ Generic Type ช่วยให้เราระบุได้ว่าข้อมูลที่ return กลับมาหน้าตาเป็นยังไง
+ * Single entry point for all backend HTTP calls.
+ *
+ * Conventions baked in:
+ *  - `credentials: "include"` so the auth_token HttpOnly cookie rides along.
+ *  - JSON content-type set automatically; `data` is stringified into body.
+ *  - Method defaults to POST when `data` is given, GET otherwise. Override
+ *    with `method: "PATCH" | "DELETE"` etc.
+ *  - 401 → redirects to /login. 403 → toast (single source of permission UX).
+ *
+ * @typeParam T  Expected response shape — set this to make the call site
+ *               type-checked without an explicit cast.
+ * @param endpoint  Path appended to `NEXT_PUBLIC_API_URL` (e.g. "/boards").
+ * @param options   `data` for body; everything else mirrors fetch's RequestInit.
  */
 export async function apiClient<T = any>(
   endpoint: string,

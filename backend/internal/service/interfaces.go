@@ -1,3 +1,10 @@
+// Package service holds the business-logic layer: it owns transactions,
+// permission checks beyond simple membership/role gates, and the mapping
+// between sqlc-generated DB rows and the domain types handlers consume.
+//
+// Each *Service struct is paired with a *Servicer interface so handlers
+// depend on the interface and can be tested with the generated mocks in
+// internal/service/mock.
 package service
 
 import (
@@ -7,8 +14,9 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 )
 
-// BoardServicer ครอบคลุมทุก method ที่ handler ใช้จาก *BoardService
-// *BoardService implement interface นี้โดยอัตโนมัติ (Go implicit interface)
+// BoardServicer is the contract used by board / card / my-tasks / member
+// handlers. *BoardService satisfies it implicitly. Mocks for testing live
+// in internal/service/mock.
 type BoardServicer interface {
 	// Board
 	GetAllBoards(ctx context.Context, userID string) ([]BoardSummaryData, error)
@@ -42,7 +50,8 @@ type BoardServicer interface {
 	GetAllUsers(ctx context.Context) ([]db.GetAllUsersRow, error)
 }
 
-// SubtaskServicer ครอบคลุมทุก method ที่ SubtaskHandler ใช้จาก *SubtaskService
+// SubtaskServicer is the contract for the subtask handler. CRUD against
+// card_subtasks rows, scoped to a parent card.
 type SubtaskServicer interface {
 	CreateSubtask(ctx context.Context, arg db.CreateSubtaskParams) (db.CardSubtask, error)
 	GetSubtasksByCardID(ctx context.Context, cardID string) ([]db.CardSubtask, error)
@@ -51,7 +60,9 @@ type SubtaskServicer interface {
 	GetSubtaskByID(ctx context.Context, subtaskID string) (db.CardSubtask, error)
 }
 
-// AuthServicer ครอบคลุมทุก method ที่ AuthHandler ใช้จาก *AuthService
+// AuthServicer is the contract for credential and OAuth-based authentication.
+// Token issuance lives in the token package, not here — service only resolves
+// the user identity.
 type AuthServicer interface {
 	Register(ctx context.Context, arg RegisterParams) (db.User, error)
 	Login(ctx context.Context, email, password string) (db.User, error)
