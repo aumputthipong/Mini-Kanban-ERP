@@ -147,6 +147,7 @@ func run(ctx context.Context, cfg config) error {
 		hub:             hub,
 		pool:            pool,
 		version:         version,
+		production:      cfg.Production,
 		startedAt:       startedAt,
 	})
 
