@@ -1,4 +1,11 @@
-// Helper: คำนวณวันที่ล่าช้า (Overdue)
+/**
+ * Date formatting helpers for cards / activities / dashboards. All compute
+ * deltas against today-at-midnight (local time) so a card due today reads
+ * "Today" regardless of clock time. Inputs are date strings — no timezone
+ * conversion is performed beyond what the JS `Date` parser does.
+ */
+
+/** "Overdue by N days" — assumes the due date is in the past. */
 export const getOverdueText = (dueDateStr: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -13,7 +20,7 @@ export const getOverdueText = (dueDateStr: string) => {
   return `Overdue by ${diffDays} days`;
 };
 
-// Helper: แปลงวันที่เป็นรูปแบบภาษาไทย (เช่น 1 เมษายน 2569)
+/** Long Thai date — e.g. "1 เมษายน 2569". Used as the canonical "absolute" form. */
 export const formatThaiDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString("th-TH", {
@@ -23,6 +30,7 @@ export const formatThaiDate = (dateStr: string) => {
   });
 };
 
+/** "Due today" / "Due tomorrow" / "In N days" — assumes due date is in the future. */
 export const getDaysRemainingText = (dueDateStr: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
