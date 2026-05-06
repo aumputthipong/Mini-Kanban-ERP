@@ -62,8 +62,8 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) erro
 }
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateBoardRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
@@ -91,8 +91,8 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) error
 	}
 
 	var req dto.UpdateBoardRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	updatedBoard, err := h.boardService.UpdateBoard(r.Context(), boardID, req.Title, req.Budget)
