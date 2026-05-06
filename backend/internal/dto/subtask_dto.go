@@ -13,7 +13,7 @@ type SubtaskResponse struct {
 }
 
 type UpdateSubtaskRequest struct {
-	Title    *string  `json:"title"`
+	Title    *string  `json:"title"    validate:"omitempty,min=1,max=200"`
 	IsDone   *bool    `json:"is_done"`
-	Position *float64 `json:"position"`
+	Position *float64 `json:"position" validate:"omitempty,gte=0"`
 }

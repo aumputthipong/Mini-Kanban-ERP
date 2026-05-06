@@ -23,8 +23,8 @@ func (h *SubtaskHandler) CreateSubtask(w http.ResponseWriter, r *http.Request) e
 	cardID := chi.URLParam(r, "cardID")
 
 	var payload dto.SubtaskRequest
-	if err := httputil.DecodeJSON(r, &payload); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request payload", err)
+	if err := httputil.DecodeAndValidate(r, &payload); err != nil {
+		return err
 	}
 
 	subtask, err := h.subtaskService.CreateSubtask(r.Context(), db.CreateSubtaskParams{
@@ -62,8 +62,8 @@ func (h *SubtaskHandler) UpdateSubtask(w http.ResponseWriter, r *http.Request) e
 	}
 
 	var req dto.UpdateSubtaskRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid JSON payload", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	subtask, err := h.subtaskService.UpdateSubtask(r.Context(), subtaskID, req)

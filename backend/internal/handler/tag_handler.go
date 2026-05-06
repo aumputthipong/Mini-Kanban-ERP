@@ -41,8 +41,8 @@ func (h *TagHandler) CreateBoardTag(w http.ResponseWriter, r *http.Request) erro
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
 	}
 	var req dto.CreateTagRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 	tag, err := h.tagService.CreateTag(r.Context(), boardID, req.Name, req.Color)
 	if err != nil {
