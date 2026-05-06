@@ -1,3 +1,5 @@
+[![CI](https://github.com/aumputthipong/Kanban-management/actions/workflows/ci.yml/badge.svg)](https://github.com/aumputthipong/Kanban-management/actions/workflows/ci.yml)
+
 # Turtask — Mini ERP Kanban
 
 A real-time team task & project management web app. Multi-board Kanban with role-based permissions, optimistic drag-and-drop, WebSocket sync, a cross-board **My Tasks** view, and a per-board analytics dashboard.
