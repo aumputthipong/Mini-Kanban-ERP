@@ -49,6 +49,7 @@ Deeper docs:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layered design, permission matrix, optimistic UI pattern, what's intentionally not here
 - [docs/DATABASE.md](docs/DATABASE.md) — ERD (Mermaid), table-by-table notes, migration rules
 - [docs/DEPLOY.md](docs/DEPLOY.md) — pre-flight checklist, deploy paths (VPS / Vercel+Railway / Cloud Run), rollback, common breakages
+- **API spec** — interactive Swagger UI served at `/docs/index.html` once the backend is running. Raw spec at `/docs/doc.json`. Regenerate after editing handler annotations: `cd backend && go generate ./cmd/api` (requires `swag` — `go install github.com/swaggo/swag/cmd/swag@latest`).
 
 ## Project structure
 
@@ -167,8 +168,10 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 | Type check frontend                 | `cd frontend && npx tsc --noEmit`                          |
 | Regenerate sqlc code                | `cd backend && sqlc generate`                              |
 | Add a migration                     | create `database/migrations/00000N_name.{up,down}.sql`     |
+| Regenerate OpenAPI spec             | `cd backend && go generate ./cmd/api` (needs `swag` CLI)   |
 | Build production images             | `docker compose -f docker-compose.prod.yml build`          |
 | Inspect health                      | `curl localhost:8080/healthz`                              |
+| Browse API docs                     | <http://localhost:8080/docs/index.html>                    |
 
 ## Deployment notes
 
