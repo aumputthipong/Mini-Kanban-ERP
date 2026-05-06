@@ -32,8 +32,8 @@ func (h *BoardHandler) requireBoardMembership(r *http.Request, boardID, userID s
 
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateCardRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	if _, err := uuid.Parse(req.ColumnID); err != nil {
@@ -80,8 +80,8 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	var req dto.UpdateCardRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)

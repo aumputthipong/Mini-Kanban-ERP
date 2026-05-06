@@ -13,7 +13,7 @@ type ColumnResponse struct {
 }
 
 type CreateBoardRequest struct {
-	Title string `json:"title"`
+	Title string `json:"title" validate:"required,min=1,max=120"`
 }
 type MemberSummary struct {
 	UserID   string `json:"user_id"`
@@ -36,8 +36,8 @@ type UserResponse struct {
 }
 
 type UpdateBoardRequest struct {
-	Title  *string  `json:"title"`
-	Budget *float64 `json:"budget"`
+	Title  *string  `json:"title"  validate:"omitempty,min=1,max=120"`
+	Budget *float64 `json:"budget" validate:"omitempty,gte=0"`
 }
 
 type BoardMemberResponse struct {
@@ -49,12 +49,12 @@ type BoardMemberResponse struct {
 }
 
 type AddMemberRequest struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID string `json:"user_id" validate:"required,uuid"`
+	Role   string `json:"role"    validate:"required,oneof=owner manager member"`
 }
 
 type UpdateMemberRoleRequest struct {
-	Role string `json:"role"`
+	Role string `json:"role" validate:"required,oneof=owner manager member"`
 }
 
 

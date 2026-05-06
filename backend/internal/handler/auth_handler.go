@@ -28,35 +28,27 @@ type authUserResponse struct {
 }
 
 type registerRequest struct {
-	Email    string `json:"email"`
-	FullName string `json:"full_name"`
-	Password string `json:"password"`
+	Email    string `json:"email"     validate:"required,email"`
+	FullName string `json:"full_name" validate:"required,min=1,max=120"`
+	Password string `json:"password"  validate:"required,min=8,max=128"`
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email"    validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 type oauthRequest struct {
-	Email      string `json:"email"`
-	FullName   string `json:"full_name"`
-	Provider   string `json:"provider"`
-	ProviderID string `json:"provider_id"`
+	Email      string `json:"email"       validate:"required,email"`
+	FullName   string `json:"full_name"   validate:"required,min=1,max=120"`
+	Provider   string `json:"provider"    validate:"required,oneof=google github"`
+	ProviderID string `json:"provider_id" validate:"required"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	var req registerRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
-	}
-
-	if req.Email == "" || req.FullName == "" || req.Password == "" {
-		return httputil.NewAPIError(http.StatusBadRequest, "Email, full name and password are required", nil)
-	}
-
-	if len(req.Password) < 8 {
-		return httputil.NewAPIError(http.StatusBadRequest, "Password must be at least 8 characters", nil)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.Register(r.Context(), service.RegisterParams{
@@ -87,8 +79,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	var req loginRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.Login(r.Context(), req.Email, req.Password)
@@ -115,8 +107,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) error {
 	var req oauthRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.UpsertOAuthUser(r.Context(), req.Email, req.FullName, req.Provider, req.ProviderID)

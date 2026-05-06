@@ -28,6 +28,7 @@ type routerDeps struct {
 	hub             *websocket.Hub
 	pool            *pgxpool.Pool
 	version         string
+	production      bool
 	startedAt       time.Time
 }
 
@@ -38,12 +39,15 @@ func setupRoutes(d routerDeps) http.Handler {
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(chiMiddleware.RequestID)
+	r.Use(middleware.SecurityHeaders(d.production))
 
 	// Health endpoints — used by load balancers / uptime monitors / k8s probes
 	r.Get("/health", healthHandler(d.pool, d.version, d.startedAt))
 	r.Get("/healthz", healthHandler(d.pool, d.version, d.startedAt))
 
 	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(middleware.AuthRateLimit())
+
 		r.Post("/register", httputil.MakeHandler(d.authHandler.Register))
 		r.Post("/login", httputil.MakeHandler(d.authHandler.Login))
 		r.Post("/oauth", httputil.MakeHandler(d.authHandler.OAuthCallback))
@@ -55,6 +59,7 @@ func setupRoutes(d routerDeps) http.Handler {
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
+		r.Use(middleware.GeneralRateLimit())
 		r.Use(middleware.RequireAuth)
 
 		r.Get("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
