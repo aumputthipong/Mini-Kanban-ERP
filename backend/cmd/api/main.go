@@ -21,8 +21,26 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Regenerate the OpenAPI spec into ./docs after editing handler annotations.
+// Run from backend/:  go generate ./cmd/api
+//go:generate swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal
+
 // version is set at build time via -ldflags "-X main.version=..."; defaults to "dev" locally.
 var version = "dev"
+
+// @title           Turtask API
+// @version         1.0
+// @description     Multi-board Kanban + task management with realtime sync.
+// @description     Auth uses an HttpOnly `auth_token` cookie issued by /api/auth/login or /api/auth/oauth.
+//
+// @contact.name    Turtask
+//
+// @host            localhost:8080
+// @BasePath        /
+//
+// @securityDefinitions.apikey  CookieAuth
+// @in                          cookie
+// @name                        auth_token
 
 const (
 	shutdownTimeout = 30 * time.Second
