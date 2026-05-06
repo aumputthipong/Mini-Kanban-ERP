@@ -167,6 +167,7 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 |-------------------------------------|------------------------------------------------------------|
 | Run backend tests                   | `cd backend && go test ./...`                              |
 | Run frontend tests                  | `cd frontend && npm test`                                  |
+| Run frontend E2E (Playwright)       | `cd frontend && npx playwright install chromium && npm run test:e2e` |
 | Type check frontend                 | `cd frontend && npx tsc --noEmit`                          |
 | Regenerate sqlc code                | `cd backend && sqlc generate`                              |
 | Add a migration                     | create `database/migrations/00000N_name.{up,down}.sql`     |
