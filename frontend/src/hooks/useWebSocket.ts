@@ -2,6 +2,7 @@
 
 import { useBoardStore } from "@/store/useBoardStore";
 import { useActivityStore } from "@/store/useActivityStore";
+import { logger } from "@/lib/logger";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
@@ -109,7 +110,7 @@ export const useWebSocket = (url: string) => {
           });
         }
       } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
+        logger.error("Error parsing WebSocket message:", error);
       }
     };
 
@@ -148,7 +149,7 @@ export const useWebSocket = (url: string) => {
         }
 
         if (attemptRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.warn(`[WS] gave up after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+          logger.warn(`[WS] gave up after ${MAX_RECONNECT_ATTEMPTS} attempts`);
           setStatus("closed");
           return;
         }
@@ -185,7 +186,7 @@ export const useWebSocket = (url: string) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
     } else {
-      console.warn("[WS sendMessage] NOT sent — socket not open");
+      logger.warn("[WS sendMessage] NOT sent — socket not open");
     }
   }, []);
 

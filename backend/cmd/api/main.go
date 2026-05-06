@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/logging"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/migrate"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
@@ -74,10 +75,12 @@ func loadConfig() config {
 		SkipMigrations:     os.Getenv("SKIP_MIGRATIONS") == "true",
 	}
 	if cfg.DBUrl == "" {
-		log.Fatal("DB_URL is required but not set")
+		slog.Error("DB_URL is required but not set")
+		os.Exit(1)
 	}
 	if os.Getenv("JWT_SECRET") == "" {
-		log.Fatal("JWT_SECRET is required but not set")
+		slog.Error("JWT_SECRET is required but not set")
+		os.Exit(1)
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
@@ -112,12 +115,12 @@ func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 
 func run(ctx context.Context, cfg config) error {
 	if !cfg.SkipMigrations {
-		log.Println("Running database migrations...")
+		slog.Info("running database migrations", "path", cfg.MigrationsPath)
 		if err := migrate.Run(cfg.MigrationsPath, cfg.DBUrl); err != nil {
 			return fmt.Errorf("migrations failed: %w", err)
 		}
 	} else {
-		log.Println("Skipping migrations (SKIP_MIGRATIONS=true)")
+		slog.Info("skipping migrations", "reason", "SKIP_MIGRATIONS=true")
 	}
 
 	pool, err := initDB(ctx, cfg.DBUrl)
@@ -125,7 +128,11 @@ func run(ctx context.Context, cfg config) error {
 		return fmt.Errorf("database init failed: %w", err)
 	}
 	defer pool.Close()
-	log.Println("Successfully connected to PostgreSQL")
+	slog.Info("connected to postgres",
+		"max_conns", dbPoolMaxConns,
+		"min_conns", dbPoolMinConns,
+		"max_idle", dbPoolMaxIdle.String(),
+	)
 
 	queries := db.New(pool)
 
@@ -179,14 +186,15 @@ func run(ctx context.Context, cfg config) error {
 	defer stop()
 
 	go func() {
-		log.Printf("Server listening on :%s (version=%s)", cfg.Port, version)
+		slog.Info("server listening", "port", cfg.Port, "version", version)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe: %v", err)
+			slog.Error("listen failed", "err", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("Shutdown signal received — draining...")
+	slog.Info("shutdown signal received — draining", "timeout", shutdownTimeout.String())
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
@@ -194,18 +202,21 @@ func run(ctx context.Context, cfg config) error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("graceful shutdown failed: %w", err)
 	}
-	log.Println("Server stopped cleanly")
+	slog.Info("server stopped cleanly")
 	return nil
 }
 
 func main() {
+	logging.Init()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, falling back to system environment variables")
+		slog.Debug("no .env file found, using system environment", "err", err)
 	}
 
 	cfg := loadConfig()
 
 	if err := run(context.Background(), cfg); err != nil {
-		log.Fatal(err)
+		slog.Error("run failed", "err", err)
+		os.Exit(1)
 	}
 }
