@@ -44,6 +44,12 @@ A real-time team task & project management web app. Multi-board Kanban with role
 - **WebSocket hub** — per-board rooms; broadcasts card moves, edits, activities
 - **Frontend store** — single Zustand store; WS messages mutate it directly
 
+Deeper docs:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layered design, permission matrix, optimistic UI pattern, what's intentionally not here
+- [docs/DATABASE.md](docs/DATABASE.md) — ERD (Mermaid), table-by-table notes, migration rules
+- [docs/DEPLOY.md](docs/DEPLOY.md) — pre-flight checklist, deploy paths (VPS / Vercel+Railway / Cloud Run), rollback, common breakages
+
 ## Project structure
 
 ```text
@@ -74,6 +80,7 @@ mini-erp-kanban/
 │   │   └── lib/              # apiClient, constants
 │   ├── Dockerfile
 │   └── .env.example
+├── docs/                     # ARCHITECTURE.md · DATABASE.md · DEPLOY.md
 ├── docker-compose.yml        # dev: Postgres only
 └── docker-compose.prod.yml   # full stack: db + backend + frontend
 ```
@@ -170,7 +177,7 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 - Connection pool defaults: `MaxConns=25`, `MinConns=5`, `MaxConnIdleTime=5m`. Tune via `DB_URL` query params if needed.
 - Graceful shutdown: 30 s drain on `SIGTERM` / `SIGINT`.
 
-See the deployment-readiness checklist in `docs/DEPLOY.md` (work in progress).
+See [docs/DEPLOY.md](docs/DEPLOY.md) for the full pre-flight checklist, deploy paths, smoke tests, rollback procedure, and common breakages.
 
 ## License
 
