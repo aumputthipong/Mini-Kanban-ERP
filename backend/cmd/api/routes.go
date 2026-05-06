@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/aumputthipong/mini-erp-kanban/backend/docs" // swagger generated
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/core"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type routerDeps struct {
@@ -44,6 +46,10 @@ func setupRoutes(d routerDeps) http.Handler {
 	// Health endpoints — used by load balancers / uptime monitors / k8s probes
 	r.Get("/health", healthHandler(d.pool, d.version, d.startedAt))
 	r.Get("/healthz", healthHandler(d.pool, d.version, d.startedAt))
+
+	// API docs (Swagger UI). Spec is regenerated via `swag init` — see Makefile.
+	// In production, gate behind an admin flag or remove if not desired.
+	r.Get("/docs/*", httpSwagger.Handler(httpSwagger.URL("/docs/doc.json")))
 
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(middleware.AuthRateLimit())
@@ -149,15 +155,27 @@ func setupRoutes(d routerDeps) http.Handler {
 	return r
 }
 
+// HealthResponse is the body returned by /health and /healthz.
+//
+// swagger:model HealthResponse
+type HealthResponse struct {
+	Status      string `json:"status"          example:"ok"`
+	Version     string `json:"version"         example:"v0.3.0"`
+	UptimeSecs  int64  `json:"uptime_seconds"  example:"42"`
+	DBConnected bool   `json:"db_connected"    example:"true"`
+}
+
 // healthHandler returns a JSON probe with build version, uptime, and DB connectivity.
 // 503 if the DB ping fails so load balancers can drop the instance.
+//
+// @Summary  Health probe
+// @Tags     ops
+// @Produce  json
+// @Success  200 {object} HealthResponse
+// @Failure  503 {object} HealthResponse "DB unreachable"
+// @Router   /healthz [get]
 func healthHandler(pool *pgxpool.Pool, version string, startedAt time.Time) http.HandlerFunc {
-	type response struct {
-		Status      string `json:"status"`
-		Version     string `json:"version"`
-		UptimeSecs  int64  `json:"uptime_seconds"`
-		DBConnected bool   `json:"db_connected"`
-	}
+	type response = HealthResponse
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()

@@ -9,6 +9,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// GetMyTasks lists every active card assigned to the caller across all boards
+// they are a member of. Used by the cross-board /my-tasks page.
+//
+// @Summary  My tasks (cross-board)
+// @Tags     my-tasks
+// @Produce  json
+// @Security CookieAuth
+// @Success  200 {array}  dto.MyTaskResponse
+// @Failure  401 {object} httputil.ErrorResponse
+// @Router   /api/my-tasks [get]
 func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
@@ -44,6 +54,16 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// CompleteMyTask marks an assigned card as done. Caller must be the assignee.
+//
+// @Summary  Complete one of my tasks
+// @Tags     my-tasks
+// @Security CookieAuth
+// @Param    cardID path string true "Card UUID"
+// @Success  204
+// @Failure  400    {object} httputil.ErrorResponse
+// @Failure  404    {object} httputil.ErrorResponse "not the assignee or card missing"
+// @Router   /api/my-tasks/{cardID}/complete [post]
 func (h *BoardHandler) CompleteMyTask(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {

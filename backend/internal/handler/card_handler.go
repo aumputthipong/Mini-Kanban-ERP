@@ -30,6 +30,19 @@ func (h *BoardHandler) requireBoardMembership(r *http.Request, boardID, userID s
 	return core.BoardRole(role), nil
 }
 
+// CreateCard creates a card in a column. Caller must be a member of the
+// owning board.
+//
+// @Summary  Create card
+// @Tags     cards
+// @Accept   json
+// @Produce  json
+// @Security CookieAuth
+// @Param    payload body     dto.CreateCardRequest true  "Column + title (+ optional fields)"
+// @Success  201     {object} dto.CardResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  404     {object} httputil.ErrorResponse "column not found"
+// @Router   /api/cards [post]
 func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error {
 	var req dto.CreateCardRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
@@ -73,6 +86,20 @@ func (h *BoardHandler) CreateCard(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// UpdateCard partially updates a card. Used for inline edits + drag-and-drop
+// (column_id and position changes broadcast CARD_MOVED).
+//
+// @Summary  Update card
+// @Tags     cards
+// @Accept   json
+// @Produce  json
+// @Security CookieAuth
+// @Param    cardID  path     string                true  "Card UUID"
+// @Param    payload body     dto.UpdateCardRequest true  "Fields to update"
+// @Success  200     {object} dto.CardResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  404     {object} httputil.ErrorResponse
+// @Router   /api/cards/{cardID} [patch]
 func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error {
 	cardIDStr := chi.URLParam(r, "cardID")
 	if _, err := uuid.Parse(cardIDStr); err != nil {
@@ -137,6 +164,16 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// GetCard returns a single card with its subtasks + tags hydrated.
+//
+// @Summary  Get card detail
+// @Tags     cards
+// @Produce  json
+// @Security CookieAuth
+// @Param    cardID path     string true "Card UUID"
+// @Success  200    {object} dto.CardResponse
+// @Failure  404    {object} httputil.ErrorResponse
+// @Router   /api/cards/{cardID} [get]
 func (h *BoardHandler) GetCard(w http.ResponseWriter, r *http.Request) error {
 	cardIDStr := chi.URLParam(r, "cardID")
 	if _, err := uuid.Parse(cardIDStr); err != nil {
