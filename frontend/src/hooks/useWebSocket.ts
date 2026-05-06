@@ -4,17 +4,43 @@ import { useBoardStore } from "@/store/useBoardStore";
 import { useActivityStore } from "@/store/useActivityStore";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/**
+ * Wire-format envelope for every WebSocket message. The server routes by
+ * `type`; the shape of `payload` depends on the type (CARD_MOVED carries
+ * card_id + position, COLUMN_RENAMED carries column_id + title, etc.).
+ */
 export interface WebSocketMessage {
   type: string;
   payload: any;
 }
 
+/**
+ * Connection lifecycle reflected to the UI:
+ *   - connecting  — first attempt is in flight
+ *   - open        — handshake completed; messages flowing
+ *   - reconnecting — backoff timer is running between attempts
+ *   - closed      — gave up after MAX_RECONNECT_ATTEMPTS; user action needed
+ */
 export type WSStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const MAX_RECONNECT_ATTEMPTS = 8;
 
+/**
+ * Owns one WebSocket connection to a board room. Messages are dispatched
+ * directly into `useBoardStore` / `useActivityStore` — this hook never
+ * exposes raw events to the caller.
+ *
+ * Reconnection is exponential backoff (1s → 30s, capped) for up to 8 attempts;
+ * after that the status becomes `"closed"` and a UI banner / page reload is
+ * the only recovery. Cancellation on unmount is safe — pending timers and
+ * the open socket are torn down before the effect resolves.
+ *
+ * @param url Full ws:// or wss:// URL including the boardID path segment.
+ * @returns   `{ sendMessage, status }` — sendMessage is a no-op if the
+ *            socket is not OPEN (it logs a warning instead of buffering).
+ */
 export const useWebSocket = (url: string) => {
   const socketRef = useRef<WebSocket | null>(null);
   const attemptRef = useRef(0);

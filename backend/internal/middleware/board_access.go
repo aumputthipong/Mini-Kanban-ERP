@@ -12,11 +12,21 @@ import (
 
 type boardContextKey string
 
+// BoardRoleKey is the context.Context key that holds the caller's role on
+// the current board (set by RequireBoardMember, read via BoardRoleFromContext).
 const BoardRoleKey boardContextKey = "boardRole"
 
-// RequireBoardMember ตรวจว่า user ใน context เป็น member ของ board ใน URL param {boardID}
-// ถ้าไม่ใช่ → 404 (ไม่ใช้ 403 เพื่อป้องกัน board ID enumeration)
-// ถ้าใช่ → ใส่ role ลงใน context (อ่านต่อผ่าน BoardRoleKey)
+// RequireBoardMember enforces that the authenticated user is a member of the
+// board referenced by the {boardID} URL parameter. It depends on RequireAuth
+// having already populated UserIDKey in the request context.
+//
+// On non-membership it returns 404 (rather than 403) — this is deliberate:
+// returning 403 would let an attacker enumerate valid board IDs by checking
+// which IDs flip from 404 to 403.
+//
+// On success it injects the user's role into the request context so a chained
+// RequireBoardRole middleware can do the privilege check without another
+// database round-trip.
 func RequireBoardMember(svc service.BoardServicer) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
