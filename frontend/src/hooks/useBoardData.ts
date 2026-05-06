@@ -3,6 +3,17 @@ import { useState, useEffect } from "react";
 import { useBoardStore } from "@/store/useBoardStore";
 import { API_URL } from "@/lib/constants";
 
+/**
+ * Bootstraps a board view by hydrating `useBoardStore` in three parallel
+ * fetches: columns + cards, current user, member list. Should be called
+ * once at the board page root — subsequent updates flow through WebSocket
+ * broadcasts, not refetches.
+ *
+ * Returns `{ isLoading, error }` for the page to render skeleton / 404 /
+ * generic error states. The string `"NOT_FOUND"` is used as a sentinel for
+ * 404 (board missing or not a member) so the page can show a tailored
+ * message instead of the generic error UI.
+ */
 export function useBoardData(boardId: string) {
   const { setColumns, setCurrentUser, setBoardMembers, setLoading } = useBoardStore();
   const [isLoading, setIsLoading] = useState(true);
