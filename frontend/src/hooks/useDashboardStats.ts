@@ -2,11 +2,30 @@ import { useMemo } from "react";
 import { useBoardStore } from "@/store/useBoardStore";
 import type { Card } from "@/types/board";
 
-// กำหนด Type เพิ่มเติมเผื่ออนาคต
 interface ExtendedCard extends Card {
-  updated_at?: string; 
+  /** Optional — older cards may not carry updated_at; only used for stale detection. */
+  updated_at?: string;
 }
 
+/**
+ * Aggregates the currently-loaded board into the numbers shown on the
+ * Project Overview tab — totals, progress, urgency buckets, per-assignee
+ * workload, and per-column counts.
+ *
+ * **Pure & cheap.** Wrapped in `useMemo` keyed on `columns`, so it recomputes
+ * only when the store changes (drag-drop, WS broadcast, etc.). Don't add
+ * I/O here — anything async belongs in a service or React Query.
+ *
+ * Notable derivations:
+ *  - `overdueCards` / `todayCards` / `tomorrowCards` / `thisWeekCards` are
+ *    computed against a fresh `today` (midnight local) — refresh on date
+ *    change requires re-render, which happens naturally on board mutation.
+ *  - `staleCount` flags cards that haven't moved for 7+ days. Used by the
+ *    "Hidden bottleneck" insight string.
+ *  - `dueSoonCards` is kept as the union (today + tomorrow + thisWeek) for
+ *    consumers (like the BoardDashboard tab badge) that don't care about
+ *    finer urgency buckets.
+ */
 export function useDashboardStats() {
   const { columns } = useBoardStore();
 
