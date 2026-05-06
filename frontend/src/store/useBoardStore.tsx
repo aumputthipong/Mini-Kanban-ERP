@@ -1,6 +1,21 @@
 import { BoardMember, Card, Column, Subtask } from "@/types/board";
 import { create } from "zustand";
 
+/**
+ * Single source of truth for one viewed board's columns + cards + members.
+ *
+ * Mutations come from two places:
+ *   1. User actions through API responses — handlers call `set*` / `update*` /
+ *      `addCardToStore` etc. directly (optimistic UI).
+ *   2. WebSocket broadcasts — `useWebSocket` dispatches CARD_*, COLUMN_*,
+ *      ACTIVITY_* messages straight into these setters. They are designed
+ *      to be **idempotent** so receiving an event for state that already
+ *      reflects it is a no-op (this is what lets the writer skip filtering
+ *      out their own broadcasts).
+ *
+ * `currentUserId` and `boardMembers` are set once on board load and used by
+ * permission-aware UI (hiding manager-only buttons, etc.).
+ */
 interface BoardState {
   columns: Column[];
   currentUserId: string;
