@@ -168,7 +168,11 @@ const colorHex = getColumnColorHex(color);
         </SortableContext>
       </div>
 
+      {/* `key` remounts the modal whenever a different column opens it, so
+          internal state initialises fresh from the new initialTitle/Category/Color
+          props instead of being sync'd inside an effect. */}
       <ColumnOptionsModal
+        key={`${id}-${optionsOpen}`}
         open={optionsOpen}
         columnId={id}
         initialTitle={title}
