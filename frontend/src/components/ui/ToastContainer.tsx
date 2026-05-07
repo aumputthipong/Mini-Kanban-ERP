@@ -1,19 +1,36 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
 
+// Returns false on the server and during the first client render (so the
+// hydrated tree matches), then true on the second render. Use this — not
+// `typeof window` — to gate client-only DOM access; bare typeof checks
+// produce a different output on server vs. client and trip a hydration
+// mismatch.
+const subscribe = () => () => {};
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => true,   // client snapshot
+    () => false,  // server snapshot
+  );
+}
+
 export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
   const dismiss = useToastStore((s) => s.dismiss);
+  const isClient = useIsClient();
 
-  // SSR guard: createPortal needs document.body. On the server we render
-  // nothing; the client will hydrate this section on first render.
-  if (typeof window === "undefined") return null;
+  // createPortal needs document.body. Until we're past the hydration commit
+  // we render nothing — same on server and client first render — so React
+  // can match up the trees.
+  if (!isClient) return null;
 
   return createPortal(
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10000 flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div
           key={t.id}
