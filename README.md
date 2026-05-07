@@ -163,18 +163,21 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 
 ## Common tasks
 
-| Task                                | Command                                                    |
-|-------------------------------------|------------------------------------------------------------|
-| Run backend tests                   | `cd backend && go test ./...`                              |
-| Run frontend tests                  | `cd frontend && npm test`                                  |
-| Run frontend E2E (Playwright)       | `cd frontend && npx playwright install chromium && npm run test:e2e` |
-| Type check frontend                 | `cd frontend && npx tsc --noEmit`                          |
-| Regenerate sqlc code                | `cd backend && sqlc generate`                              |
-| Add a migration                     | create `database/migrations/00000N_name.{up,down}.sql`     |
-| Regenerate OpenAPI spec             | `cd backend && go generate ./cmd/api` (needs `swag` CLI)   |
-| Build production images             | `docker compose -f docker-compose.prod.yml build`          |
-| Inspect health                      | `curl localhost:8080/healthz`                              |
-| Browse API docs                     | <http://localhost:8080/docs/index.html>                    |
+A top-level [`Makefile`](Makefile) wraps the most-used commands. `make` with no target lists them. Direct equivalents below if you'd rather not use `make`:
+
+| Task                                | `make`                | Direct                                                  |
+|-------------------------------------|-----------------------|---------------------------------------------------------|
+| Verify everything CI runs           | `make verify`         | `go vet + go test + tsc + vitest`                       |
+| Run backend tests                   | `make test`           | `cd backend && go test ./...`                           |
+| Run frontend tests                  | `make test-fe`        | `cd frontend && npm test`                               |
+| Run frontend E2E (Playwright)       | `make test-e2e`       | `cd frontend && npx playwright install chromium && npm run test:e2e` |
+| Frontend type check                 | `make typecheck`      | `cd frontend && npx tsc --noEmit`                       |
+| Regenerate sqlc                     | `make sqlc`           | `cd backend && sqlc generate`                           |
+| New migration stub                  | `make migrate-new name=add_x` | (manual file creation under `database/migrations/`) |
+| Regenerate OpenAPI spec             | `make swag`           | `cd backend && go generate ./cmd/api`                   |
+| Build production images             | `make build`          | `docker compose -f docker-compose.prod.yml build`       |
+| Inspect health                      | —                     | `curl localhost:8080/healthz`                           |
+| Browse API docs                     | —                     | <http://localhost:8080/docs/index.html>                 |
 
 ## Deployment notes
 
@@ -185,6 +188,10 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for the full pre-flight checklist, deploy paths, smoke tests, rollback procedure, and common breakages.
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch / commit conventions, the PR checklist, and what to run before opening a PR. Notable changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
+
 ## License
 
-Personal project — no license assigned yet.
+[MIT](LICENSE) © aumputthipong

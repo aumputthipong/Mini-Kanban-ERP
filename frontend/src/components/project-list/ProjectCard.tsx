@@ -25,20 +25,23 @@ function getAvatarColor(name: string): string {
   return colors[hash % colors.length];
 }
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
 interface ProjectCardProps {
   board: Board;
   viewMode: "grid" | "list";
+  /** Reference "now" for the activity check, supplied by the parent so the
+   * card stays a pure function of its props. */
+  now: number;
 }
 
-export function ProjectCard({ board, viewMode }: ProjectCardProps) {
+export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
   const progress =
     board.total_cards > 0
       ? Math.round((board.done_cards / board.total_cards) * 100)
       : 0;
 
-  const isActive =
-    Date.now() - new Date(board.updated_at).getTime() <
-    7 * 24 * 60 * 60 * 1000;
+  const isActive = now - new Date(board.updated_at).getTime() < SEVEN_DAYS_MS;
 
   const visibleMembers = board.members.slice(0, 3);
   const extraCount = board.members.length - visibleMembers.length;
