@@ -81,8 +81,8 @@ function groupCardUpdates(activities: Activity[]): Activity[] {
       continue;
     }
     const prev = out[out.length - 1];
-    const prevPayload = (prev.payload ?? {}) as Record<string, any>;
-    const currPayload = (a.payload ?? {}) as Record<string, any>;
+    const prevPayload = (prev.payload ?? {}) as Record<string, unknown>;
+    const currPayload = (a.payload ?? {}) as Record<string, unknown>;
     const sameActor = prev.actor_id === a.actor_id;
     const sameCard =
       prev.event_type === "card.updated" &&
@@ -138,7 +138,7 @@ function describeActivity(
   a: Activity,
   columnTitleById: Map<string, string>,
 ): { action: string; target: string; dest: string } {
-  const p = (a.payload ?? {}) as Record<string, any>;
+  const p = (a.payload ?? {}) as Record<string, unknown>;
   const title = typeof p.title === "string" ? p.title : "";
   switch (a.event_type) {
     case "card.created":
@@ -169,12 +169,12 @@ function describeActivity(
 
 // Tiny action badge that overlays the bottom-right of the avatar — encodes the
 // event type so the avatar color stays bound to the actor (not the action).
-function eventBadge(eventType: string, payload: Record<string, any>): {
+function eventBadge(eventType: string, payload: Record<string, unknown>): {
   Icon: typeof Plus;
   bg: string;
 } {
   if (eventType === "card.done_toggled") {
-    return payload.is_done
+    return payload.is_done === true
       ? { Icon: Check, bg: "bg-emerald-500" }
       : { Icon: Undo2, bg: "bg-slate-400" };
   }
@@ -392,7 +392,7 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
             {visibleActivities.slice(0, 10).map((event) => {
               const actorName = event.actor_name ?? "Someone";
               const { action, target, dest } = describeActivity(event, columnTitleById);
-              const payload = (event.payload ?? {}) as Record<string, any>;
+              const payload = (event.payload ?? {}) as Record<string, unknown>;
               const { Icon: BadgeIcon, bg: badgeBg } = eventBadge(event.event_type, payload);
               return (
                 <li key={event.id} className="flex items-start gap-3 py-3 first:pt-1 last:pb-1">

@@ -54,17 +54,12 @@ export function ColumnOptionsModal({
   onDelete,
   onClose,
 }: ColumnOptionsModalProps) {
+  // State initialises from props once. Caller (Column.tsx) remounts this via
+  // `key={`${columnId}-${open}`}` so each open starts fresh — no in-effect sync.
   const [title, setTitle] = useState(initialTitle);
   const [category, setCategory] = useState<"TODO" | "DONE">(initialCategory);
   const [color, setColor] = useState<string | null>(initialColor);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-
-  // sync when column changes (e.g. WS update while modal is open)
-  useEffect(() => {
-    setTitle(initialTitle);
-    setCategory(initialCategory);
-    setColor(initialColor);
-  }, [initialTitle, initialCategory, initialColor, open]);
 
   // Escape to close
   useEffect(() => {

@@ -53,12 +53,6 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     beforeCardId: string | null;
   } | null>(null);
 
-  const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
-  const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
-  const stableHandleUpdateCard = useCallback(handleUpdateCard, [handleUpdateCard]);
-  const stableHandleDeleteColumn = useCallback(handleDeleteColumn, [handleDeleteColumn]);
-  const stableHandleUpdateColumn = useCallback(handleUpdateColumn, [handleUpdateColumn]);
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -163,11 +157,11 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       category: col.category,
       color: col.color,
       cards: col.cards,
-      onAddCard: stableHandleAddCard,
-      onDeleteCard: stableHandleDeleteCard,
-      onSaveCard: stableHandleUpdateCard,
-      onDeleteColumn: stableHandleDeleteColumn,
-      onUpdateColumn: stableHandleUpdateColumn,
+      onAddCard: handleAddCard,
+      onDeleteCard: handleDeleteCard,
+      onSaveCard: handleUpdateCard,
+      onDeleteColumn: handleDeleteColumn,
+      onUpdateColumn: handleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
       filterTagIds,
@@ -176,11 +170,11 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     }),
     [
       boardId,
-      stableHandleAddCard,
-      stableHandleDeleteCard,
-      stableHandleUpdateCard,
-      stableHandleDeleteColumn,
-      stableHandleUpdateColumn,
+      handleAddCard,
+      handleDeleteCard,
+      handleUpdateCard,
+      handleDeleteColumn,
+      handleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
       filterTagIds,
