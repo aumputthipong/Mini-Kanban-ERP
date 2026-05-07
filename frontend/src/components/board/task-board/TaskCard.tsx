@@ -174,6 +174,7 @@ export const TaskCard = memo(function TaskCard({
 
       {isDetailOpen && (
         <CardDetailModal
+          key={card.id}
           card={card}
           boardId={boardId}
           isOpen={isDetailOpen}
