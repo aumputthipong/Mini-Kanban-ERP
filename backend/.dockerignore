@@ -31,6 +31,7 @@ Thumbs.db
 # Test data
 testdata/
 
-# Docs (not needed in container)
+# Markdown docs not needed in container.
+# NOTE: do NOT ignore docs/ — backend/docs is the swagger-generated
+# Go package required by routes.go (`_ "...backend/docs"`).
 *.md
-docs/
