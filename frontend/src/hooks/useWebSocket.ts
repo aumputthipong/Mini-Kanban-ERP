@@ -9,15 +9,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Wire-format envelope for every WebSocket message. The server routes by
  * `type`; the shape of `payload` depends on the type (CARD_MOVED carries
  * card_id + position, COLUMN_RENAMED carries column_id + title, etc.).
- *
- * `payload` is typed as `unknown` to force handlers to narrow before use —
- * the canonical shape per type is documented in the backend's
- * `internal/dto/card_dto.go` (CardMovedBroadcastPayload, etc.) and in the
- * dispatcher below.
  */
 export interface WebSocketMessage {
   type: string;
-  payload: unknown;
+  payload: any;
 }
 
 /**

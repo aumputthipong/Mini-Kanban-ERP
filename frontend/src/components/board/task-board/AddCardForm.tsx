@@ -14,12 +14,11 @@ export function AddCardForm({ onAdd, defaultOpen = false, onDismiss }: AddCardFo
   const [cardTitle, setCardTitle] = useState("");
   const addInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus when the form opens via the defaultOpen prop. State already
-  // initialises from `defaultOpen` so we don't (and mustn't) call setState here.
   useEffect(() => {
-    if (!defaultOpen) return;
-    const id = setTimeout(() => addInputRef.current?.focus(), 0);
-    return () => clearTimeout(id);
+    if (defaultOpen) {
+      setIsAdding(true);
+      setTimeout(() => addInputRef.current?.focus(), 0);
+    }
   }, [defaultOpen]);
 
   const handleSubmit = () => {

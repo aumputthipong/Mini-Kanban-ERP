@@ -25,7 +25,7 @@ interface FetchOptions extends Omit<RequestInit, "body"> {
  * @param endpoint  Path appended to `NEXT_PUBLIC_API_URL` (e.g. "/boards").
  * @param options   `data` for body; everything else mirrors fetch's RequestInit.
  */
-export async function apiClient<T = unknown>(
+export async function apiClient<T = any>(
   endpoint: string,
   { data, ...customConfig }: FetchOptions = {}
 ): Promise<T> {
@@ -57,7 +57,7 @@ export async function apiClient<T = unknown>(
     try {
       const errorData = await response.json();
       errorMessage = errorData.error || errorData.message || errorMessage;
-    } catch {
+    } catch (e) {
       errorMessage = response.statusText || errorMessage;
     }
     if (response.status === 403) {
@@ -77,7 +77,7 @@ export async function apiClient<T = unknown>(
   //  แกะ JSON ออกมาเป็น Object พร้อมใช้งาน
   try {
     return await response.json();
-  } catch {
+  } catch (e) {
     return null as T;
   }
 }

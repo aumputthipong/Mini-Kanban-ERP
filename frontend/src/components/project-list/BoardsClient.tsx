@@ -39,9 +39,6 @@ export function BoardsClient({ boards }: BoardsClientProps) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("updated");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  // Stable "now" reference per page session — passed to ProjectCard so the
-  // freshness check stays pure. Lazy initial fn = called once at mount only.
-  const [now] = useState(() => Date.now());
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -118,13 +115,13 @@ export function BoardsClient({ boards }: BoardsClientProps) {
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {filtered.map((board) => (
-            <ProjectCard key={board.id} board={board} viewMode="grid" now={now} />
+            <ProjectCard key={board.id} board={board} viewMode="grid" />
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((board) => (
-            <ProjectCard key={board.id} board={board} viewMode="list" now={now} />
+            <ProjectCard key={board.id} board={board} viewMode="list" />
           ))}
         </div>
       )}

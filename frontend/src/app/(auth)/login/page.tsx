@@ -1,7 +1,7 @@
 // src/app/(auth)/login/page.tsx
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -13,24 +13,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   access_denied: "Google sign-in was cancelled.",
 };
 
-// `useSearchParams` bails out of static prerendering, so Next 16 requires
-// the consumer be wrapped in a Suspense boundary. Move the form into an
-// inner component and the page itself becomes the Suspense parent.
 export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex items-center justify-center">
-          <Loader2 size={20} className="animate-spin text-slate-400" />
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

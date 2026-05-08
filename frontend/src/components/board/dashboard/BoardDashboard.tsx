@@ -107,7 +107,6 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
     <>
       {selectedCard && (
         <CardDetailModal
-          key={selectedCard.id}
           card={selectedCard}
           boardId={boardId}
           isOpen={true}

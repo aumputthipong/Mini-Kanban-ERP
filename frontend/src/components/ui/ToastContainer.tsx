@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
@@ -7,10 +8,10 @@ import { useToastStore } from "@/store/useToastStore";
 export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
   const dismiss = useToastStore((s) => s.dismiss);
+  const [mounted, setMounted] = useState(false);
 
-  // SSR guard: createPortal needs document.body. On the server we render
-  // nothing; the client will hydrate this section on first render.
-  if (typeof window === "undefined") return null;
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
 
   return createPortal(
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] flex flex-col gap-2 pointer-events-none">
