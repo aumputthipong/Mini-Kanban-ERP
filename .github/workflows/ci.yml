@@ -23,7 +23,10 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          # Use the exact Go version pinned in go.mod so `go mod tidy` produces
+          # the same output locally and in CI (otherwise newer toolchains can
+          # rewrite the go directive and trip the tidy-check below).
+          go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
       - name: Verify go.mod tidy
