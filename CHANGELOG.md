@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Repository polish: `LICENSE` (MIT), `CHANGELOG.md`, `CONTRIBUTING.md`, top-level `Makefile`.
+- Repository polish: `CHANGELOG.md`, `CONTRIBUTING.md`, top-level `Makefile`.
+
+### Removed
+
+- `LICENSE` (was MIT). Project no longer ships with an explicit license — see GitHub's
+  default copyright defaults (all rights reserved) until a new license is chosen.
 
 ## [0.4.0] — 2026-05-06
 
