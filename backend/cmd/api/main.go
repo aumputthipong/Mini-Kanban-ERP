@@ -16,6 +16,7 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/logging"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/migrate"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/observability"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -214,6 +215,9 @@ func main() {
 	}
 
 	cfg := loadConfig()
+
+	observability.InitSentry(version)
+	defer observability.FlushSentry(2 * time.Second)
 
 	if err := run(context.Background(), cfg); err != nil {
 		slog.Error("run failed", "err", err)

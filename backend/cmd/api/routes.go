@@ -11,6 +11,7 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/observability"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/go-chi/chi/v5"
@@ -37,10 +38,12 @@ type routerDeps struct {
 func setupRoutes(d routerDeps) http.Handler {
 	r := chi.NewRouter()
 
-	// Global middleware
-	r.Use(chiMiddleware.Logger)
-	r.Use(chiMiddleware.Recoverer)
+	// Global middleware. SentryRecoverer captures the panic before chi's
+	// stdlib Recoverer turns it into a 500 — both run, in this order.
 	r.Use(chiMiddleware.RequestID)
+	r.Use(chiMiddleware.Logger)
+	r.Use(observability.SentryRecoverer())
+	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.SecurityHeaders(d.production))
 
 	// Health endpoints — used by load balancers / uptime monitors / k8s probes
