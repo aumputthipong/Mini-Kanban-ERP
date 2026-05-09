@@ -1,6 +1,6 @@
 module github.com/aumputthipong/mini-erp-kanban/backend
 
-go 1.25.0
+go 1.25.10
 
 require (
 	github.com/getsentry/sentry-go v0.46.2
