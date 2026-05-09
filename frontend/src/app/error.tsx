@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 
 export default function RouteError({
   error,
@@ -12,8 +14,8 @@ export default function RouteError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: pipe to Sentry / observability sink in week-4
-    console.error("[route-error]", error);
+    logger.error("[route-error]", error);
+    captureException(error, { boundary: "route", digest: error.digest });
   }, [error]);
 
   return (

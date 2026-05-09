@@ -23,7 +23,10 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          # Use the exact Go version pinned in go.mod so `go mod tidy` produces
+          # the same output locally and in CI (otherwise newer toolchains can
+          # rewrite the go directive and trip the tidy-check below).
+          go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
       - name: Verify go.mod tidy
@@ -51,6 +54,11 @@ jobs:
             -trimpath \
             -ldflags="-s -w -X main.version=${{ github.sha }}" \
             -o /tmp/api ./cmd/api
+
+      - name: govulncheck (non-blocking — track stdlib + dep CVEs)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... || echo "::warning::govulncheck reported vulnerabilities — review the log and bump go.mod or deps when patches are available"
 
   frontend:
     name: Frontend (typecheck + test + build)
@@ -84,6 +92,9 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8080/api
           NEXT_PUBLIC_WS_URL: ws://localhost:8080/ws
         run: npm run build
+
+      - name: npm audit (high+ only, non-blocking)
+        run: npm audit --audit-level=high || true
 
   docker:
     name: Docker images build

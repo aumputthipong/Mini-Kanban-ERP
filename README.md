@@ -169,6 +169,8 @@ A top-level [`Makefile`](Makefile) wraps the most-used commands. `make` with no 
 |-------------------------------------|-----------------------|---------------------------------------------------------|
 | Verify everything CI runs           | `make verify`         | `go vet + go test + tsc + vitest`                       |
 | Run backend tests                   | `make test`           | `cd backend && go test ./...`                           |
+| Run frontend tests                  | `make test-fe`        | `cd frontend && npm test`                               |
+| Run frontend E2E (Playwright)       | `make test-e2e`       | `cd frontend && npx playwright install chromium && npm run test:e2e` |
 | Frontend type check                 | `make typecheck`      | `cd frontend && npx tsc --noEmit`                       |
 | Regenerate sqlc                     | `make sqlc`           | `cd backend && sqlc generate`                           |
 | New migration stub                  | `make migrate-new name=add_x` | (manual file creation under `database/migrations/`) |
