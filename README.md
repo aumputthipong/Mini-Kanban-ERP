@@ -177,19 +177,4 @@ A top-level [`Makefile`](Makefile) wraps the most-used commands. `make` with no 
 | Inspect health                      | —                     | `curl localhost:8080/healthz`                           |
 | Browse API docs                     | —                     | <http://localhost:8080/docs/index.html>                 |
 
-## Deployment notes
 
-- Container images are multi-stage: backend ends on `distroless/static:nonroot`, frontend on `node:20-alpine` with `output: "standalone"`.
-- Migrations run on every backend startup (idempotent — uses `golang-migrate`). Set `SKIP_MIGRATIONS=true` to disable.
-- Connection pool defaults: `MaxConns=25`, `MinConns=5`, `MaxConnIdleTime=5m`. Tune via `DB_URL` query params if needed.
-- Graceful shutdown: 30 s drain on `SIGTERM` / `SIGINT`.
-
-See [docs/DEPLOY.md](docs/DEPLOY.md) for the full pre-flight checklist, deploy paths, smoke tests, rollback procedure, and common breakages.
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch / commit conventions, the PR checklist, and what to run before opening a PR. Notable changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
-
-## License
-
-[MIT](LICENSE) © aumputthipong
