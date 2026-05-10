@@ -9,5 +9,5 @@
 #Env
 .env
 
-#Tool
-.claude/
+#claudeconfig  ส่วนตัว 
+.claude/settings.local.json
