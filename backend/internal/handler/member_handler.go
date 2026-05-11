@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/core"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -44,17 +44,8 @@ func (h *BoardHandler) AddBoardMember(w http.ResponseWriter, r *http.Request) er
 	}
 
 	var req dto.AddMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
-	}
-
-	if !core.BoardRole(req.Role).IsValid() {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role", nil)
-	}
-
-	// validate UUID format ของ userID
-	if _, err := uuid.Parse(req.UserID); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid user ID", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	if err := h.boardService.AddBoardMember(r.Context(), boardID, req.UserID, req.Role); err != nil {
@@ -96,17 +87,44 @@ func (h *BoardHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req dto.UpdateMemberRoleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
-
-	role := core.BoardRole(req.Role)
-	if !role.IsValid() || role == core.RoleOwner {
+	if core.BoardRole(req.Role) == core.RoleOwner {
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid role — cannot change to owner", nil)
 	}
 
 	if err := h.boardService.UpdateMemberRole(r.Context(), boardID, userIDStr, req.Role); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update role", err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// LeaveBoard ลบ user ปัจจุบันออกจาก board ตัวเอง
+// owner ต้องโอน ownership ก่อน ถึงจะออกได้
+func (h *BoardHandler) LeaveBoard(w http.ResponseWriter, r *http.Request) error {
+	boardID, err := httputil.GetUUIDParam(r, "boardID")
+	if err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid board ID", err)
+	}
+
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+	}
+
+	role, ok := middleware.BoardRoleFromContext(r.Context())
+	if !ok {
+		return httputil.NewAPIError(http.StatusForbidden, "Forbidden", nil)
+	}
+	if core.BoardRole(role) == core.RoleOwner {
+		return httputil.NewAPIError(http.StatusForbidden, "Owner cannot leave — transfer ownership first", nil)
+	}
+
+	if err := h.boardService.RemoveBoardMember(r.Context(), boardID, userID); err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to leave board", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

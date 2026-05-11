@@ -25,6 +25,7 @@ type ColumnData struct {
 	Title    string
 	Position float64
 	Category string
+	Color    *string
 	Cards    []CardData
 }
 
@@ -138,13 +139,13 @@ func (s *BoardService) CreateBoard(ctx context.Context, title string, ownerID st
 	return board.ID, nil
 }
 
-func (s *BoardService) GetAllBoards(ctx context.Context) ([]BoardSummaryData, error) {
-	stats, err := s.queries.GetActiveBoardsWithStats(ctx)
+func (s *BoardService) GetAllBoards(ctx context.Context, userID string) ([]BoardSummaryData, error) {
+	stats, err := s.queries.GetActiveBoardsWithStats(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	memberRows, err := s.queries.GetMembersForActiveBoards(ctx)
+	memberRows, err := s.queries.GetMembersForActiveBoards(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -184,12 +185,95 @@ func (s *BoardService) MoveBoardToTrash(ctx context.Context, boardID string) err
 	return s.queries.MoveBoardToTrash(ctx, boardID)
 }
 
-func (s *BoardService) GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
-	return s.queries.GetTrashedBoards(ctx)
+func (s *BoardService) GetTrashedBoards(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
+	return s.queries.GetTrashedBoardsForOwner(ctx, userID)
+}
+
+func (s *BoardService) GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error) {
+	return s.queries.GetBoardMemberRole(ctx, db.GetBoardMemberRoleParams{
+		BoardID: boardID,
+		UserID:  userID,
+	})
+}
+
+func (s *BoardService) GetBoardIDByColumn(ctx context.Context, columnID string) (string, error) {
+	return s.queries.GetBoardIDByColumn(ctx, columnID)
+}
+
+func (s *BoardService) GetBoardIDByCard(ctx context.Context, cardID string) (string, error) {
+	return s.queries.GetBoardIDByCard(ctx, cardID)
+}
+
+// MyTaskData mirrors the row shape returned to the frontend's My Tasks page.
+// Status is derived in SQL: "todo" for the first TODO column, "in_progress"
+// otherwise.
+type MyTaskData struct {
+	ID             string
+	Title          string
+	BoardID        string
+	BoardName      string
+	ColumnName     string
+	Priority       *string
+	DueDate        *time.Time
+	EstimatedHours *float64
+	IsDone         bool
+	Status         string
+}
+
+func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error) {
+	rows, err := s.queries.GetMyTasks(ctx, &userID)
+	if err != nil {
+		return nil, fmt.Errorf("get my tasks: %w", err)
+	}
+	out := make([]MyTaskData, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, MyTaskData{
+			ID:             r.ID,
+			Title:          r.Title,
+			BoardID:        r.BoardID,
+			BoardName:      r.BoardName,
+			ColumnName:     r.ColumnName,
+			Priority:       r.Priority,
+			DueDate:        r.DueDate,
+			EstimatedHours: util.PgNumericToFloat64Ptr(r.EstimatedHours),
+			IsDone:         r.IsDone,
+			Status:         r.Status,
+		})
+	}
+	return out, nil
+}
+
+// CompleteMyTask marks a card done + moves it to the board's first DONE column.
+// Returns false if the caller is not the assignee (so handler can 404).
+func (s *BoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error) {
+	boardID, err := s.queries.GetBoardIDByCard(ctx, cardID)
+	if err != nil {
+		return false, fmt.Errorf("resolve board: %w", err)
+	}
+	doneCol, err := s.queries.GetColumnByBoardAndCategory(ctx, db.GetColumnByBoardAndCategoryParams{
+		BoardID:  boardID,
+		Category: "DONE",
+	})
+	if err != nil {
+		return false, fmt.Errorf("find DONE column: %w", err)
+	}
+	rows, err := s.queries.CompleteCardAsAssignee(ctx, db.CompleteCardAsAssigneeParams{
+		ID:         cardID,
+		ColumnID:   doneCol.ID,
+		AssigneeID: &userID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("complete card: %w", err)
+	}
+	return rows > 0, nil
 }
 
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {
 	return s.queries.HardDeleteBoard(ctx, id)
+}
+
+func (s *BoardService) RestoreBoard(ctx context.Context, id string) error {
+	return s.queries.RestoreBoardFromTrash(ctx, id)
 }
 
 func (s *BoardService) UpdateBoard(ctx context.Context, id string, title *string, budget *float64) (db.Board, error) {
@@ -305,6 +389,7 @@ func (s *BoardService) GetBoardWithCards(ctx context.Context, boardID string) ([
 			Title:    col.Title,
 			Position: col.Position,
 			Category: col.Category,
+			Color:    col.Color,
 			Cards:    colCards,
 		})
 	}

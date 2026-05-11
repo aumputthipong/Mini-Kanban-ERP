@@ -13,6 +13,7 @@ import { AddCardForm } from "./AddCardForm";
 import type { Card, Column } from "@/types/board";
 import { FormState } from "../card-modal/CardDetailModal";
 import { ColumnOptionsModal, getColumnColorHex } from "./ColumnOptionsModal";
+import { useCanManageBoard } from "@/hooks/useBoardRole";
 
 interface ColumnProps {
   id: string;
@@ -25,7 +26,12 @@ interface ColumnProps {
   onDeleteCard: (cardId: string) => void;
   onSaveCard: (cardId: string, form: FormState) => void;
   onDeleteColumn: (columnId: string) => void;
-  onUpdateColumn: (columnId: string, title: string, category: "TODO" | "DONE", color: string | null) => void;
+  onUpdateColumn: (
+    columnId: string,
+    title: string,
+    category: "TODO" | "DONE",
+    color: string | null,
+  ) => void;
   filterAssigneeId?: string | null;
   filterPriorities?: string[];
   filterTagIds?: string[];
@@ -56,6 +62,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id });
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [topAddOpen, setTopAddOpen] = useState(false);
+  const canManage = useCanManageBoard();
 
   const visibleCards = useMemo(
     () =>
@@ -72,26 +79,33 @@ export const KanbanColumn = memo(function KanbanColumn({
     [cards, filterAssigneeId, filterPriorities, filterTagIds],
   );
 
-  const colorHex = getColumnColorHex(color);
+const colorHex = getColumnColorHex(color);
 
+  // 1. สร้างตัวแปรเก็บสีทึบ 100% แต่อ่อนละมุนไว้ใช้ร่วมกัน
+  const solidBgStyle = colorHex 
+    ? { backgroundColor: `color-mix(in srgb, ${colorHex} 12%, white)` } 
+    : undefined;
   return (
     <>
       <div
         ref={setNodeRef}
-        className={`w-72 shrink-0 rounded-2xl flex flex-col transition-colors snap-start ${
-          isOver
-            ? "bg-blue-50 border-2 border-blue-300"
-            : "bg-slate-100 border-2 border-transparent"
-        }`}
+        className={`
+          w-72 shrink-0 flex flex-col snap-start 
+          rounded-2xl border-2 transition-all duration-200
+          ${!colorHex && isOver ? "border-blue-300 bg-blue-50" : "border-transparent"}
+          ${!colorHex && !isOver ? "bg-slate-100" : ""}
+        `}
+        style={solidBgStyle}
       >
-        {/* Sticky header — color strip + title row */}
-        <div className={`sticky top-0 z-10 rounded-t-2xl transition-colors ${
-          isOver ? "bg-blue-50" : "bg-slate-100"
-        }`}>
-          {colorHex && (
-            <div className="h-1 rounded-t-2xl" style={{ backgroundColor: colorHex }} />
-          )}
-          <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
+        {/* Sticky header — title row */}
+      <div
+          className={`sticky top-0 z-10 rounded-t-2xl transition-colors pb-2 ${
+            !colorHex ? (isOver ? "bg-blue-50" : "bg-slate-100") : ""
+          }`}
+          // 2. เปลี่ยนตรงนี้ให้ใช้ solidBgStyle เหมือนกล่องแม่!
+          style={solidBgStyle} 
+        >
+          <div className="flex items-center justify-between gap-3 px-4 pt-4">
             <h2 className="font-bold text-slate-700 leading-tight truncate flex-1">
               {title}
             </h2>
@@ -109,12 +123,15 @@ export const KanbanColumn = memo(function KanbanColumn({
                 <Plus size={16} />
               </button>
 
-              <button
-                onClick={() => setOptionsOpen(true)}
-                className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => setOptionsOpen(true)}
+                  title="Column options"
+                  className="cursor-pointer text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors"
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -136,22 +153,26 @@ export const KanbanColumn = memo(function KanbanColumn({
               />
             )}
             {visibleCards.map((card) => (
-                <div key={card.id}>
-                  {dropIndicatorBeforeId === card.id && <DropIndicator />}
-                  <TaskCard
-                    boardId={boardId}
-                    card={card}
-                    onDeleteCard={onDeleteCard}
-                    onSaveCard={onSaveCard}
-                  />
-                </div>
-              ))}
+              <div key={card.id}>
+                {dropIndicatorBeforeId === card.id && <DropIndicator />}
+                <TaskCard
+                  boardId={boardId}
+                  card={card}
+                  onDeleteCard={onDeleteCard}
+                  onSaveCard={onSaveCard}
+                />
+              </div>
+            ))}
             {dropIndicatorBeforeId === null && <DropIndicator />}
           </div>
         </SortableContext>
       </div>
 
+      {/* `key` remounts the modal whenever a different column opens it, so
+          internal state initialises fresh from the new initialTitle/Category/Color
+          props instead of being sync'd inside an effect. */}
       <ColumnOptionsModal
+        key={`${id}-${optionsOpen}`}
         open={optionsOpen}
         columnId={id}
         initialTitle={title}

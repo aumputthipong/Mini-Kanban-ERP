@@ -9,6 +9,15 @@ interface BoardWebSocketContextValue {
 
 const BoardWebSocketContext = createContext<BoardWebSocketContextValue | null>(null);
 
+/**
+ * Wraps `useWebSocket` so any descendant of the board page can call
+ * `sendMessage` without re-instantiating the socket. Mount this once at the
+ * board route layout — children get a stable `sendMessage` reference.
+ *
+ * The hook itself manages reconnection + dispatch into Zustand stores. This
+ * provider only exposes the *outbound* channel — inbound messages bypass
+ * context entirely and mutate stores directly (see `useWebSocket`).
+ */
 export function BoardWebSocketProvider({
   boardId,
   children,
@@ -24,6 +33,11 @@ export function BoardWebSocketProvider({
   );
 }
 
+/**
+ * Read the active board's outbound WS channel. Throws if used outside a
+ * `<BoardWebSocketProvider>` — that's intentional; calling `sendMessage`
+ * with no socket would silently swallow the action.
+ */
 export function useBoardWebSocket() {
   const ctx = useContext(BoardWebSocketContext);
   if (!ctx) throw new Error("useBoardWebSocket must be used inside BoardWebSocketProvider");

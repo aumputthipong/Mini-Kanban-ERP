@@ -45,7 +45,7 @@ const validCardID   = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 func TestGetAllBoards_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+		GetAllBoardsFn: func(ctx context.Context, userID string) ([]service.BoardSummaryData, error) {
 			return []service.BoardSummaryData{
 				{ID: "id-1", Title: "Board A"},
 				{ID: "id-2", Title: "Board B"},
@@ -53,7 +53,7 @@ func TestGetAllBoards_Success(t *testing.T) {
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/boards", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetAllBoards)(w, req)
@@ -68,12 +68,12 @@ func TestGetAllBoards_Success(t *testing.T) {
 
 func TestGetAllBoards_DBError(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetAllBoardsFn: func(ctx context.Context) ([]service.BoardSummaryData, error) {
+		GetAllBoardsFn: func(ctx context.Context, userID string) ([]service.BoardSummaryData, error) {
 			return nil, errors.New("connection refused")
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/boards", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetAllBoards)(w, req)
@@ -392,14 +392,14 @@ func TestUpdateBoard_ServiceError(t *testing.T) {
 
 func TestGetTrash_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
-			return []db.GetTrashedBoardsRow{
+		GetTrashedBoardsFn: func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
+			return []db.GetTrashedBoardsForOwnerRow{
 				{ID: "b-1", Title: "Old Board"},
 			}, nil
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetTrash)(w, req)
@@ -413,12 +413,12 @@ func TestGetTrash_Success(t *testing.T) {
 
 func TestGetTrash_ServiceError(t *testing.T) {
 	svc := &mock.MockBoardService{
-		GetTrashedBoardsFn: func(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
+		GetTrashedBoardsFn: func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
 			return nil, errors.New("db error")
 		},
 	}
 	h := NewBoardHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/trash", nil)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.GetTrash)(w, req)
@@ -432,6 +432,12 @@ func TestGetTrash_ServiceError(t *testing.T) {
 
 func TestCreateCard_Success(t *testing.T) {
 	svc := &mock.MockBoardService{
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, userID string) (string, error) {
+			return "member", nil
+		},
 		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 			assert.Equal(t, validColumnID, arg.ColumnID)
 			assert.Equal(t, "Test Card", arg.Title)
@@ -493,6 +499,12 @@ func TestCreateCard_InvalidJSON(t *testing.T) {
 
 func TestCreateCard_ServiceError(t *testing.T) {
 	svc := &mock.MockBoardService{
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, userID string) (string, error) {
+			return "member", nil
+		},
 		CreateCardFn: func(ctx context.Context, arg db.CreateCardParams) (db.CreateCardRow, error) {
 			return db.CreateCardRow{}, errors.New("db error")
 		},
@@ -513,7 +525,17 @@ func TestCreateCard_ServiceError(t *testing.T) {
 // ────────────────────────────────────────────────
 
 func TestUpdateCard_Success(t *testing.T) {
+	userID := validUserID
 	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{ID: validCardID, ColumnID: validColumnID, CreatedBy: &userID}, nil
+		},
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, uid string) (string, error) {
+			return "member", nil
+		},
 		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
 			assert.Equal(t, validCardID, arg.ID)
 			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "Updated"}, nil
@@ -523,6 +545,7 @@ func TestUpdateCard_Success(t *testing.T) {
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
+	req = withUserID(req, validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.UpdateCard)(w, req)
@@ -560,7 +583,17 @@ func TestUpdateCard_InvalidJSON(t *testing.T) {
 }
 
 func TestUpdateCard_ServiceError(t *testing.T) {
+	userID := validUserID
 	svc := &mock.MockBoardService{
+		GetCardFn: func(ctx context.Context, cardID string) (db.Card, error) {
+			return db.Card{ID: validCardID, ColumnID: validColumnID, CreatedBy: &userID}, nil
+		},
+		GetBoardIDByColumnFn: func(ctx context.Context, columnID string) (string, error) {
+			return validBoardID, nil
+		},
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, uid string) (string, error) {
+			return "member", nil
+		},
 		UpdateCardFn: func(ctx context.Context, arg service.UpdateCardParams) (db.Card, error) {
 			return db.Card{}, errors.New("db error")
 		},
@@ -569,6 +602,7 @@ func TestUpdateCard_ServiceError(t *testing.T) {
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
+	req = withUserID(req, validUserID)
 	w := httptest.NewRecorder()
 
 	httputil.MakeHandler(h.UpdateCard)(w, req)

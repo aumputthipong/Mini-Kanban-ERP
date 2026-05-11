@@ -1,7 +1,64 @@
 -- name: GetAllBoards :many
-SELECT id, title, created_at 
-FROM boards 
+SELECT id, title, created_at
+FROM boards
 ORDER BY created_at DESC;
+
+-- name: GetBoardIDByColumn :one
+SELECT board_id FROM columns WHERE id = $1;
+
+-- name: GetBoardIDByCard :one
+SELECT col.board_id
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+WHERE c.id = $1;
+
+-- name: GetMyTasks :many
+-- Cards assigned to the user, not yet done, on boards that aren't trashed.
+-- Returns a derived `status`: cards in the first TODO column of their board
+-- are "todo"; cards in any later TODO column are "in_progress". DONE-category
+-- cards don't appear here because is_done is filtered out.
+WITH first_todo AS (
+    SELECT board_id, MIN(position) AS first_pos
+    FROM columns
+    WHERE category = 'TODO'
+    GROUP BY board_id
+)
+SELECT
+    c.id,
+    c.title,
+    c.priority,
+    c.due_date,
+    c.estimated_hours,
+    c.is_done,
+    col.board_id,
+    b.title AS board_name,
+    col.title AS column_name,
+    CASE
+        WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
+        WHEN col.category = 'TODO' THEN 'in_progress'
+        ELSE 'todo'
+    END::text AS status
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+JOIN boards  b   ON b.id  = col.board_id
+LEFT JOIN first_todo ft ON ft.board_id = col.board_id
+WHERE c.assignee_id = $1
+  AND c.is_done = FALSE
+  AND b.deleted_at IS NULL
+ORDER BY
+    CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
+    c.due_date ASC,
+    c.created_at DESC;
+
+-- name: CompleteCardAsAssignee :execrows
+-- Atomic complete + move-to-DONE-column. Only succeeds if the caller is the
+-- card's assignee. Returns affected row count so the handler can 404 on miss.
+UPDATE cards
+SET column_id = $2,
+    is_done = TRUE,
+    completed_at = NOW()
+WHERE id = $1
+  AND assignee_id = $3;
 
 -- name: GetColumnsByBoardID :many
 SELECT id, board_id, title, position, category, color, created_at, updated_at
@@ -113,6 +170,7 @@ SELECT
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
     COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
 FROM boards b
+JOIN board_members me ON me.board_id = b.id AND me.user_id = $1
 LEFT JOIN columns col ON col.board_id = b.id
 LEFT JOIN cards   c   ON c.column_id  = col.id
 WHERE b.deleted_at IS NULL
@@ -128,13 +186,17 @@ FROM board_members bm
 JOIN users  u ON u.id  = bm.user_id
 JOIN boards b ON b.id  = bm.board_id
 WHERE b.deleted_at IS NULL
+  AND b.id IN (
+    SELECT bm2.board_id FROM board_members bm2 WHERE bm2.user_id = $1
+  )
 ORDER BY bm.joined_at ASC;
 
--- name: GetTrashedBoards :many
-SELECT id, title, deleted_at 
-FROM boards 
-WHERE deleted_at IS NOT NULL 
-ORDER BY deleted_at DESC;
+-- name: GetTrashedBoardsForOwner :many
+SELECT b.id, b.title, b.deleted_at
+FROM boards b
+JOIN board_members bm ON bm.board_id = b.id AND bm.user_id = $1 AND bm.role = 'owner'
+WHERE b.deleted_at IS NOT NULL
+ORDER BY b.deleted_at DESC;
 
 -- name: HardDeleteBoard :exec
 -- ลบข้อมูลออกจากตารางจริง (ถ้าตั้ง ON DELETE CASCADE ไว้ ลูกๆ จะหายไปด้วย)
@@ -181,6 +243,9 @@ RETURNING *;
 
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = $1 LIMIT 1;
+
+-- name: GetUserByID :one
+SELECT id, email, full_name FROM users WHERE id = $1 LIMIT 1;
 
 -- name: GetUserByProviderID :one
 SELECT * FROM users 

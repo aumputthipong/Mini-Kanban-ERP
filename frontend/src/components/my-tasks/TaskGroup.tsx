@@ -1,49 +1,44 @@
 // components/my-tasks/TaskGroup.tsx
 "use client";
 
-import { MyTask } from "@/app/(project)/my-tasks/page";
-import { TaskRow } from "./TaskRow";
-
-// นำเข้า TaskRow และ Interface MyTask จากไฟล์ TaskRow ที่คุณสร้างไว้แล้ว
-
+import { TaskRow, type MyTask } from "./TaskRow";
 
 interface TaskGroupProps {
   title: string;
   tasks: MyTask[];
-  headerColor?: string;
+  dotColor?: string;
   onCompleteTask: (taskId: string, boardId: string) => void;
 }
 
-export function TaskGroup({ 
-  title, 
-  tasks, 
-  headerColor = "text-slate-800", 
-  onCompleteTask 
+export function TaskGroup({
+  title,
+  tasks,
+  dotColor = "bg-slate-400",
+  onCompleteTask,
 }: TaskGroupProps) {
-  
-  // Best Practice: ถ้าไม่มีงานในกลุ่มนี้เลย ก็ไม่ต้อง Render กล่องนี้ออกมาให้รกหน้าจอ
   if (tasks.length === 0) return null;
 
   return (
-    <div className="mb-8">
-      {/* ส่วนหัวของกลุ่ม (เช่น "Overdue (เลยกำหนด)") */}
-      <div className="flex items-center gap-2 mb-3 px-2">
-        <h3 className={`text-sm font-bold ${headerColor}`}>{title}</h3>
-        <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-500 rounded-full">
+    <section className="mb-3 last:mb-0">
+      {/* Prominent header bar — matches ProjectGroup style */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-t-lg bg-linear-to-r from-slate-100 via-slate-50 to-transparent border border-slate-200 border-b-0">
+        <span
+          aria-hidden
+          className={`w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-white shadow-sm ${dotColor}`}
+        />
+        <h3 className="text-base font-bold text-slate-900 truncate tracking-tight">
+          {title}
+        </h3>
+        <span className="text-[11px] font-bold tabular-nums text-slate-700 px-2 py-0.5 rounded-md bg-white border border-slate-200 shadow-xs shrink-0">
           {tasks.length}
         </span>
       </div>
-      
-      {/* ส่วนกรอบที่ครอบ TaskRow ทั้งหมดเอาไว้ */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+
+      <div className="border border-slate-200 border-t-slate-100 rounded-b-lg bg-white overflow-hidden">
         {tasks.map((task) => (
-          <TaskRow   
-            key={task.id} 
-            task={task} 
-            onComplete={onCompleteTask} 
-          />
+          <TaskRow key={task.id} task={task} onComplete={onCompleteTask} />
         ))}
       </div>
-    </div>
+    </section>
   );
 }

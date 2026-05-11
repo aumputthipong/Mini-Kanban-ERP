@@ -1,0 +1,37 @@
+# VCS
+.git
+.gitignore
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.example.env
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test data
+testdata/
+
+# Markdown docs not needed in container.
+# NOTE: do NOT ignore docs/ — backend/docs is the swagger-generated
+# Go package required by routes.go (`_ "...backend/docs"`).
+*.md

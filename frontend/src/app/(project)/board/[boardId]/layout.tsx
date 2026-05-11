@@ -38,6 +38,23 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
     );
   }
 
+  if (error === "NOT_FOUND") {
+    return (
+      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <h1 className="text-2xl font-semibold text-slate-700">Board not found</h1>
+        <p className="text-sm text-slate-500 max-w-md">
+          ไม่พบบอร์ดนี้ หรือคุณไม่ได้เป็น member ของบอร์ดนี้ — ติดต่อ owner เพื่อขอเชิญเข้าร่วม
+        </p>
+        <a
+          href="/dashboard"
+          className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          ← Back to dashboard
+        </a>
+      </main>
+    );
+  }
+
   if (error) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">

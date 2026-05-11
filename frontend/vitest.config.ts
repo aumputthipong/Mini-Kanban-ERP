@@ -8,6 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Playwright owns the e2e/ folder — keep vitest out of it.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/e2e/**"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
