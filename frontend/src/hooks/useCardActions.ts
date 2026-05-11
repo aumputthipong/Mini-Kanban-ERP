@@ -93,7 +93,7 @@ export function useCardActions(boardId: string) {
 
     // Optimistic store update (includes tags)
     updateCard({
-      ...columns.flatMap((c) => c.cards).find((c) => c.id === cardId)!,
+      ...original!,
       title: form.title,
       description: form.description || null,
       due_date: form.due_date || null,
@@ -120,7 +120,6 @@ export function useCardActions(boardId: string) {
       }),
     }).catch(() => {});
 
-    // Broadcast to other clients via WebSocket (non-tag fields)
     sendMessage({
       type: "CARD_UPDATED",
       payload: {
