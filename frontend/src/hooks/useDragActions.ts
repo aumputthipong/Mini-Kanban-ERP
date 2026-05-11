@@ -8,12 +8,30 @@ import {
   calcPositionFromColumns,
 } from "@/utils/boardPosition";
 
+/**
+ * @dnd-kit handlers for the board's drag-and-drop. Three concerns:
+ *
+ *   1. **Cross-column preview** during drag — moves the card optimistically in
+ *      the store on `dragOver` so the user sees it land. A `useRef` tracks the
+ *      last column we moved into so we don't keep re-firing the move on every
+ *      pointer event (would loop with React's update cycle).
+ *
+ *   2. **Final commit** on `dragEnd` — recomputes the final position from the
+ *      midpoint of the over-card to decide before/after placement, applies it
+ *      locally, then broadcasts `CARD_MOVED` over WS. The server is the source
+ *      of truth: if it rejects the move it broadcasts the corrected state and
+ *      everyone (including this client) reconciles via `moveCard`'s
+ *      idempotent semantics.
+ *
+ *   3. **Position math** is delegated to `utils/boardPosition` which uses the
+ *      64k-gap strategy described in `docs/DATABASE.md` so reorders stay cheap.
+ */
 export function useDragActions() {
   const { moveCard } = useBoardStore();
   const { sendMessage } = useBoardWebSocket();
 
-  // ref ติดตาม column ที่การ์ดถูกย้ายไปล่าสุดระหว่าง drag
-  // ใช้ ref แทน state เพื่อหลีกเลี่ยง React update cycle → ไม่วนลูป
+  // Tracks the column we most recently moved the card into during a drag.
+  // ref (not state) — we don't want the React update cycle on every pointer move.
   const dragOverColumnRef = useRef<string | null>(null);
 
   const handleDragStart = () => {
@@ -66,11 +84,24 @@ export function useDragActions() {
     if (!resolved) return;
     const { overColumnId, overCardId } = resolved;
 
+    // Determine whether to place BEFORE or AFTER the over card.
+    // Compare translated center of the dragged card vs center of the over card —
+    // if the drag is past the midpoint, treat it as "after". Handles both
+    // same-column downward moves and cross-column drops onto a bottom card.
+    let placeAfter = false;
+    const activeTranslated = active.rect.current.translated;
+    if (overCardId && over.rect && activeTranslated) {
+      const overMidY = over.rect.top + over.rect.height / 2;
+      const activeMidY = activeTranslated.top + activeTranslated.height / 2;
+      placeAfter = activeMidY > overMidY;
+    }
+
     const newPosition = calcPositionFromColumns(
       freshColumns,
       overColumnId,
       overCardId,
       activeCardId,
+      placeAfter,
     );
 
     moveCard(activeCardId, overColumnId, newPosition);

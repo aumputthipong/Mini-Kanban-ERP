@@ -29,32 +29,44 @@ type CardResponse struct {
 	Tags              []TagResponse `json:"tags"`
 }
 
+type MyTaskResponse struct {
+	ID             string   `json:"id"`
+	Title          string   `json:"title"`
+	BoardID        string   `json:"board_id"`
+	BoardName      string   `json:"board_name"`
+	ColumnName     string   `json:"column_name"`
+	Priority       *string  `json:"priority"`
+	DueDate        *string  `json:"due_date"`
+	EstimatedHours *float64 `json:"estimated_hours"`
+	Status         string   `json:"status"`
+}
+
 type CreateCardRequest struct {
-	ColumnID   string  `json:"column_id"`
-	Title      string  `json:"title"`
-	DueDate    *string `json:"due_date"`
-	AssigneeID *string `json:"assignee_id"`
-	Priority   *string `json:"priority"`
+	ColumnID   string  `json:"column_id"   validate:"required,uuid"`
+	Title      string  `json:"title"       validate:"required,min=1,max=200"`
+	DueDate    *string `json:"due_date"    validate:"omitempty,datetime=2006-01-02"`
+	AssigneeID *string `json:"assignee_id" validate:"omitempty,uuid"`
+	Priority   *string `json:"priority"    validate:"omitempty,oneof=low medium high"`
 }
 
 type UpdateCardRequest struct {
-	Title          *string   `json:"title"`
-	Description    *string   `json:"description"`
-	DueDate        *string   `json:"due_date"`
-	AssigneeID     *string   `json:"assignee_id"`
-	Priority       *string   `json:"priority"`
-	EstimatedHours *float64  `json:"estimated_hours"`
-	TagIDs         *[]string `json:"tag_ids"`
+	Title          *string   `json:"title"           validate:"omitempty,min=1,max=200"`
+	Description    *string   `json:"description"     validate:"omitempty,max=5000"`
+	DueDate        *string   `json:"due_date"        validate:"omitempty,datetime=2006-01-02"`
+	AssigneeID     *string   `json:"assignee_id"     validate:"omitempty,uuid"`
+	Priority       *string   `json:"priority"        validate:"omitempty,oneof=low medium high"`
+	EstimatedHours *float64  `json:"estimated_hours" validate:"omitempty,gte=0,lte=10000"`
+	TagIDs         *[]string `json:"tag_ids"         validate:"omitempty,dive,uuid"`
 }
 
 type CreateTagRequest struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
+	Name  string `json:"name"  validate:"required,min=1,max=50"`
+	Color string `json:"color" validate:"required,hexcolor"`
 }
 
 type SubtaskRequest struct {
-	Title    string  `json:"title"`
-	Position float64 `json:"position"`
+	Title    string  `json:"title"    validate:"required,min=1,max=200"`
+	Position float64 `json:"position" validate:"gte=0"`
 }
 
 type CardMovedBroadcastPayload struct {

@@ -76,6 +76,10 @@ if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(passw
 	return user, nil
 }
 
+func (s *AuthService) GetUserByID(ctx context.Context, userID string) (db.GetUserByIDRow, error) {
+	return s.queries.GetUserByID(ctx, userID)
+}
+
 func (s *AuthService) UpsertOAuthUser(ctx context.Context, email, fullName, provider, providerID string) (db.User, error) {
 	user, err := s.queries.UpsertOAuthUser(ctx, db.UpsertOAuthUserParams{
 		Email:      email,

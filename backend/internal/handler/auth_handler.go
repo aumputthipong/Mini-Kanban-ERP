@@ -28,35 +28,38 @@ type authUserResponse struct {
 }
 
 type registerRequest struct {
-	Email    string `json:"email"`
-	FullName string `json:"full_name"`
-	Password string `json:"password"`
+	Email    string `json:"email"     validate:"required,email"`
+	FullName string `json:"full_name" validate:"required,min=1,max=120"`
+	Password string `json:"password"  validate:"required,min=8,max=128"`
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email"    validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 type oauthRequest struct {
-	Email      string `json:"email"`
-	FullName   string `json:"full_name"`
-	Provider   string `json:"provider"`
-	ProviderID string `json:"provider_id"`
+	Email      string `json:"email"       validate:"required,email"`
+	FullName   string `json:"full_name"   validate:"required,min=1,max=120"`
+	Provider   string `json:"provider"    validate:"required,oneof=google github"`
+	ProviderID string `json:"provider_id" validate:"required"`
 }
 
+// Register creates a new credentials user and sets an auth cookie.
+//
+// @Summary  Register
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     registerRequest    true  "Email, full name, password (min 8)"
+// @Success  201     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse "validation error"
+// @Failure  409     {object} httputil.ErrorResponse "email already in use"
+// @Router   /api/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	var req registerRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
-	}
-
-	if req.Email == "" || req.FullName == "" || req.Password == "" {
-		return httputil.NewAPIError(http.StatusBadRequest, "Email, full name and password are required", nil)
-	}
-
-	if len(req.Password) < 8 {
-		return httputil.NewAPIError(http.StatusBadRequest, "Password must be at least 8 characters", nil)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.Register(r.Context(), service.RegisterParams{
@@ -85,10 +88,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// Login authenticates with email + password and sets an auth cookie.
+//
+// @Summary  Login
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     loginRequest        true  "Credentials"
+// @Success  200     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Failure  401     {object} httputil.ErrorResponse  "invalid credentials"
+// @Router   /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	var req loginRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.Login(r.Context(), req.Email, req.Password)
@@ -113,10 +127,22 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// OAuthCallback upserts the user from a verified OAuth provider payload and
+// sets an auth cookie. Called by the frontend after NextAuth completes the
+// provider handshake.
+//
+// @Summary  OAuth callback (programmatic)
+// @Tags     auth
+// @Accept   json
+// @Produce  json
+// @Param    payload body     oauthRequest       true  "Verified provider payload"
+// @Success  200     {object} authUserResponse
+// @Failure  400     {object} httputil.ErrorResponse
+// @Router   /api/auth/oauth [post]
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) error {
 	var req oauthRequest
-	if err := httputil.DecodeJSON(r, &req); err != nil {
-		return httputil.NewAPIError(http.StatusBadRequest, "Invalid request body", err)
+	if err := httputil.DecodeAndValidate(r, &req); err != nil {
+		return err
 	}
 
 	user, err := h.authService.UpsertOAuthUser(r.Context(), req.Email, req.FullName, req.Provider, req.ProviderID)
@@ -138,6 +164,12 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+// Logout clears the auth cookie. Always returns 204.
+//
+// @Summary  Logout
+// @Tags     auth
+// @Success  204
+// @Router   /api/auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -150,11 +182,28 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// Me returns the authenticated user's profile.
+//
+// @Summary  Current user
+// @Tags     auth
+// @Produce  json
+// @Security CookieAuth
+// @Success  200 {object} authUserResponse
+// @Failure  401 {object} httputil.ErrorResponse
+// @Router   /api/auth/me [get]
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) error {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok || userID == "" {
 		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
 	}
-	httputil.RespondJSON(w, http.StatusOK, map[string]string{"user_id": userID})
+	user, err := h.authService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load user", err)
+	}
+	httputil.RespondJSON(w, http.StatusOK, map[string]string{
+		"user_id":   user.ID,
+		"email":     user.Email,
+		"full_name": user.FullName,
+	})
 	return nil
 }

@@ -8,7 +8,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  pointerWithin,
+  rectIntersection,
   closestCorners,
+  type CollisionDetection,
   type DragStartEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
@@ -50,15 +53,26 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     beforeCardId: string | null;
   } | null>(null);
 
-  const stableHandleAddCard = useCallback(handleAddCard, [handleAddCard]);
-  const stableHandleDeleteCard = useCallback(handleDeleteCard, [handleDeleteCard]);
-  const stableHandleUpdateCard = useCallback(handleUpdateCard, [handleUpdateCard]);
-  const stableHandleDeleteColumn = useCallback(handleDeleteColumn, [handleDeleteColumn]);
-  const stableHandleUpdateColumn = useCallback(handleUpdateColumn, [handleUpdateColumn]);
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
+
+  // Custom collision detection:
+  // 1. pointerWithin — honors the literal pointer location; picks an empty column
+  //    directly under the cursor instead of a neighboring card in a dense column.
+  // 2. rectIntersection — fallback when the pointer sits on a boundary.
+  // 3. closestCorners — final fallback (e.g. when dragging past the edge of the board).
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) {
+      return rectCollisions;
+    }
+    return closestCorners(args);
+  }, []);
 
   const onDragStart = (event: DragStartEvent) => {
     handleDragStart();
@@ -100,7 +114,22 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
         setDropTarget(null);
         return;
       }
-      beforeCardId = overId;
+      // Determine whether the pointer is past the midpoint of the over card.
+      // If so, indicator shows BEFORE the next card (or at end if over is last).
+      const activeTranslated = active.rect.current.translated;
+      let placeAfter = false;
+      if (over.rect && activeTranslated) {
+        const overMidY = over.rect.top + over.rect.height / 2;
+        const activeMidY = activeTranslated.top + activeTranslated.height / 2;
+        placeAfter = activeMidY > overMidY;
+      }
+      if (placeAfter) {
+        const sorted = [...overCol.cards].sort((a, b) => a.position - b.position);
+        const idx = sorted.findIndex((c) => c.id === overId);
+        beforeCardId = sorted[idx + 1]?.id ?? null;
+      } else {
+        beforeCardId = overId;
+      }
     }
 
     const activeCol = columns.find((col) =>
@@ -128,11 +157,11 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
       category: col.category,
       color: col.color,
       cards: col.cards,
-      onAddCard: stableHandleAddCard,
-      onDeleteCard: stableHandleDeleteCard,
-      onSaveCard: stableHandleUpdateCard,
-      onDeleteColumn: stableHandleDeleteColumn,
-      onUpdateColumn: stableHandleUpdateColumn,
+      onAddCard: handleAddCard,
+      onDeleteCard: handleDeleteCard,
+      onSaveCard: handleUpdateCard,
+      onDeleteColumn: handleDeleteColumn,
+      onUpdateColumn: handleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
       filterTagIds,
@@ -141,11 +170,11 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
     }),
     [
       boardId,
-      stableHandleAddCard,
-      stableHandleDeleteCard,
-      stableHandleUpdateCard,
-      stableHandleDeleteColumn,
-      stableHandleUpdateColumn,
+      handleAddCard,
+      handleDeleteCard,
+      handleUpdateCard,
+      handleDeleteColumn,
+      handleUpdateColumn,
       filterAssigneeId,
       filterPriorities,
       filterTagIds,
@@ -157,7 +186,7 @@ export function KanbanBoard({ boardId }: { boardId: string }) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

@@ -4,29 +4,63 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/handler"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/logging"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/migrate"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/observability"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
+// Regenerate the OpenAPI spec into ./docs after editing handler annotations.
+// Run from backend/:  go generate ./cmd/api
+//go:generate swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal
+
+// version is set at build time via -ldflags "-X main.version=..."; defaults to "dev" locally.
+var version = "dev"
+
+// @title           Turtask API
+// @version         1.0
+// @description     Multi-board Kanban + task management with realtime sync.
+// @description     Auth uses an HttpOnly `auth_token` cookie issued by /api/auth/login or /api/auth/oauth.
+//
+// @contact.name    Turtask
+//
+// @host            localhost:8080
+// @BasePath        /
+//
+// @securityDefinitions.apikey  CookieAuth
+// @in                          cookie
+// @name                        auth_token
+
+const (
+	shutdownTimeout = 30 * time.Second
+	dbPoolMaxConns  = 25
+	dbPoolMinConns  = 5
+	dbPoolMaxIdle   = 5 * time.Minute
+)
+
 type config struct {
-	DBUrl            string
-	Port             string
-	FrontendURL      string
-	GoogleClientID   string
+	DBUrl              string
+	Port               string
+	FrontendURL        string
+	GoogleClientID     string
 	GoogleClientSecret string
-	GoogleRedirect   string
-	Production       bool
+	GoogleRedirect     string
+	MigrationsPath     string
+	SkipMigrations     bool
+	Production         bool
 }
 
 func loadConfig() config {
@@ -38,12 +72,16 @@ func loadConfig() config {
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirect:     os.Getenv("GOOGLE_REDIRECT_URL"),
+		MigrationsPath:     os.Getenv("MIGRATIONS_PATH"),
+		SkipMigrations:     os.Getenv("SKIP_MIGRATIONS") == "true",
 	}
 	if cfg.DBUrl == "" {
-		log.Fatal("DB_URL is required but not set")
+		slog.Error("DB_URL is required but not set")
+		os.Exit(1)
 	}
 	if os.Getenv("JWT_SECRET") == "" {
-		log.Fatal("JWT_SECRET is required but not set")
+		slog.Error("JWT_SECRET is required but not set")
+		os.Exit(1)
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
@@ -51,11 +89,22 @@ func loadConfig() config {
 	if cfg.FrontendURL == "" {
 		cfg.FrontendURL = "http://localhost:3000"
 	}
+	if cfg.MigrationsPath == "" {
+		cfg.MigrationsPath = "database/migrations"
+	}
 	return cfg
 }
 
 func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dbURL)
+	poolCfg, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse db config: %w", err)
+	}
+	poolCfg.MaxConns = dbPoolMaxConns
+	poolCfg.MinConns = dbPoolMinConns
+	poolCfg.MaxConnIdleTime = dbPoolMaxIdle
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
@@ -66,12 +115,25 @@ func initDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 }
 
 func run(ctx context.Context, cfg config) error {
+	if !cfg.SkipMigrations {
+		slog.Info("running database migrations", "path", cfg.MigrationsPath)
+		if err := migrate.Run(cfg.MigrationsPath, cfg.DBUrl); err != nil {
+			return fmt.Errorf("migrations failed: %w", err)
+		}
+	} else {
+		slog.Info("skipping migrations", "reason", "SKIP_MIGRATIONS=true")
+	}
+
 	pool, err := initDB(ctx, cfg.DBUrl)
 	if err != nil {
 		return fmt.Errorf("database init failed: %w", err)
 	}
 	defer pool.Close()
-	log.Println("Successfully connected to PostgreSQL")
+	slog.Info("connected to postgres",
+		"max_conns", dbPoolMaxConns,
+		"min_conns", dbPoolMinConns,
+		"max_idle", dbPoolMaxIdle.String(),
+	)
 
 	queries := db.New(pool)
 
@@ -84,7 +146,6 @@ func run(ctx context.Context, cfg config) error {
 	boardService := service.NewBoardService(pool, queries)
 	authService := service.NewAuthService(queries)
 	subtaskService := service.NewSubtaskService(pool)
-
 	tagService := service.NewTagService(pool, queries)
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
@@ -101,35 +162,66 @@ func run(ctx context.Context, cfg config) error {
 		cfg.Production,
 	)
 
-	router := setupRoutes(boardHandler, authHandler, oauthHandler, subtaskHandler, tagHandler, activityHandler, hub)
+	startedAt := time.Now()
+	router := setupRoutes(routerDeps{
+		boardService:    boardService,
+		boardHandler:    boardHandler,
+		authHandler:     authHandler,
+		oauthHandler:    oauthHandler,
+		subtaskHandler:  subtaskHandler,
+		tagHandler:      tagHandler,
+		activityHandler: activityHandler,
+		hub:             hub,
+		pool:            pool,
+		version:         version,
+		production:      cfg.Production,
+		startedAt:       startedAt,
+	})
+
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: middleware.CORS(cfg.FrontendURL, router),
+		Addr:              ":" + cfg.Port,
+		Handler:           middleware.CORS(cfg.FrontendURL, router),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		log.Printf("Server is running on port %s\n", cfg.Port)
+		slog.Info("server listening", "port", cfg.Port, "version", version)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe: %v", err)
+			slog.Error("listen failed", "err", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("Shutting down server...")
-	return server.Shutdown(context.Background())
+	slog.Info("shutdown signal received — draining", "timeout", shutdownTimeout.String())
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("graceful shutdown failed: %w", err)
+	}
+	slog.Info("server stopped cleanly")
+	return nil
 }
 
 func main() {
+	logging.Init()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, falling back to system environment variables")
+		slog.Debug("no .env file found, using system environment", "err", err)
 	}
 
 	cfg := loadConfig()
 
+	observability.InitSentry(version)
+	defer observability.FlushSentry(2 * time.Second)
+
 	if err := run(context.Background(), cfg); err != nil {
-		log.Fatal(err)
+		slog.Error("run failed", "err", err)
+		os.Exit(1)
 	}
 }

@@ -18,13 +18,19 @@ import (
 //	    },
 //	}
 type MockBoardService struct {
-	GetAllBoardsFn      func(ctx context.Context) ([]service.BoardSummaryData, error)
-	GetBoardWithCardsFn func(ctx context.Context, boardID string) ([]service.ColumnData, error)
-	CreateBoardFn       func(ctx context.Context, title string, ownerID string) (string, error)
-	UpdateBoardFn       func(ctx context.Context, id string, title *string, budget *float64) (db.Board, error)
-	MoveBoardToTrashFn  func(ctx context.Context, boardID string) error
-	GetTrashedBoardsFn  func(ctx context.Context) ([]db.GetTrashedBoardsRow, error)
-	HardDeleteBoardFn   func(ctx context.Context, id string) error
+	GetAllBoardsFn       func(ctx context.Context, userID string) ([]service.BoardSummaryData, error)
+	GetBoardWithCardsFn  func(ctx context.Context, boardID string) ([]service.ColumnData, error)
+	CreateBoardFn        func(ctx context.Context, title string, ownerID string) (string, error)
+	UpdateBoardFn        func(ctx context.Context, id string, title *string, budget *float64) (db.Board, error)
+	MoveBoardToTrashFn   func(ctx context.Context, boardID string) error
+	GetTrashedBoardsFn   func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error)
+	HardDeleteBoardFn    func(ctx context.Context, id string) error
+	RestoreBoardFn       func(ctx context.Context, id string) error
+	GetBoardMemberRoleFn func(ctx context.Context, boardID, userID string) (string, error)
+	GetBoardIDByColumnFn func(ctx context.Context, columnID string) (string, error)
+	GetBoardIDByCardFn   func(ctx context.Context, cardID string) (string, error)
+	GetMyTasksFn         func(ctx context.Context, userID string) ([]service.MyTaskData, error)
+	CompleteMyTaskFn     func(ctx context.Context, cardID, userID string) (bool, error)
 
 	GetBoardMembersFn  func(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)
 	AddBoardMemberFn   func(ctx context.Context, boardID, userID, role string) error
@@ -38,8 +44,8 @@ type MockBoardService struct {
 	GetAllUsersFn func(ctx context.Context) ([]db.GetAllUsersRow, error)
 }
 
-func (m *MockBoardService) GetAllBoards(ctx context.Context) ([]service.BoardSummaryData, error) {
-	return m.GetAllBoardsFn(ctx)
+func (m *MockBoardService) GetAllBoards(ctx context.Context, userID string) ([]service.BoardSummaryData, error) {
+	return m.GetAllBoardsFn(ctx, userID)
 }
 
 func (m *MockBoardService) GetBoardWithCards(ctx context.Context, boardID string) ([]service.ColumnData, error) {
@@ -58,12 +64,36 @@ func (m *MockBoardService) MoveBoardToTrash(ctx context.Context, boardID string)
 	return m.MoveBoardToTrashFn(ctx, boardID)
 }
 
-func (m *MockBoardService) GetTrashedBoards(ctx context.Context) ([]db.GetTrashedBoardsRow, error) {
-	return m.GetTrashedBoardsFn(ctx)
+func (m *MockBoardService) GetTrashedBoards(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error) {
+	return m.GetTrashedBoardsFn(ctx, userID)
+}
+
+func (m *MockBoardService) GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error) {
+	return m.GetBoardMemberRoleFn(ctx, boardID, userID)
+}
+
+func (m *MockBoardService) GetBoardIDByColumn(ctx context.Context, columnID string) (string, error) {
+	return m.GetBoardIDByColumnFn(ctx, columnID)
+}
+
+func (m *MockBoardService) GetBoardIDByCard(ctx context.Context, cardID string) (string, error) {
+	return m.GetBoardIDByCardFn(ctx, cardID)
+}
+
+func (m *MockBoardService) GetMyTasks(ctx context.Context, userID string) ([]service.MyTaskData, error) {
+	return m.GetMyTasksFn(ctx, userID)
+}
+
+func (m *MockBoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error) {
+	return m.CompleteMyTaskFn(ctx, cardID, userID)
 }
 
 func (m *MockBoardService) HardDeleteBoard(ctx context.Context, id string) error {
 	return m.HardDeleteBoardFn(ctx, id)
+}
+
+func (m *MockBoardService) RestoreBoard(ctx context.Context, id string) error {
+	return m.RestoreBoardFn(ctx, id)
 }
 
 func (m *MockBoardService) GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error) {

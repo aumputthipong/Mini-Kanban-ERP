@@ -91,6 +91,17 @@ export function useBoardMembers(boardId: string) {
     }
   };
 
+  const leaveBoard = async () => {
+    setError(null);
+    try {
+      await apiClient(`/boards/${boardId}/members/me`, { method: "DELETE" });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      return false;
+    }
+  };
+
   return {
     members,
     nonMembers,
@@ -100,5 +111,6 @@ export function useBoardMembers(boardId: string) {
     addMember,
     removeMember,
     changeRole,
+    leaveBoard,
   };
 }
