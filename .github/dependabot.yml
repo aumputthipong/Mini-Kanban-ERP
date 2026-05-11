@@ -29,6 +29,24 @@ updates:
     labels:
       - dependencies
       - js
+    # Block major bumps of the lint/test/build toolchain. The plugin
+    # ecosystem (eslint-plugin-react etc.) typically lags 3–6 months behind
+    # an ESLint major; auto-bumping breaks CI for the whole repo (see the
+    # ESLint 10 + plugin-react `getFilename` crash). Patch/minor bumps and
+    # security advisories still flow through normally.
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@typescript-eslint/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
     # Group minor + patch updates so we don't drown in PRs.
     groups:
       minor-and-patch:
