@@ -7,6 +7,7 @@ import type { Tag } from "@/types/board";
 import { TagChip } from "@/components/board/task-board/TagChip";
 import { COLUMN_COLOR_PALETTE } from "@/components/board/task-board/ColumnOptionsModal";
 import { API_URL } from "@/lib/constants";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 const TAG_COLORS = COLUMN_COLOR_PALETTE.filter((c) => c.key !== null) as {
   key: string;
@@ -25,6 +26,7 @@ interface TagSelectorProps {
 
 export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelectorProps) {
   const [boardTags, setBoardTags] = useState<Tag[]>([]);
+  const [loadingTags, setLoadingTags] = useState(true);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -34,10 +36,12 @@ export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelecto
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setLoadingTags(true);
     fetch(`${API_URL}/boards/${boardId}/tags`, { credentials: "include" })
       .then((r) => r.json())
       .then((data: Tag[]) => setBoardTags(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingTags(false));
   }, [boardId]);
 
   // Position dropdown relative to input using viewport coords
@@ -126,6 +130,15 @@ export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelecto
       style={dropdownStyle}
       className="bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
     >
+      {/* Loading tags */}
+      {loadingTags && boardTags.length === 0 && (
+        <div className="px-3 py-2 flex flex-col gap-1.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-5 w-24 rounded-full" />
+          ))}
+        </div>
+      )}
+
       {/* Existing tags */}
       {filtered.map((tag) => (
         <button
