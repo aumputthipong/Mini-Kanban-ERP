@@ -12,6 +12,7 @@ import { apiClient } from "@/lib/apiClient";
 import { TaskGroup } from "@/components/my-tasks/TaskGroup";
 import { ProjectGroup } from "@/components/my-tasks/ProjectGroup";
 import { TaskRow, type MyTask, type MyTaskStatus } from "@/components/my-tasks/TaskRow";
+import { MyTasksSkeleton } from "@/components/my-tasks/MyTasksSkeleton";
 import { dateKey, formatDayLabel } from "@/utils/date_helper";
 
 interface RawMyTask {
@@ -298,7 +299,7 @@ export default function MyTasksPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">Loading…</p>
+        <MyTasksSkeleton />
       ) : error ? (
         <p className="text-sm text-rose-500">{error}</p>
       ) : total === 0 ? (

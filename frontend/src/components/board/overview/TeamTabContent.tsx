@@ -15,6 +15,7 @@ import { useActivityFeed } from "@/hooks/useActivityFeed";
 import type { Activity } from "@/types/activity";
 import type { BoardMember } from "@/types/board";
 import { useBoardStore } from "@/store/useBoardStore";
+import { ActivityFeedSkeleton } from "./ActivityFeedSkeleton";
 
 interface WorkloadColumnBreakdown {
   title: string;
@@ -382,7 +383,7 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
           </div>
         </div>
         {loading && visibleActivities.length === 0 ? (
-          <p className="text-sm text-slate-400">Loading activity…</p>
+          <ActivityFeedSkeleton />
         ) : error ? (
           <p className="text-sm text-rose-500">Failed to load activity.</p>
         ) : visibleActivities.length === 0 ? (
