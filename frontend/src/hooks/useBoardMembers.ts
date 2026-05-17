@@ -1,7 +1,6 @@
 // components/board/members/useBoardMembers.ts
 import { useState, useEffect, useMemo } from "react";
 import type { BoardMember, User } from "@/types/board";
-import { API_URL } from "@/lib/constants";
 import { apiClient } from "@/lib/apiClient";
 import { useBoardStore } from "@/store/useBoardStore";
 
@@ -26,7 +25,7 @@ export function useBoardMembers(boardId: string) {
         if (cancelled) return;
         setMembers(Array.isArray(membersData) ? membersData.filter(Boolean) : []);
         setAllUsers(Array.isArray(usersData) ? usersData.filter(Boolean) : []);
-      } catch (err) {
+      } catch {
         if (!cancelled) setError("Failed to load members or users.");
       } finally {
         if (!cancelled) setIsLoading(false);
