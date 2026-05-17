@@ -7,6 +7,7 @@ import { LogOut, Loader2 } from "lucide-react";
 import { useBoardMembers } from "../../../hooks/useBoardMembers";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberItem } from "./MemberItem";
+import { MembersSkeleton } from "./MembersSkeleton";
 import { useCanInviteMembers, useBoardRole } from "@/hooks/useBoardRole";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -18,6 +19,7 @@ export function BoardMembersSection({ boardId }: BoardMembersSectionProps) {
   const {
     members,
     nonMembers,
+    isLoading,
     isAdding,
     loadingId,
     error,
@@ -77,7 +79,9 @@ export function BoardMembersSection({ boardId }: BoardMembersSectionProps) {
           )}
 
           <div className="border border-slate-200 rounded-xl overflow-hidden">
-            {members.length === 0 ? (
+            {isLoading ? (
+              <MembersSkeleton />
+            ) : members.length === 0 ? (
               <p className="p-4 text-sm text-slate-400 text-center">
                 No members yet.
               </p>

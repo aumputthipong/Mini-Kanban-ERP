@@ -1,35 +1,41 @@
 // components/board/members/useBoardMembers.ts
 import { useState, useEffect, useMemo } from "react";
 import type { BoardMember, User } from "@/types/board";
-import { API_URL } from "@/lib/constants";
 import { apiClient } from "@/lib/apiClient";
 import { useBoardStore } from "@/store/useBoardStore";
 
 export function useBoardMembers(boardId: string) {
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { setBoardMembers } = useBoardStore();
 
   useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
     const loadData = async () => {
       try {
-        // 1. โค้ดสั้นและสะอาดขึ้นมาก ไม่ต้องสนใจเรื่อง JSON หรือ Header อีกต่อไป
         const [membersData, usersData] = await Promise.all([
           apiClient(`/boards/${boardId}/members`),
           apiClient(`/users`),
         ]);
-
+        if (cancelled) return;
         setMembers(Array.isArray(membersData) ? membersData.filter(Boolean) : []);
         setAllUsers(Array.isArray(usersData) ? usersData.filter(Boolean) : []);
-      } catch (err) {
-        setError("Failed to load members or users.");
+      } catch {
+        if (!cancelled) setError("Failed to load members or users.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [boardId]);
   const nonMembers = useMemo(() => {
     const memberIds = new Set(members.filter(Boolean).map((m) => m.user_id));
@@ -105,6 +111,7 @@ export function useBoardMembers(boardId: string) {
   return {
     members,
     nonMembers,
+    isLoading,
     isAdding,
     loadingId,
     error,
