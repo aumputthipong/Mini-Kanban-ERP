@@ -27,6 +27,7 @@ interface TagSelectorProps {
 export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelectorProps) {
   const [boardTags, setBoardTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(true);
+  const [loadedBoardId, setLoadedBoardId] = useState(boardId);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -35,13 +36,28 @@ export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelecto
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Reset loading state on board switch using the setState-during-render pattern
+  // (https://react.dev/reference/react/useState#storing-information-from-previous-renders).
+  if (loadedBoardId !== boardId) {
+    setLoadedBoardId(boardId);
+    setBoardTags([]);
     setLoadingTags(true);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     fetch(`${API_URL}/boards/${boardId}/tags`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data: Tag[]) => setBoardTags(Array.isArray(data) ? data : []))
+      .then((data: Tag[]) => {
+        if (!cancelled) setBoardTags(Array.isArray(data) ? data : []);
+      })
       .catch(() => {})
-      .finally(() => setLoadingTags(false));
+      .finally(() => {
+        if (!cancelled) setLoadingTags(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [boardId]);
 
   // Position dropdown relative to input using viewport coords
