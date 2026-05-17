@@ -4,6 +4,7 @@ import { use } from "react";
 import { useBoardData } from "@/hooks/useBoardData";
 import { BoardHeader } from "@/components/board/task-board/BoardHeader";
 import { BoardBackground } from "@/components/board/task-board/BoardBackground";
+import { BoardSkeleton } from "@/components/board/task-board/BoardSkeleton";
 import { BoardWebSocketProvider } from "@/contexts/BoardWebSocketContext";
 
 interface BoardLayoutProps {
@@ -15,27 +16,8 @@ export default function BoardLayout({ children, params }: BoardLayoutProps) {
   const { boardId } = use(params);
   const { isLoading, error } = useBoardData(boardId);
 
-  // จัดการสถานะ Loading ระดับ Layout
   if (isLoading) {
-    return (
-      <main className="min-h-screen bg-[#fafafa] px-8 py-6">
-        {/* Header skeleton */}
-        <div className="h-14 bg-white rounded-xl border border-slate-200 mb-6 w-full animate-pulse" />
-        {/* Toolbar skeleton */}
-        <div className="h-12 bg-slate-50 border border-slate-200 rounded-xl mb-6 animate-pulse" />
-        {/* Kanban columns skeleton */}
-        <div className="flex gap-6 items-start">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="w-72 shrink-0 rounded-2xl bg-slate-100 p-4 animate-pulse">
-              <div className="h-5 bg-slate-200 rounded-lg w-24 mb-4" />
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="h-24 bg-white rounded-xl border border-slate-200 mb-2" />
-              ))}
-            </div>
-          ))}
-        </div>
-      </main>
-    );
+    return <BoardSkeleton />;
   }
 
   if (error === "NOT_FOUND") {
