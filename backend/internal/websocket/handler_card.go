@@ -37,6 +37,15 @@ func (c *Client) handleCardMoved(payload map[string]interface{}, rawMsg []byte) 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	if err := c.hub.boardCmd.VerifyCardInBoard(ctx, cardIDStr, c.boardID); err != nil {
+		log.Printf("CARD_MOVED rejected: card [%s] not in board [%s]", cardIDStr, c.boardID)
+		return
+	}
+	if err := c.hub.boardCmd.VerifyColumnInBoard(ctx, newColumnIDStr, c.boardID); err != nil {
+		log.Printf("CARD_MOVED rejected: column [%s] not in board [%s]", newColumnIDStr, c.boardID)
+		return
+	}
+
 	result, err := c.hub.boardCmd.MoveCard(ctx, cardIDStr, newColumnIDStr, position)
 	if err != nil {
 		log.Printf("Failed to move card: %v", err)
@@ -88,6 +97,11 @@ func (c *Client) handleCardCreated(payload map[string]interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	if err := c.hub.boardCmd.VerifyColumnInBoard(ctx, columnIDStr, c.boardID); err != nil {
+		log.Printf("CARD_CREATED rejected: column [%s] not in board [%s]", columnIDStr, c.boardID)
+		return
+	}
+
 	priority, _ := payload["priority"].(string)
 	position, _ := payload["position"].(float64)
 
@@ -138,6 +152,11 @@ func (c *Client) handleCardDeleted(payload map[string]interface{}, rawMsg []byte
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	if err := c.hub.boardCmd.VerifyCardInBoard(ctx, cardIDStr, c.boardID); err != nil {
+		log.Printf("CARD_DELETED rejected: card [%s] not in board [%s]", cardIDStr, c.boardID)
+		return
+	}
+
 	cardTitle, err := c.hub.boardCmd.DeleteCard(ctx, cardIDStr)
 	if err != nil {
 		log.Printf("Failed to delete card: %v", err)
@@ -168,6 +187,11 @@ func (c *Client) handleCardUpdated(payload map[string]interface{}, rawMsg []byte
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	if err := c.hub.boardCmd.VerifyCardInBoard(ctx, cardIDStr, c.boardID); err != nil {
+		log.Printf("CARD_UPDATED rejected: card [%s] not in board [%s]", cardIDStr, c.boardID)
+		return
+	}
 
 	if err := c.hub.boardCmd.UpdateCardBasic(ctx, service.UpdateCardBasicParams{
 		ID:             cardIDStr,
@@ -219,9 +243,21 @@ func (c *Client) handleCardDoneToggled(payload map[string]interface{}) {
 		log.Printf("Invalid board ID: %s", boardIDStr)
 		return
 	}
+	// Reject mismatched board_id in payload outright — the client must operate
+	// on the board it connected to. Pinning to c.boardID also closes the
+	// payload-injection path where an attacker passes someone else's board.
+	if boardIDStr != c.boardID {
+		log.Printf("CARD_DONE_TOGGLED rejected: payload board [%s] != connection board [%s]", boardIDStr, c.boardID)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	if err := c.hub.boardCmd.VerifyCardInBoard(ctx, cardIDStr, c.boardID); err != nil {
+		log.Printf("CARD_DONE_TOGGLED rejected: card [%s] not in board [%s]", cardIDStr, c.boardID)
+		return
+	}
 
 	result, err := c.hub.boardCmd.ToggleCardDone(ctx, cardIDStr, boardIDStr, isDone)
 	if err != nil {

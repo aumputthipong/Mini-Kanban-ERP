@@ -14,6 +14,9 @@ type Hub struct {
 	unregister chan *Client
 	boardCmd   *service.BoardCommandService
 	activities *service.ActivityService
+	// allowedOrigin is the single trusted browser origin (FRONTEND_URL).
+	// Empty string disables origin checking — only acceptable in tests.
+	allowedOrigin string
 }
 
 type BroadcastMessage struct {
@@ -21,14 +24,15 @@ type BroadcastMessage struct {
 	Message []byte
 }
 
-func NewHub(boardCmd *service.BoardCommandService, activities *service.ActivityService) *Hub {
+func NewHub(boardCmd *service.BoardCommandService, activities *service.ActivityService, allowedOrigin string) *Hub {
 	return &Hub{
-		rooms:      make(map[string]map[*Client]bool),
-		broadcast:  make(chan BroadcastMessage),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		boardCmd:   boardCmd,
-		activities: activities,
+		rooms:         make(map[string]map[*Client]bool),
+		broadcast:     make(chan BroadcastMessage),
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		boardCmd:      boardCmd,
+		activities:    activities,
+		allowedOrigin: allowedOrigin,
 	}
 }
 
