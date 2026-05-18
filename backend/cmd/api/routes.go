@@ -71,12 +71,14 @@ func setupRoutes(d routerDeps) http.Handler {
 		r.Use(middleware.GeneralRateLimit())
 		r.Use(middleware.RequireAuth)
 
-		r.Get("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
+		requireBoardMember := middleware.RequireBoardMember(d.boardService)
+
+		// /ws/{boardID} — must be gated by board membership; otherwise any
+		// authenticated user could join an arbitrary board's room, receive
+		// every broadcast, and send mutating WS messages (handlers don't
+		// re-check authz beyond board scoping).
+		r.With(requireBoardMember).Get("/ws/{boardID}", func(w http.ResponseWriter, r *http.Request) {
 			boardID := chi.URLParam(r, "boardID")
-			if boardID == "" {
-				http.Error(w, "Board ID is required", http.StatusBadRequest)
-				return
-			}
 			websocket.ServeWs(d.hub, w, r, boardID)
 		})
 
@@ -87,8 +89,6 @@ func setupRoutes(d routerDeps) http.Handler {
 			r.Get("/", httputil.MakeHandler(d.boardHandler.GetMyTasks))
 			r.Post("/{cardID}/complete", httputil.MakeHandler(d.boardHandler.CompleteMyTask))
 		})
-
-		requireBoardMember := middleware.RequireBoardMember(d.boardService)
 
 		r.Route("/api/boards", func(r chi.Router) {
 			r.Get("/", httputil.MakeHandler(d.boardHandler.GetAllBoards))

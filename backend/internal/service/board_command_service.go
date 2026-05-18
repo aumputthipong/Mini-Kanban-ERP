@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,6 +24,41 @@ type BoardCommandService struct {
 
 func NewBoardCommandService(queries *db.Queries) *BoardCommandService {
 	return &BoardCommandService{queries: queries}
+}
+
+// ErrEntityBoardMismatch is returned when a WS handler tries to mutate a card
+// or column that does not belong to the board the client is connected to.
+// This is a defense-in-depth check on top of route-level board membership —
+// without it, a member of board A could send WS messages that mutate cards in
+// board B by referencing their UUIDs.
+var ErrEntityBoardMismatch = errors.New("entity does not belong to this board")
+
+// VerifyCardInBoard returns nil iff the given card belongs to boardID.
+// Returns ErrEntityBoardMismatch for cross-board attempts (whether the card
+// is in a different board or simply does not exist) so callers cannot
+// distinguish "wrong board" from "no such card".
+func (s *BoardCommandService) VerifyCardInBoard(ctx context.Context, cardID, boardID string) error {
+	owner, err := s.queries.GetBoardIDByCard(ctx, cardID)
+	if err != nil {
+		return ErrEntityBoardMismatch
+	}
+	if owner != boardID {
+		return ErrEntityBoardMismatch
+	}
+	return nil
+}
+
+// VerifyColumnInBoard returns nil iff the given column belongs to boardID.
+// See VerifyCardInBoard for the rationale on collapsing the error cases.
+func (s *BoardCommandService) VerifyColumnInBoard(ctx context.Context, columnID, boardID string) error {
+	owner, err := s.queries.GetBoardIDByColumn(ctx, columnID)
+	if err != nil {
+		return ErrEntityBoardMismatch
+	}
+	if owner != boardID {
+		return ErrEntityBoardMismatch
+	}
+	return nil
 }
 
 // -----------------------------

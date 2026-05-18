@@ -23,12 +23,21 @@ const (
 	dbTimeout      = 5 * time.Second
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+// newUpgrader builds a WebSocket upgrader whose CheckOrigin only accepts the
+// configured frontend origin. An empty allowedOrigin disables the check (used
+// in tests) — production must pass FRONTEND_URL. Without this guard any site
+// the user visits could open a credentialed WS to our backend (CSWSH).
+func newUpgrader(allowedOrigin string) websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			if allowedOrigin == "" {
+				return true
+			}
+			return r.Header.Get("Origin") == allowedOrigin
+		},
+	}
 }
 
 type Client struct {
@@ -106,6 +115,7 @@ func (c *Client) WritePump() {
 }
 
 func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, boardID string) {
+	upgrader := newUpgrader(hub.allowedOrigin)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)

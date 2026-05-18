@@ -68,6 +68,11 @@ func (c *Client) handleColumnRenamed(payload map[string]interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	if err := c.hub.boardCmd.VerifyColumnInBoard(ctx, columnIDStr, c.boardID); err != nil {
+		log.Printf("COLUMN_RENAMED rejected: column [%s] not in board [%s]", columnIDStr, c.boardID)
+		return
+	}
+
 	if err := c.hub.boardCmd.RenameColumn(ctx, columnIDStr, title); err != nil {
 		log.Printf("Failed to rename column [%s]: %v", columnIDStr, err)
 		return
@@ -107,6 +112,11 @@ func (c *Client) handleColumnDeleted(payload map[string]interface{}) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	if err := c.hub.boardCmd.VerifyColumnInBoard(ctx, columnIDStr, c.boardID); err != nil {
+		log.Printf("COLUMN_DELETED rejected: column [%s] not in board [%s]", columnIDStr, c.boardID)
+		return
+	}
 
 	if err := c.hub.boardCmd.DeleteColumn(ctx, columnIDStr); err != nil {
 		log.Printf("Failed to delete column [%s]: %v", columnIDStr, err)
@@ -155,6 +165,11 @@ func (c *Client) handleColumnUpdated(payload map[string]interface{}) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
+
+	if err := c.hub.boardCmd.VerifyColumnInBoard(ctx, columnIDStr, c.boardID); err != nil {
+		log.Printf("COLUMN_UPDATED rejected: column [%s] not in board [%s]", columnIDStr, c.boardID)
+		return
+	}
 
 	if err := c.hub.boardCmd.UpdateColumn(ctx, service.UpdateColumnParams{
 		ID:       columnIDStr,
