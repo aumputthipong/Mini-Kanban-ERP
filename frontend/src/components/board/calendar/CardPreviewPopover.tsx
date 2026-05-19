@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Calendar as CalendarIcon,
@@ -80,6 +80,11 @@ export function CardPreviewPopover({
   // Vertical: prefer below; flip above when the bottom would clip off-screen
   // and above actually has room. Horizontal: prefer left-edge-aligned with
   // anchor; flip to right-edge-aligned when that would clip; clamp last.
+  //
+  // Note: not called synchronously inside any effect body — only from the
+  // ResizeObserver callback and the window resize listener. React 19's
+  // react-hooks/set-state-in-effect rule flags direct setState in effect
+  // bodies; routing through subscriptions is the recommended pattern.
   const recompute = useCallback(() => {
     if (!anchorEl) return;
     const rect = anchorEl.getBoundingClientRect();
@@ -107,14 +112,11 @@ export function CardPreviewPopover({
     setPos({ top, left });
   }, [anchorEl]);
 
-  useLayoutEffect(() => {
-    recompute();
-  }, [recompute]);
-
-  // Re-run on popover content size changes (inline editor toggled, AC item
-  // ticked) and on viewport resize. Scroll isn't watched here — the calendar
-  // grid doesn't scroll inside a portal, and full-page scroll while a hover
-  // preview is open is rare; closing on scroll would feel jumpy.
+  // ResizeObserver fires immediately when observe() is called, so the first
+  // measurement happens here without a synchronous effect-body setState. The
+  // observer keeps firing as the popover's content (editors, AC list) grows
+  // or shrinks, which also drives re-positioning. Window resize covers
+  // viewport changes that don't affect the popover's own size.
   useEffect(() => {
     if (!popRef.current) return;
     const el = popRef.current;

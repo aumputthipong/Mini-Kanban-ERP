@@ -81,7 +81,11 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
   // would close the popover before the pointer arrived (the popover is
   // portalled to <body>, so it's not part of the pill's hover region).
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pillRef = useRef<HTMLButtonElement | null>(null);
+  // Anchor element for the popover. Stored in state (not a ref) so we can
+  // pass it as a prop without reading .current during render — React 19's
+  // react-hooks/refs rule forbids that. A callback ref captures the DOM
+  // node when it mounts and triggers a re-render so the popover sees it.
+  const [pillEl, setPillEl] = useState<HTMLButtonElement | null>(null);
 
   const { handleAddSubtask, handleDeleteCard, handleUpdateCard } =
     useBoardActions(boardId);
@@ -162,7 +166,7 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
   return (
     <>
       <button
-        ref={pillRef}
+        ref={setPillEl}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -233,7 +237,7 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
 
       {isHovering && !inPopover && (
         <CardPreviewPopover
-          anchorEl={pillRef.current}
+          anchorEl={pillEl}
           card={card}
           state={state}
           boardId={boardId}
