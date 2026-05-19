@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -98,8 +99,17 @@ func (h *OAuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
 	}
-
 	token.SetAuthCookie(w, jwtToken, h.production)
+
+	refreshRaw, err := h.authService.IssueRefreshToken(r.Context(), user.ID, r.UserAgent(), r.RemoteAddr)
+	if err != nil {
+		// Non-fatal: user still gets a 15-minute session via the access cookie
+		// and will be bounced to login when it expires.
+		slog.Error("issue refresh token on oauth", "user_id", user.ID, "err", err)
+	} else {
+		token.SetRefreshCookie(w, refreshRaw, h.production)
+	}
+
 	http.Redirect(w, r, h.frontendURL+"/auth/callback", http.StatusTemporaryRedirect)
 	return nil
 }

@@ -10,47 +10,79 @@ interface FetchOptions extends Omit<RequestInit, "body"> {
   data?: unknown;
 }
 
+const REFRESH_ENDPOINT = "/api/auth/refresh";
+
+// Single-flight guard: while a refresh is in progress, every other 401
+// hooks onto the same promise instead of firing N concurrent refresh calls.
+// On settle, the latch resets — a later session is free to refresh again.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_URL}${REFRESH_ENDPOINT}`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname.startsWith("/login")) return;
+  window.location.assign("/login");
+}
+
 /**
  * Single entry point for all backend HTTP calls.
  *
  * Conventions baked in:
- *  - `credentials: "include"` so the auth_token HttpOnly cookie rides along.
+ *  - `credentials: "include"` so auth cookies ride along.
  *  - JSON content-type set automatically; `data` is stringified into body.
- *  - Method defaults to POST when `data` is given, GET otherwise. Override
- *    with `method: "PATCH" | "DELETE"` etc.
- *  - 401 → redirects to /login. 403 → toast (single source of permission UX).
+ *  - Method defaults to POST when `data` is given, GET otherwise.
+ *  - 401 → silently rotate the refresh token once and retry; if that fails,
+ *    bounce to /login. 403 → toast (single source of permission UX).
  *
- * @typeParam T  Expected response shape — set this to make the call site
- *               type-checked without an explicit cast.
- * @param endpoint  Path appended to `NEXT_PUBLIC_API_URL` (e.g. "/boards").
- * @param options   `data` for body; everything else mirrors fetch's RequestInit.
+ * The refresh dance is single-flight: concurrent 401s share one refresh call
+ * and then all retry. Refresh is skipped for the refresh endpoint itself to
+ * avoid a recursion loop on a dead session.
  */
 export async function apiClient<T = unknown>(
   endpoint: string,
   { data, ...customConfig }: FetchOptions = {}
 ): Promise<T> {
-  
-  // 1. จัดเตรียม Headers พื้นฐาน (บังคับส่ง JSON)
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...customConfig.headers, // ถ้ามีการส่ง Header อื่นมา ให้เอามาทับหรือเพิ่มเข้าไป
+    ...customConfig.headers,
   };
 
-  // 2. จัดเตรียม Config พื้นฐาน
   const config: RequestInit = {
-    method: data ? "POST" : "GET", // ฉลาดพอที่จะรู้ว่า ถ้ามี data ส่งมา แปลว่าเป็น POST (แต่เรา override เป็น PATCH/PUT ได้)
+    method: data ? "POST" : "GET",
     ...customConfig,
     headers,
-    credentials: "include", 
+    credentials: "include",
   };
 
   if (data) {
     config.body = JSON.stringify(data);
   }
 
+  const url = `${API_URL}${endpoint}`;
+  let response = await fetch(url, config);
 
-  const response = await fetch(`${API_URL}${endpoint}`, config);
-
+  if (response.status === 401 && endpoint !== REFRESH_ENDPOINT) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      response = await fetch(url, config);
+    } else {
+      redirectToLogin();
+    }
+  }
 
   if (!response.ok) {
     let errorMessage = "Something went wrong";
@@ -69,15 +101,22 @@ export async function apiClient<T = unknown>(
     throw new Error(errorMessage);
   }
 
-  //  จัดการกรณี 204 No Content (เช่น การ Delete สำเร็จ จะไม่มีข้อมูลตอบกลับมา)
   if (response.status === 204) {
     return null as T;
   }
 
-  //  แกะ JSON ออกมาเป็น Object พร้อมใช้งาน
   try {
     return await response.json();
   } catch {
     return null as T;
   }
+}
+
+/**
+ * Test hook: clear the single-flight latch between vitest cases. Production
+ * code never needs this — the latch self-resets when the refresh promise
+ * settles.
+ */
+export function __resetRefreshStateForTests() {
+  refreshInFlight = null;
 }

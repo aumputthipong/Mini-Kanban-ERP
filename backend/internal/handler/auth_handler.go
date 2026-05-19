@@ -3,6 +3,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -18,6 +19,27 @@ type AuthHandler struct {
 
 func NewAuthHandler(authService service.AuthServicer, production bool) *AuthHandler {
 	return &AuthHandler{authService: authService, production: production}
+}
+
+// issueSession signs the short-lived access JWT and provisions a fresh refresh
+// token, setting both cookies on w. It is shared by Register, Login, and the
+// programmatic OAuth callback. Refresh-token issuance failure is logged but
+// not fatal — the user still gets a (short) access token; they will simply
+// have to re-login when it expires.
+func (h *AuthHandler) issueSession(w http.ResponseWriter, r *http.Request, userID, email string) error {
+	accessTok, err := token.Generate(userID, email)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
+	}
+	token.SetAuthCookie(w, accessTok, h.production)
+
+	refreshRaw, err := h.authService.IssueRefreshToken(r.Context(), userID, r.UserAgent(), r.RemoteAddr)
+	if err != nil {
+		slog.Error("issue refresh token", "user_id", userID, "err", err)
+		return nil
+	}
+	token.SetRefreshCookie(w, refreshRaw, h.production)
+	return nil
 }
 
 // authUserResponse is the shared response body for register / login / oauth.
@@ -74,12 +96,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to register", err)
 	}
 
-	tok, err := token.Generate(user.ID, user.Email)
-	if err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
+	if err := h.issueSession(w, r, user.ID, user.Email); err != nil {
+		return err
 	}
-
-	token.SetAuthCookie(w, tok, h.production)
 	httputil.RespondJSON(w, http.StatusCreated, authUserResponse{
 		ID:       user.ID,
 		Email:    user.Email,
@@ -113,12 +132,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) error {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to login", err)
 	}
 
-	tok, err := token.Generate(user.ID, user.Email)
-	if err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
+	if err := h.issueSession(w, r, user.ID, user.Email); err != nil {
+		return err
 	}
-
-	token.SetAuthCookie(w, tok, h.production)
 	httputil.RespondJSON(w, http.StatusOK, authUserResponse{
 		ID:       user.ID,
 		Email:    user.Email,
@@ -150,12 +166,9 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to authenticate", err)
 	}
 
-	tok, err := token.Generate(user.ID, user.Email)
-	if err != nil {
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
+	if err := h.issueSession(w, r, user.ID, user.Email); err != nil {
+		return err
 	}
-
-	token.SetAuthCookie(w, tok, h.production)
 	httputil.RespondJSON(w, http.StatusOK, authUserResponse{
 		ID:       user.ID,
 		Email:    user.Email,
@@ -164,13 +177,20 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-// Logout clears the auth cookie. Always returns 204.
+// Logout clears the auth cookie and revokes the refresh token server-side so
+// it cannot be reused even if the cookie was captured. Always returns 204 —
+// missing or already-revoked tokens are not an error for the client.
 //
 // @Summary  Logout
 // @Tags     auth
 // @Success  204
 // @Router   /api/auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
+	if c, err := r.Cookie(token.RefreshCookieName); err == nil {
+		if revokeErr := h.authService.RevokeRefreshToken(r.Context(), c.Value); revokeErr != nil {
+			slog.Error("revoke refresh on logout", "err", revokeErr)
+		}
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    "",
@@ -178,6 +198,44 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
+	token.ClearRefreshCookie(w, h.production)
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// Refresh rotates the refresh token and issues a new access token. The
+// presented refresh cookie is invalidated whether or not the call succeeds —
+// rotation is the only mode, there is no "use the same token twice" path.
+// 401 on any failure; the frontend interceptor reads that as "session over"
+// and redirects to /login.
+//
+// @Summary  Refresh session
+// @Tags     auth
+// @Produce  json
+// @Success  204
+// @Failure  401 {object} httputil.ErrorResponse
+// @Router   /api/auth/refresh [post]
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) error {
+	c, err := r.Cookie(token.RefreshCookieName)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+	}
+
+	result, err := h.authService.RotateRefreshToken(r.Context(), c.Value, r.UserAgent(), r.RemoteAddr)
+	if err != nil {
+		// Both invalid and expired surface as 401 to the client; differentiating
+		// them would let an attacker probe for valid-but-expired tokens. Clear
+		// the cookie either way so the browser stops sending it.
+		token.ClearRefreshCookie(w, h.production)
+		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
+	}
+
+	accessTok, err := token.Generate(result.UserID, result.UserEmail)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to generate token", err)
+	}
+	token.SetAuthCookie(w, accessTok, h.production)
+	token.SetRefreshCookie(w, result.RawToken, h.production)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
