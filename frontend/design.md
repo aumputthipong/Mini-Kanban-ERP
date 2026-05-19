@@ -11,6 +11,19 @@ colors:
   on-surface: "#0F172A"
   success: "#047857"
   danger: "#B91C1C"
+  surface-tint: "#EEF2FF"
+  surface-elevated: "#FFFFFF"
+  state-progress-bg: "#DBEAFE"
+  state-progress-fg: "#1D4ED8"
+  state-done-bg: "#D1FAE5"
+  state-done-fg: "#047857"
+  state-overdue-bg: "#FEE2E2"
+  state-overdue-fg: "#B91C1C"
+priority:
+  high: "#DC2626"
+  medium: "#F59E0B"
+  low: "#10B981"
+  none: "#94A3B8"
 typography:
   h1:
     fontFamily: Inter
@@ -45,6 +58,14 @@ rounded:
   sm: 4px
   md: 8px
   lg: 12px
+  full: 9999px
+size:
+  pill-h: 24px
+  priority-bar-w: 3px
+  tag-dot: 5px
+  avatar-sm: 18px
+  status-icon: 14px
+  popover-max: 320px
 components:
   board:
     backgroundColor: "{colors.background}"
@@ -133,6 +154,11 @@ Two corner radii cover the whole product. Buttons and chips use `sm` for a crisp
 - **button-secondary:** `secondary` slate with `on-primary` text, `sm` rounded, `md` padding. For "Cancel", "Back", non-destructive secondary flows.
 - **tag-success:** `success` green chip with `on-primary` text. Marks "Done" status, completed milestones.
 - **tag-danger:** `danger` red chip with `on-primary` text. Marks overdue cards, blocked items, destructive confirmations.
+- **pill-task:** Calendar task pill — `pill-h` (24px) tall, `priority-bar-w` (3px) vertical bar on the left in `priority.*`, `status-icon` on the inside, title in `body-md`, optional duration (`secondary` slate), `tag-dot` (5px), `avatar-sm` (18px). Background by state: todo = `surface`, in-progress = `state-progress-bg` + 2px progress bar in `state-progress-fg` at bottom, done = `state-done-bg` with check icon in `state-done-fg` (never strikethrough), overdue = `state-overdue-bg` with bold title and red duration. Hover → `surface-tint`.
+- **span-bar:** Multi-day calendar task. `primary` indigo background, `on-primary` text, avatar at the head. Only the head/tail of the span carry `rounded.sm`; intermediate days are square so the bar reads as continuous.
+- **chip-filter:** Calendar filter row. Outline default (`secondary` border, `on-surface` text); active state = `surface-tint` background + `primary` text. `rounded.full`, `label-sm` typography.
+- **popover-card:** Hover preview / day-detail popover. `surface-elevated` with shadow-md, `rounded.md`, `lg` padding, `popover-max` (320px) wide. Contains **at most one** `button-primary` ("Open card"); secondary actions are text-only links in `secondary` slate.
+- **today-cell:** Today's date cell. `surface-tint` background wash + a `primary` `rounded.full` disc around the date number.
 
 ## Do's and Don'ts
 
@@ -149,3 +175,7 @@ Two corner radii cover the whole product. Buttons and chips use `sm` for a crisp
 - Don't tint `danger` red into prose or pink alerts. Status colors are component-scoped.
 - Don't introduce a third corner radius. Two radii cover every container in the product.
 - Don't pair saturated colors against each other (e.g. `primary` text on `danger` background) — every paired surface in this system uses `on-primary` (white) for text on saturation.
+- Don't use `priority.*` colors as a background — they live **only** on the 3px left bar of `pill-task` (and as a small disc inside the priority chip in a popover). Priority is signal, not fill.
+- Don't use strikethrough to indicate "done" — that pattern leaked from the old calendar where both completed and past-due cards were struck out, making the two indistinguishable. Use the check icon + `state-done-bg` instead.
+- Don't grow calendar cells to fit content. Every day cell is the same height; overflow becomes a "+N more" affordance that opens a `popover-card`.
+- Don't reach for raw Tailwind color utilities (`bg-rose-50`, `bg-amber-100`, `text-emerald-600`) in calendar code. If a state needs a color, it goes in `state-*` / `priority.*` tokens first.
