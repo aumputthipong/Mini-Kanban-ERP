@@ -74,7 +74,7 @@ export const TaskCard = memo(function TaskCard({
         {...listeners}
         {...attributes}
         onClick={() => setIsDetailOpen(true)}
-        className={`group relative p-4 rounded-xl border flex flex-col gap-3 transition-all duration-200 select-none ${
+        className={`group relative p-5 rounded-2xl border flex flex-col gap-3 transition-all duration-200 select-none ${
           isDragging
             ? "opacity-0 pointer-events-none"
             : card.is_done
@@ -82,40 +82,74 @@ export const TaskCard = memo(function TaskCard({
               : "bg-white border-slate-200 shadow-sm cursor-grab hover:shadow-md hover:border-blue-300"
         }`}
       >
-        <div className="flex items-start gap-3">
-          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-            {(card.priority && !card.is_done) || (card.tags && card.tags.length > 0) ? (
-              <div className="flex flex-wrap items-center gap-1">
-                {card.priority && !card.is_done && (
-                  <PriorityBadge priority={card.priority} />
+        {/* Top chip row — filled priority + tag chips. Mirrors the calendar
+            hover popover's header so a card feels like the same primitive
+            no matter which view it appears in. */}
+        {((card.priority && !card.is_done) || (card.tags && card.tags.length > 0)) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {card.priority && !card.is_done && (
+              <PriorityBadge priority={card.priority} variant="filled" />
+            )}
+            {card.tags && card.tags.length > 0 && (
+              <>
+                {card.tags.slice(0, 3).map((tag) => (
+                  <TagChip key={tag.id} tag={tag} />
+                ))}
+                {card.tags.length > 3 && (
+                  <span className="text-[10px] text-slate-400 font-semibold">
+                    +{card.tags.length - 3}
+                  </span>
                 )}
-                {card.tags && card.tags.length > 0 && (
-                  <>
-                    {card.tags.slice(0, 3).map((tag) => (
-                      <TagChip key={tag.id} tag={tag} />
-                    ))}
-                    {card.tags.length > 3 && (
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        +{card.tags.length - 3}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : null}
+              </>
+            )}
+          </div>
+        )}
 
-            <p
-              className={`text-sm font-semibold leading-snug transition-all line-clamp-2  ${
-                card.is_done ? "text-slate-400 line-through" : "text-slate-700"
-              }`}
-            >
-              {card.title}
-            </p>
+        <p
+          className={`text-base font-bold leading-snug transition-all line-clamp-2 ${
+            card.is_done ? "text-slate-400 line-through" : "text-slate-900"
+          }`}
+        >
+          {card.title}
+        </p>
+
+        {/* Stacked info rows — each metadata point gets its own line with a
+            leading icon, matching the popover treatment. Rows render only
+            when their value exists; an empty card collapses cleanly. */}
+        <div className="flex flex-col gap-1.5">
+          {card.due_date && (
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <Calendar size={12} className="text-slate-400 shrink-0" />
+              <span>Due {formatThaiDate(card.due_date)}</span>
+            </div>
+          )}
+          {card.estimated_hours != null && (
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <Clock size={12} className="text-slate-400 shrink-0" />
+              <span>Estimated {card.estimated_hours}h</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <UserRound size={12} className="text-slate-400 shrink-0" />
+            {card.assignee_name && card.assignee_id ? (
+              <span className="flex items-center gap-1.5">
+                <span
+                  className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold text-white ${getAvatarColor(card.assignee_id)}`}
+                >
+                  {card.assignee_name.charAt(0).toUpperCase()}
+                </span>
+                <span className="text-slate-700">{card.assignee_name}</span>
+              </span>
+            ) : (
+              <span className="text-slate-400 italic">Unassigned</span>
+            )}
           </div>
         </div>
 
+        {/* Subtask progress — kept as a horizontal bar at the bottom so the
+            card's progress reads at a glance without opening detail. */}
         {totalSubtasks > 0 && (
-          <div className="flex items-center gap-2 pl-2">
+          <div className="flex items-center gap-2 pt-1">
             <div className="flex-1 bg-slate-100 rounded-full h-1 overflow-hidden">
               <div
                 className={`h-1 rounded-full transition-all duration-300 ${
@@ -139,37 +173,6 @@ export const TaskCard = memo(function TaskCard({
             </span>
           </div>
         )}
-
-        {/* Footer — due date, estimated hours, assignee */}
-        <div className="flex items-center justify-between pl-2 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-[10px] text-slate-400">
-              <Calendar size={10} />
-              {card.due_date ? formatThaiDate(card.due_date) : "-"}
-            </span>
-
-            <span className="flex items-center gap-1 text-[10px] text-slate-400">
-              <Clock size={10} />
-              {card.estimated_hours ? `${card.estimated_hours} h` : "-"}
-            </span>
-          </div>
-
-          {card.assignee_name && card.assignee_id ? (
-            <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${getAvatarColor(card.assignee_id)}`}
-              title={card.assignee_name}
-            >
-              {card.assignee_name.charAt(0).toUpperCase()}
-            </div>
-          ) : (
-            <div
-              className="w-6 h-6 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center shrink-0"
-              title="Unassigned"
-            >
-              <UserRound size={12} className="text-slate-300" />
-            </div>
-          )}
-        </div>
       </div>
 
       {isDetailOpen && (
