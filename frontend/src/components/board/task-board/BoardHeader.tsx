@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Settings,
   User,
+  FileText,
 } from "lucide-react";
 
 interface BoardHeaderProps {
@@ -48,6 +49,21 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
             >
               <LayoutTemplate size={16} />
               Overview
+            </Link>
+
+            <Link
+              href={`${basePath}/planning`}
+              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                pathname.includes("/planning")
+                  ? "border-indigo-600 text-indigo-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+              }`}
+            >
+              <FileText size={16} />
+              Planning
+              <span className="text-[9px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                New
+              </span>
             </Link>
 
             <Link
