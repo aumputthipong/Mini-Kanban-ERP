@@ -77,6 +77,10 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Delayed-close timer. Without this, leaving the pill to enter the popover
+  // would close the popover before the pointer arrived (the popover is
+  // portalled to <body>, so it's not part of the pill's hover region).
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pillRef = useRef<HTMLButtonElement | null>(null);
 
   const { handleAddSubtask, handleDeleteCard, handleUpdateCard } =
@@ -99,17 +103,34 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
 
   const onPointerEnter = () => {
     if (inPopover) return;
+    // Re-entering the pill cancels any pending close from a previous leave.
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => setIsHovering(true), 300);
   };
   const onPointerLeave = () => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    setIsHovering(false);
+    // 150ms grace so the user has time to move the pointer onto the popover
+    // before it closes. The popover's onMouseEnter cancels this timer.
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setIsHovering(false), 150);
+  };
+
+  // Popover hover handlers — keep the popover open as long as the pointer is
+  // anywhere on it, and start the same 150ms close grace when the pointer
+  // leaves. This lets the user click "Open card" or scroll the AC list.
+  const onPopoverEnter = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  };
+  const onPopoverLeave = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setIsHovering(false), 150);
   };
 
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   }, []);
 
@@ -216,6 +237,8 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
           card={card}
           state={state}
           onClose={() => setIsHovering(false)}
+          onPointerEnter={onPopoverEnter}
+          onPointerLeave={onPopoverLeave}
           onOpenCard={() => {
             setIsHovering(false);
             setIsDetailOpen(true);
