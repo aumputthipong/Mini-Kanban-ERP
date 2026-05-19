@@ -21,6 +21,10 @@ interface Props {
   state: PillState;
   onClose: () => void;
   onOpenCard: () => void;
+  /** Pointer entered the popover — parent cancels its close timer. */
+  onPointerEnter?: () => void;
+  /** Pointer left the popover — parent starts its close timer. */
+  onPointerLeave?: () => void;
 }
 
 // Per design.md `popover-card` — max-width 320px (size.popover-max),
@@ -32,6 +36,8 @@ export function CardPreviewPopover({
   state,
   onClose,
   onOpenCard,
+  onPointerEnter,
+  onPointerLeave,
 }: Props) {
   const popRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -90,10 +96,12 @@ export function CardPreviewPopover({
       ref={popRef}
       role="dialog"
       aria-label={`Preview: ${card.title}`}
-      // Allow pointer to enter the popover without dismissing — TaskPill's
-      // onPointerLeave already cleared isHovering, so the popover itself
-      // controls its own close via outside click / Escape.
-      onPointerEnter={(e) => e.stopPropagation()}
+      // Bridge the portal gap: when the pointer crosses from the pill onto
+      // the popover, TaskPill's leave-timer is still pending — we cancel it
+      // by calling onPointerEnter. Leaving the popover starts the timer
+      // again so the popover dismisses on its own when unhovered.
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       style={{ top: pos.top, left: pos.left, width: 320 }}
       // shadow-md, rounded.md, lg padding
       className="fixed z-50 rounded-lg border border-slate-200 bg-white p-6 shadow-lg"
