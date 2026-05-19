@@ -236,6 +236,7 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
           anchorEl={pillRef.current}
           card={card}
           state={state}
+          boardId={boardId}
           onClose={() => setIsHovering(false)}
           onPointerEnter={onPopoverEnter}
           onPointerLeave={onPopoverLeave}
