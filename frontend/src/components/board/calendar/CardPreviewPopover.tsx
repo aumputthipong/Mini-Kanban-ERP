@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Calendar as CalendarIcon,
@@ -72,22 +72,60 @@ export function CardPreviewPopover({
     ...overrides,
   });
 
-  useLayoutEffect(() => {
+  // Recomputes popover position from the *current* size of the popover —
+  // not a hardcoded estimate. The popover changes height as the user opens
+  // inline editors and ticks AC items, so positioning needs to re-run when
+  // the popover's own ResizeObserver fires.
+  //
+  // Vertical: prefer below; flip above when the bottom would clip off-screen
+  // and above actually has room. Horizontal: prefer left-edge-aligned with
+  // anchor; flip to right-edge-aligned when that would clip; clamp last.
+  const recompute = useCallback(() => {
     if (!anchorEl) return;
     const rect = anchorEl.getBoundingClientRect();
-    const popW = 320;
-    const popH = 280; // estimate; we'll re-clamp after measuring
+    const popEl = popRef.current;
+    const popW = popEl?.offsetWidth || 320;
+    const popH = popEl?.offsetHeight || 280;
     const margin = 8;
-    let left = rect.left;
+
     let top = rect.bottom + margin;
-    // Flip above the anchor if there isn't room below
-    if (top + popH > window.innerHeight) {
-      top = Math.max(margin, rect.top - popH - margin);
+    if (top + popH > window.innerHeight - margin) {
+      const aboveTop = rect.top - popH - margin;
+      top = aboveTop >= margin
+        ? aboveTop
+        : Math.max(margin, window.innerHeight - popH - margin);
     }
-    // Keep within horizontal viewport
-    left = Math.min(Math.max(margin, left), window.innerWidth - popW - margin);
+
+    let left = rect.left;
+    if (left + popW > window.innerWidth - margin) {
+      const rightAligned = rect.right - popW;
+      left = rightAligned >= margin
+        ? rightAligned
+        : Math.max(margin, window.innerWidth - popW - margin);
+    }
+
     setPos({ top, left });
   }, [anchorEl]);
+
+  useLayoutEffect(() => {
+    recompute();
+  }, [recompute]);
+
+  // Re-run on popover content size changes (inline editor toggled, AC item
+  // ticked) and on viewport resize. Scroll isn't watched here — the calendar
+  // grid doesn't scroll inside a portal, and full-page scroll while a hover
+  // preview is open is rare; closing on scroll would feel jumpy.
+  useEffect(() => {
+    if (!popRef.current) return;
+    const el = popRef.current;
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    window.addEventListener("resize", recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, [recompute]);
 
   // Close on outside click / Escape so the popover doesn't latch. Inline edit
   // inputs swallow Escape themselves (handleEditKey) so Esc inside an editor
@@ -109,8 +147,11 @@ export function CardPreviewPopover({
     };
   }, [anchorEl, onClose, editing]);
 
-  if (!pos) return null;
-
+  // Render the popover from the first pass so popRef attaches and the
+  // ResizeObserver can measure real content height — but keep it invisible
+  // until recompute has produced a position. Otherwise the first paint
+  // shows the popover with a guessed height/position and snaps a frame
+  // later, which reads as a flicker.
   const dueLabel = card.due_date ? formatThaiDate(card.due_date) : null;
   const acDone = card.completed_subtasks ?? 0;
   const acTotal = card.total_subtasks ?? 0;
@@ -142,7 +183,12 @@ export function CardPreviewPopover({
       aria-label={`Preview: ${card.title}`}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      style={{ top: pos.top, left: pos.left, width: 320 }}
+      style={{
+        top: pos?.top ?? 0,
+        left: pos?.left ?? 0,
+        width: 320,
+        visibility: pos ? "visible" : "hidden",
+      }}
       className="fixed z-50 rounded-lg border border-slate-200 bg-white p-6 shadow-lg"
     >
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
