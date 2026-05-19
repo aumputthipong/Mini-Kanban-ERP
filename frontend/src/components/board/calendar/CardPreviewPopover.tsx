@@ -9,7 +9,6 @@ import {
   Check,
 } from "lucide-react";
 import type { Card } from "@/types/board";
-import { useBoardStore } from "@/store/useBoardStore";
 import { useBoardActions } from "@/hooks/useBoardActions";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { getAvatarColor } from "@/utils/avatar";
@@ -30,16 +29,12 @@ interface Props {
   onPointerLeave?: () => void;
 }
 
-type InlineEdit = "none" | "due" | "assignee";
-
 // Per design.md `popover-card` — max-width 320px (size.popover-max),
-// surface-elevated white, rounded.md, shadow-md. One button-primary
-// ("Edit details →"); secondary actions are text-only inline editors.
-//
-// Inline editors are the point: clicking "Edit due" or "Reassign" swaps
-// the relevant row into a real input/select (not a fake button that opens
-// the full modal). Save is optimistic via handleUpdateCard, which already
-// fans out to REST + WS broadcast + activity log — same path the modal uses.
+// surface-elevated white, rounded.md, shadow-md. The popover is a
+// preview surface: it displays the card's key fields and offers a
+// single primary action — "Edit details →" — which escalates to the
+// full CardDetailModal for any change. Inline edits were removed
+// intentionally; the popover stays a calm preview, not a mini editor.
 export function CardPreviewPopover({
   anchorEl,
   card,
@@ -52,30 +47,14 @@ export function CardPreviewPopover({
 }: Props) {
   const popRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [editing, setEditing] = useState<InlineEdit>("none");
 
-  const boardMembers = useBoardStore((s) => s.boardMembers);
-  const { handleUpdateCard, handleToggleSubtask } = useBoardActions(boardId);
+  const { handleToggleSubtask } = useBoardActions(boardId);
   const canEdit = useCanEdit(card);
 
-  // Build a CardUpdateForm matching the card's current values. Callers tweak
-  // one field, then pass to handleUpdateCard — which preserves everything
-  // else. Without this, an inline save would clobber title/desc/tags.
-  const formFromCard = (overrides: Partial<{ due_date: string; assignee_id: string }>) => ({
-    title: card.title,
-    description: card.description ?? "",
-    due_date: card.due_date ?? "",
-    assignee_id: card.assignee_id ?? "",
-    priority: card.priority ?? "",
-    estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
-    tags: card.tags ?? [],
-    ...overrides,
-  });
-
   // Recomputes popover position from the *current* size of the popover —
-  // not a hardcoded estimate. The popover changes height as the user opens
-  // inline editors and ticks AC items, so positioning needs to re-run when
-  // the popover's own ResizeObserver fires.
+  // not a hardcoded estimate. The popover changes height when AC items
+  // are ticked, so positioning needs to re-run when the popover's own
+  // ResizeObserver fires.
   //
   // Vertical: prefer below; flip above when the bottom would clip off-screen
   // and above actually has room. Horizontal: prefer left-edge-aligned with
@@ -112,11 +91,6 @@ export function CardPreviewPopover({
     setPos({ top, left });
   }, [anchorEl]);
 
-  // ResizeObserver fires immediately when observe() is called, so the first
-  // measurement happens here without a synchronous effect-body setState. The
-  // observer keeps firing as the popover's content (editors, AC list) grows
-  // or shrinks, which also drives re-positioning. Window resize covers
-  // viewport changes that don't affect the popover's own size.
   useEffect(() => {
     if (!popRef.current) return;
     const el = popRef.current;
@@ -129,9 +103,7 @@ export function CardPreviewPopover({
     };
   }, [recompute]);
 
-  // Close on outside click / Escape so the popover doesn't latch. Inline edit
-  // inputs swallow Escape themselves (handleEditKey) so Esc inside an editor
-  // cancels the edit; outside an editor it closes the popover.
+  // Close on outside click / Escape.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (popRef.current?.contains(e.target as Node)) return;
@@ -139,7 +111,7 @@ export function CardPreviewPopover({
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && editing === "none") onClose();
+      if (e.key === "Escape") onClose();
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -147,13 +119,8 @@ export function CardPreviewPopover({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [anchorEl, onClose, editing]);
+  }, [anchorEl, onClose]);
 
-  // Render the popover from the first pass so popRef attaches and the
-  // ResizeObserver can measure real content height — but keep it invisible
-  // until recompute has produced a position. Otherwise the first paint
-  // shows the popover with a guessed height/position and snaps a frame
-  // later, which reads as a flicker.
   const dueLabel = card.due_date ? formatThaiDate(card.due_date) : null;
   const acDone = card.completed_subtasks ?? 0;
   const acTotal = card.total_subtasks ?? 0;
@@ -164,18 +131,6 @@ export function CardPreviewPopover({
     high: "bg-red-600 text-white",
     medium: "bg-amber-500 text-white",
     low: "bg-emerald-500 text-white",
-  };
-
-  const saveDue = (value: string) => {
-    setEditing("none");
-    if ((value || "") === (card.due_date ?? "")) return;
-    handleUpdateCard(card.id, formFromCard({ due_date: value }));
-  };
-
-  const saveAssignee = (value: string) => {
-    setEditing("none");
-    if ((value || "") === (card.assignee_id ?? "")) return;
-    handleUpdateCard(card.id, formFromCard({ assignee_id: value }));
   };
 
   return createPortal(
@@ -221,48 +176,21 @@ export function CardPreviewPopover({
         {card.title}
       </p>
 
-      {/* Due row — click to inline-edit. Click outside / Enter / Esc to commit
-          or cancel. Cancel = no setState, but the input's blur still hides
-          the editor (see saveDue's early-return on unchanged value). */}
+      {/* Due row — display only. Edits go through "Edit details →". */}
       <div className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
         <CalendarIcon size={12} className="text-slate-400 shrink-0" />
-        {editing === "due" && canEdit ? (
-          <input
-            type="date"
-            defaultValue={card.due_date ?? ""}
-            autoFocus
-            onBlur={(e) => saveDue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveDue((e.target as HTMLInputElement).value);
-              if (e.key === "Escape") setEditing("none");
-            }}
-            className="flex-1 rounded border border-slate-300 px-1.5 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
-          />
-        ) : (
-          <>
-            <span className="flex-1">
-              {dueLabel ? (
-                <>
-                  Due {dueLabel}
-                  {state === "overdue" && (
-                    <span className="ml-1 font-semibold text-red-700">(overdue)</span>
-                  )}
-                </>
-              ) : (
-                <span className="text-slate-400 italic">No due date</span>
+        <span className="flex-1">
+          {dueLabel ? (
+            <>
+              Due {dueLabel}
+              {state === "overdue" && (
+                <span className="ml-1 font-semibold text-red-700">(overdue)</span>
               )}
-            </span>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditing("due")}
-                className="text-[10px] font-medium text-slate-500 hover:text-blue-700"
-              >
-                Edit
-              </button>
-            )}
-          </>
-        )}
+            </>
+          ) : (
+            <span className="text-slate-400 italic">No due date</span>
+          )}
+        </span>
       </div>
 
       {(card.estimated_hours || acPct !== null) && (
@@ -277,58 +205,30 @@ export function CardPreviewPopover({
         </div>
       )}
 
-      {/* Assignee row — click to inline-edit, native select for member pick. */}
+      {/* Assignee row — display only. Reassign goes through "Edit details →". */}
       <div className="mb-3 flex items-center gap-2 text-xs text-slate-600">
         <UserIcon size={12} className="text-slate-400 shrink-0" />
-        {editing === "assignee" && canEdit ? (
-          <select
-            defaultValue={card.assignee_id ?? ""}
-            autoFocus
-            onBlur={(e) => saveAssignee(e.target.value)}
-            onChange={(e) => saveAssignee(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setEditing("none");
-            }}
-            className="flex-1 rounded border border-slate-300 px-1.5 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Unassigned</option>
-            {boardMembers.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.full_name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <>
-            <span className="flex-1 flex items-center gap-1.5">
-              {card.assignee_name && card.assignee_id ? (
-                <>
-                  <span
-                    className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold text-white ${getAvatarColor(card.assignee_id)}`}
-                  >
-                    {card.assignee_name.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="text-slate-700">{card.assignee_name}</span>
-                </>
-              ) : (
-                <span className="text-slate-400 italic">Unassigned</span>
-              )}
-            </span>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditing("assignee")}
-                className="text-[10px] font-medium text-slate-500 hover:text-blue-700"
+        <span className="flex-1 flex items-center gap-1.5">
+          {card.assignee_name && card.assignee_id ? (
+            <>
+              <span
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-bold text-white ${getAvatarColor(card.assignee_id)}`}
               >
-                Reassign
-              </button>
-            )}
-          </>
-        )}
+                {card.assignee_name.charAt(0).toUpperCase()}
+              </span>
+              <span className="text-slate-700">{card.assignee_name}</span>
+            </>
+          ) : (
+            <span className="text-slate-400 italic">Unassigned</span>
+          )}
+        </span>
       </div>
 
-      {/* AC checklist — tickable directly. Clicking the row toggles is_done
-          (handleToggleSubtask is already optimistic + reverts on API fail). */}
+      {/* AC checklist — tickable directly. Clicking toggles is_done
+          (handleToggleSubtask is already optimistic + reverts on API fail).
+          Kept because it's a single-tap micro-action that doesn't require
+          a full editor — distinct from the multi-field edits that now live
+          in the modal. */}
       {card.subtasks && card.subtasks.length > 0 && (
         <div className="mb-3 border-t border-slate-100 pt-3">
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -369,9 +269,9 @@ export function CardPreviewPopover({
         <button
           type="button"
           onClick={onOpenCard}
-          // button-primary — only one per popover (design.md Do's). Renamed
-          // from "Open card" because inline editors now cover the common
-          // tweaks; the modal is reserved for description + subtask edits.
+          // button-primary — only one per popover (design.md Do's). Sole
+          // action: "Edit details →" opens the full modal for any change
+          // to due date, assignee, priority, title, description, tags.
           className="rounded bg-blue-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-900"
         >
           Edit details →
