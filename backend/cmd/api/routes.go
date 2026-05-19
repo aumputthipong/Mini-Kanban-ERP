@@ -61,6 +61,9 @@ func setupRoutes(d routerDeps) http.Handler {
 		r.Post("/login", httputil.MakeHandler(d.authHandler.Login))
 		r.Post("/oauth", httputil.MakeHandler(d.authHandler.OAuthCallback))
 		r.Post("/logout", httputil.MakeHandler(d.authHandler.Logout))
+		// Refresh is unauthenticated: the refresh cookie IS the credential.
+		// Rate-limited via the surrounding /api/auth group's AuthRateLimit.
+		r.Post("/refresh", httputil.MakeHandler(d.authHandler.Refresh))
 
 		r.Get("/google", httputil.MakeHandler(d.oauthHandler.RedirectToGoogle))
 		r.Get("/google/callback", httputil.MakeHandler(d.oauthHandler.HandleGoogleCallback))
