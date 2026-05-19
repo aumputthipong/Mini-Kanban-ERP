@@ -81,6 +81,18 @@ type Column struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type RefreshToken struct {
+	ID         string
+	UserID     string
+	TokenHash  string
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	ReplacedBy *string
+	UserAgent  *string
+	Ip         *string
+	CreatedAt  time.Time
+}
+
 type Tag struct {
 	ID        string
 	BoardID   string

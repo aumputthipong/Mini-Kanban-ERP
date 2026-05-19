@@ -68,4 +68,7 @@ type AuthServicer interface {
 	Login(ctx context.Context, email, password string) (db.User, error)
 	UpsertOAuthUser(ctx context.Context, email, fullName, provider, providerID string) (db.User, error)
 	GetUserByID(ctx context.Context, userID string) (db.GetUserByIDRow, error)
+	IssueRefreshToken(ctx context.Context, userID, userAgent, ip string) (string, error)
+	RotateRefreshToken(ctx context.Context, rawToken, userAgent, ip string) (RefreshRotationResult, error)
+	RevokeRefreshToken(ctx context.Context, rawToken string) error
 }
