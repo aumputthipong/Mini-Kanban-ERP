@@ -420,3 +420,30 @@ LEFT JOIN users u ON a.actor_id = u.id
 WHERE a.board_id = $1 AND a.created_at < $2
 ORDER BY a.created_at DESC
 LIMIT $3;
+
+
+-- name: InsertRefreshToken :one
+INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id;
+
+-- name: GetRefreshTokenByHash :one
+SELECT id, user_id, token_hash, expires_at, revoked_at, replaced_by, created_at
+FROM refresh_tokens
+WHERE token_hash = $1
+LIMIT 1;
+
+-- name: RevokeRefreshToken :exec
+-- Single-token revoke. replaced_by is set on rotation to track lineage so
+-- replay of an already-rotated token can be detected and the whole family
+-- revoked.
+UPDATE refresh_tokens
+SET revoked_at = now(), replaced_by = $2
+WHERE id = $1 AND revoked_at IS NULL;
+
+-- name: RevokeAllRefreshTokensForUser :exec
+-- Called on replay detection (a revoked token presented again) and on logout-
+-- all-sessions. Idempotent: already-revoked rows are skipped.
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL;

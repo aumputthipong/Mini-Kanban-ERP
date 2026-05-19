@@ -14,10 +14,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// TokenDuration is how long an issued token remains valid. Cookie MaxAge
-// mirrors this value, so logout depends on the cookie being cleared rather
-// than on the token expiring.
-const TokenDuration = 7 * 24 * time.Hour
+// TokenDuration is how long an issued access token remains valid. Short by
+// design — a leaked access token is unusable past this window. Longer-lived
+// session is provided by the refresh token (see internal/token/refresh.go),
+// which can be revoked server-side. Cookie MaxAge mirrors this value.
+const TokenDuration = 15 * time.Minute
 
 // Claims is the JWT body for an authenticated user. UserID is the canonical
 // reference; Email is included for ergonomics in logs and is not authoritative

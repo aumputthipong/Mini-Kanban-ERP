@@ -953,6 +953,38 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 	return items, nil
 }
 
+const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
+SELECT id, user_id, token_hash, expires_at, revoked_at, replaced_by, created_at
+FROM refresh_tokens
+WHERE token_hash = $1
+LIMIT 1
+`
+
+type GetRefreshTokenByHashRow struct {
+	ID         string
+	UserID     string
+	TokenHash  string
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	ReplacedBy *string
+	CreatedAt  time.Time
+}
+
+func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (GetRefreshTokenByHashRow, error) {
+	row := q.db.QueryRow(ctx, getRefreshTokenByHash, tokenHash)
+	var i GetRefreshTokenByHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.ReplacedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSubtask = `-- name: GetSubtask :one
 SELECT id, card_id, title, is_done, position, created_at, updated_at FROM card_subtasks WHERE id = $1 LIMIT 1
 `
@@ -1237,6 +1269,33 @@ func (q *Queries) InsertCardTag(ctx context.Context, arg InsertCardTagParams) er
 	return err
 }
 
+const insertRefreshToken = `-- name: InsertRefreshToken :one
+INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id
+`
+
+type InsertRefreshTokenParams struct {
+	UserID    string
+	TokenHash string
+	ExpiresAt time.Time
+	UserAgent *string
+	Ip        *string
+}
+
+func (q *Queries) InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertRefreshToken,
+		arg.UserID,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		arg.UserAgent,
+		arg.Ip,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listActivitiesByBoard = `-- name: ListActivitiesByBoard :many
 SELECT
     a.id,
@@ -1418,6 +1477,38 @@ WHERE id = $1
 
 func (q *Queries) RestoreBoardFromTrash(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, restoreBoardFromTrash, id)
+	return err
+}
+
+const revokeAllRefreshTokensForUser = `-- name: RevokeAllRefreshTokensForUser :exec
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+// Called on replay detection (a revoked token presented again) and on logout-
+// all-sessions. Idempotent: already-revoked rows are skipped.
+func (q *Queries) RevokeAllRefreshTokensForUser(ctx context.Context, userID string) error {
+	_, err := q.db.Exec(ctx, revokeAllRefreshTokensForUser, userID)
+	return err
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens
+SET revoked_at = now(), replaced_by = $2
+WHERE id = $1 AND revoked_at IS NULL
+`
+
+type RevokeRefreshTokenParams struct {
+	ID         string
+	ReplacedBy *string
+}
+
+// Single-token revoke. replaced_by is set on rotation to track lineage so
+// replay of an already-rotated token can be detected and the whole family
+// revoked.
+func (q *Queries) RevokeRefreshToken(ctx context.Context, arg RevokeRefreshTokenParams) error {
+	_, err := q.db.Exec(ctx, revokeRefreshToken, arg.ID, arg.ReplacedBy)
 	return err
 }
 
