@@ -60,6 +60,35 @@ type SubtaskServicer interface {
 	GetSubtaskByID(ctx context.Context, subtaskID string) (db.CardSubtask, error)
 }
 
+// PlanningServicer is the contract used by the planning handler. Sessions are
+// the meeting-notes container; items are the REQ/DEC/Q rows inside a session.
+// All board-scope checks happen in the handler via boardID resolved through
+// GetSessionBoardID / GetItemBoardID — the service trusts its caller did the
+// permission gate.
+type PlanningServicer interface {
+	ListSessionsByBoard(ctx context.Context, boardID string) ([]db.ListPlanningSessionsByBoardRow, error)
+	GetSession(ctx context.Context, sessionID string) (db.PlanningSession, error)
+	GetSessionBoardID(ctx context.Context, sessionID string) (string, error)
+	GetItem(ctx context.Context, itemID string) (db.PlanningItem, error)
+	GetItemBoardID(ctx context.Context, itemID string) (string, error)
+	ListItems(ctx context.Context, sessionID string) ([]db.PlanningItem, error)
+	CreateSession(ctx context.Context, boardID, title string, label, meetingAt *string, createdBy string) (db.PlanningSession, error)
+	UpdateSession(ctx context.Context, sessionID string, title, label, meetingAt *string) (db.PlanningSession, error)
+	DeleteSession(ctx context.Context, sessionID string) error
+	CreateItem(ctx context.Context, sessionID, itemType, title string, description *string) (db.PlanningItem, error)
+	UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error)
+	DeleteItem(ctx context.Context, itemID string) error
+	PromoteItem(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
+}
+
+// ActivityRecorder is the narrow contract handlers need to log audit events.
+// Both the real *ActivityService and test spies implement it. Kept as a
+// separate interface (not part of a wider ActivityServicer) so handlers don't
+// pull in the read-side methods they never touch.
+type ActivityRecorder interface {
+	Record(ctx context.Context, p RecordParams) (db.Activity, error)
+}
+
 // AuthServicer is the contract for credential and OAuth-based authentication.
 // Token issuance lives in the token package, not here — service only resolves
 // the user identity.

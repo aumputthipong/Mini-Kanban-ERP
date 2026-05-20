@@ -1972,7 +1972,7 @@ const updatePlanningItem = `-- name: UpdatePlanningItem :one
 UPDATE planning_items
 SET type        = COALESCE($1::varchar, type),
     title       = COALESCE($2::text, title),
-    description = $3::text,
+    description = COALESCE($3::text, description),
     status      = COALESCE($4::varchar, status),
     position    = COALESCE($5::float8, position)
 WHERE id = $6
@@ -1988,6 +1988,9 @@ type UpdatePlanningItemParams struct {
 	ID          string
 }
 
+// See UpdatePlanningSession's comment block on PATCH semantics. description
+// is the only nullable column here; required ones (type/title/status) go
+// through the handler-level "" check.
 func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItemParams) (PlanningItem, error) {
 	row := q.db.QueryRow(ctx, updatePlanningItem,
 		arg.Type,
@@ -2015,8 +2018,8 @@ func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItem
 const updatePlanningSession = `-- name: UpdatePlanningSession :one
 UPDATE planning_sessions
 SET title      = COALESCE($1::varchar, title),
-    label      = $2::text,
-    meeting_at = $3::timestamptz,
+    label      = COALESCE($2::text, label),
+    meeting_at = COALESCE($3::timestamptz, meeting_at),
     updated_at = now()
 WHERE id = $4
 RETURNING id, board_id, title, label, meeting_at, created_by, created_at, updated_at
@@ -2029,6 +2032,11 @@ type UpdatePlanningSessionParams struct {
 	ID        string
 }
 
+// PATCH semantics for planning: nil/omitted JSON fields preserve the existing
+// value (COALESCE-driven). An empty string is treated as a real value — for
+// nullable text columns (label) it stores ”. Required columns (title) must
+// be rejected at the handler layer because the validator's `omitempty`
+// short-circuits min=1 on *string pointing to "".
 func (q *Queries) UpdatePlanningSession(ctx context.Context, arg UpdatePlanningSessionParams) (PlanningSession, error) {
 	row := q.db.QueryRow(ctx, updatePlanningSession,
 		arg.Title,
