@@ -1,3 +1,10 @@
+-- Clean up an orphan column from an abandoned earlier migration. A previous
+-- branch added cards.start_date as version 7 then was reverted; users who
+-- applied that intermediate migration locally end up with version=7 set
+-- in schema_migrations and a stray start_date column. DROP IF EXISTS is
+-- a no-op for fresh databases.
+ALTER TABLE cards DROP COLUMN IF EXISTS start_date;
+
 -- Planning section — lightweight discovery journal scoped per board.
 -- Sessions hold a single meeting/working-session's worth of items;
 -- items are flat (no hierarchy) and carry one of three types plus
