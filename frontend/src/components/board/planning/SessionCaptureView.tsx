@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -24,15 +23,10 @@ import type {
   PlanningItemType,
   PlanningSessionDetail,
 } from "@/types/planning";
+import { CaptureInput } from "./CaptureInput";
 import { ExportDialog } from "./ExportDialog";
 import { ItemRow } from "./ItemRow";
 import { formatRelativeFromNow } from "./planningFormat";
-import {
-  TYPE_CHIP_ACTIVE,
-  TYPE_CYCLE,
-  TYPE_LONG,
-  TYPE_TOOLTIP,
-} from "./planningTypeMeta";
 
 interface Props {
   boardId: string;
@@ -216,24 +210,6 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
     });
   }, [items, showToast]);
 
-  // Keyboard ------------------------------------------------------
-
-  // Capture input only handles Enter (commit) and ArrowUp (jump into the
-  // existing item list). Type switching and promote are click-driven via
-  // the segmented control + the Promote button — see the rationale block
-  // at the top of the file.
-  const onDraftKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitNew();
-      return;
-    }
-    if (e.key === "ArrowUp" && items.length > 0) {
-      e.preventDefault();
-      setFocusIndex(items.length - 1);
-    }
-  };
-
   // Render ------------------------------------------------------
 
   if (!detail) {
@@ -313,46 +289,17 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             ))}
           </div>
 
-          {/* Capture row — segmented type picker + free-text input. Clicking
-              one of the three type buttons sets the type and refocuses the
-              input, so the user can stay in flow: click → type → Enter. */}
-          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-50">
-            <div className="flex items-center gap-1.5">
-              {TYPE_CYCLE.map((t) => {
-                const active = newType === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      setNewType(t);
-                      inputRef.current?.focus();
-                    }}
-                    title={TYPE_TOOLTIP[t]}
-                    className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      active
-                        ? TYPE_CHIP_ACTIVE[t]
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    {TYPE_LONG[t]}
-                  </button>
-                );
-              })}
-              <span className="ml-auto text-[10px] text-slate-400">
-                กด Enter เพื่อเพิ่ม
-              </span>
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onDraftKeyDown}
-              placeholder="พิมพ์ที่นี่ แล้วกด Enter เพื่อเพิ่ม"
-              className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
-            />
-          </div>
+          <CaptureInput
+            inputRef={inputRef}
+            draft={draft}
+            onDraftChange={setDraft}
+            newType={newType}
+            onTypeChange={setNewType}
+            onCommit={commitNew}
+            onJumpToList={() => {
+              if (items.length > 0) setFocusIndex(items.length - 1);
+            }}
+          />
         </div>
 
         {/* Sidebar — short Thai labels matched to the three item types plus
