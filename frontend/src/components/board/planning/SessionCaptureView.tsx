@@ -10,7 +10,15 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Download, ArrowRight, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  Download,
+  ArrowRight,
+  Trash2,
+  CheckSquare,
+  Square,
+  Ban,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToastStore } from "@/store/useToastStore";
 import { planningApi } from "@/lib/planningApi";
@@ -28,10 +36,22 @@ interface Props {
   sessionId: string;
 }
 
-const TYPE_LABEL: Record<PlanningItemType, string> = {
-  REQ: "REQ",
-  DEC: "DEC",
-  Q: "Q",
+// Full Thai label used in tooltips on the small REQ/DEC/Q chips so a hover
+// reveals "what does this code actually mean" — keeps row density compact
+// while making the chip self-documenting for new users.
+const TYPE_TOOLTIP: Record<PlanningItemType, string> = {
+  REQ: "Requirement — สิ่งที่ต้องทำ",
+  DEC: "Decision — ที่ตกลงกัน",
+  Q: "Question — คำถามที่ยังตอบไม่ได้",
+};
+
+// Full Thai label used in the segmented control next to the input. The
+// abbreviated codes are kept only on row chips (density) and in the
+// sidebar count where users have time to read.
+const TYPE_LONG: Record<PlanningItemType, string> = {
+  REQ: "Requirement",
+  DEC: "Decision",
+  Q: "Question",
 };
 
 const TYPE_CHIP: Record<PlanningItemType, string> = {
@@ -40,15 +60,29 @@ const TYPE_CHIP: Record<PlanningItemType, string> = {
   Q: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
+// Solid (active) styles for the segmented control — match the filled
+// priority chip pattern from the calendar pill so the visual vocabulary
+// stays consistent across the app.
+const TYPE_CHIP_ACTIVE: Record<PlanningItemType, string> = {
+  REQ: "bg-red-600 text-white border-red-600",
+  DEC: "bg-blue-600 text-white border-blue-600",
+  Q: "bg-amber-500 text-white border-amber-500",
+};
+
 const TYPE_CYCLE: PlanningItemType[] = ["REQ", "DEC", "Q"];
 
 // The capture surface. Single text input at the bottom (Enter commits as new
-// item), arrow keys navigate the existing list, ⌘1-3 change current item's
-// type, ⌘D drops/undrops, ⌘S selects/deselects, ⌘↵ promotes all selected.
+// item) plus a segmented control for choosing the item type. All other
+// actions — Select / Drop / Delete — are click-only buttons on each row.
+//
+// Keyboard support is intentionally minimal (Enter / Esc / arrows). Earlier
+// versions used ⌘1-3 / ⌘D / ⌘S / ⌘↵ but every one of those collides with a
+// browser default (tab switching / bookmark / save / new line), which made
+// the shortcuts unreliable and the wider UX feel like it required a manual.
 //
 // Local state is the source of truth for what the user sees; every mutation
 // fires the corresponding API call in the background. We don't wait for the
-// server response — meeting velocity matters more than confirming success
+// server response — capture velocity matters more than confirming success
 // for trivial writes, and any error surfaces as a toast via apiClient.
 export function SessionCaptureView({ boardId, sessionId }: Props) {
   const router = useRouter();
@@ -74,7 +108,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
       })
       .catch(() => {
         if (cancelled) return;
-        showToast({ message: "Couldn't load session", duration: 4000 });
+        showToast({ message: "โหลดบันทึกไม่ได้", duration: 4000 });
         router.push(`/board/${boardId}/planning`);
       });
     return () => {
@@ -118,7 +152,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
           position: patch.position,
         })
         .catch(() => {
-          showToast({ message: "Couldn't save change", duration: 4000 });
+          showToast({ message: "บันทึกไม่สำเร็จ", duration: 4000 });
         });
     },
     [showToast],
@@ -152,7 +186,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
       setItems((prev) => prev.map((it) => (it.id === tempId ? real : it)));
     } catch {
       setItems((prev) => prev.filter((it) => it.id !== tempId));
-      showToast({ message: "Couldn't add item", duration: 4000 });
+      showToast({ message: "เพิ่มไม่ได้ ลองอีกครั้ง", duration: 4000 });
     }
   }, [draft, newType, sessionId, showToast]);
 
@@ -179,7 +213,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
         await planningApi.deleteItem(item.id);
       } catch {
         setItems((prev) => [...prev, item]);
-        showToast({ message: "Couldn't delete item", duration: 4000 });
+        showToast({ message: "ลบไม่ได้ ลองอีกครั้ง", duration: 4000 });
       }
     },
     [showToast],
@@ -188,7 +222,10 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
   const promoteSelected = useCallback(async () => {
     const targets = items.filter((it) => it.status === "selected");
     if (targets.length === 0) {
-      showToast({ message: "ยังไม่มี item ที่ select ไว้ (⌘S)", duration: 3000 });
+      showToast({
+        message: "ยังไม่ได้เลือกรายการ — กดปุ่มเลือกที่บรรทัดก่อน",
+        duration: 3000,
+      });
       return;
     }
     // Promote sequentially to keep board card positions stable.
@@ -199,32 +236,25 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
           prev.map((cur) => (cur.id === it.id ? res.item : cur)),
         );
       } catch {
-        showToast({ message: `Couldn't promote: ${it.title}`, duration: 4000 });
+        showToast({
+          message: `ส่งเข้า Board ไม่ได้: ${it.title}`,
+          duration: 4000,
+        });
       }
     }
     showToast({
-      message: `Promoted ${targets.length} → Board`,
+      message: `ส่งเข้า Board แล้ว ${targets.length} รายการ`,
       duration: 3000,
     });
   }, [items, showToast]);
 
   // Keyboard ------------------------------------------------------
 
-  // Existing-item keys handled inside each row (focus-driven). The capture
-  // input uses its own handler so Enter / ⌘↵ behave as expected.
+  // Capture input only handles Enter (commit) and ArrowUp (jump into the
+  // existing item list). Type switching and promote are click-driven via
+  // the segmented control + the Promote button — see the rationale block
+  // at the top of the file.
   const onDraftKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    const meta = e.metaKey || e.ctrlKey;
-    if (meta && (e.key === "1" || e.key === "2" || e.key === "3")) {
-      e.preventDefault();
-      const idx = parseInt(e.key, 10) - 1;
-      setNewType(TYPE_CYCLE[idx]);
-      return;
-    }
-    if (meta && e.key === "Enter") {
-      e.preventDefault();
-      promoteSelected();
-      return;
-    }
     if (e.key === "Enter") {
       e.preventDefault();
       commitNew();
@@ -257,7 +287,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             onClick={() => setShowExport(true)}
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <Download size={14} /> Export
+            <Download size={14} /> ส่งออก
           </button>
           <button
             type="button"
@@ -266,7 +296,8 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
           >
             <ArrowRight size={14} />
-            Promote {stats.selected > 0 ? `${stats.selected} → Tasks` : "selected"}
+            ส่งเข้า Board
+            {stats.selected > 0 && <span>({stats.selected})</span>}
           </button>
         </div>
       </div>
@@ -278,14 +309,14 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             {detail.title}
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            {detail.label && <>Label: {detail.label} · </>}
-            {savedAt && <>auto-saved {formatRelativeFromNow(savedAt)}</>}
+            {detail.label && <>{detail.label} · </>}
+            {savedAt && <>บันทึกอัตโนมัติแล้ว · {formatRelativeFromNow(savedAt)}</>}
           </p>
 
           <div className="mt-4 flex flex-col gap-1">
             {items.length === 0 && (
               <p className="rounded border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center text-sm text-slate-400">
-                ยังไม่มี item · พิมพ์ที่ช่องด้านล่างแล้วกด Enter
+                ลองเริ่มที่ช่องด้านล่าง · พิมพ์แล้วกด Enter
               </p>
             )}
             {items.map((it, i) => (
@@ -314,43 +345,64 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             ))}
           </div>
 
-          {/* Capture row */}
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-50">
-            <button
-              type="button"
-              onClick={() => {
-                const idx = TYPE_CYCLE.indexOf(newType);
-                setNewType(TYPE_CYCLE[(idx + 1) % TYPE_CYCLE.length]);
-              }}
-              className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TYPE_CHIP[newType]}`}
-              title="คลิกเปลี่ยนชนิด หรือใช้ ⌘1/⌘2/⌘3"
-            >
-              {TYPE_LABEL[newType]}
-            </button>
+          {/* Capture row — segmented type picker + free-text input. Clicking
+              one of the three type buttons sets the type and refocuses the
+              input, so the user can stay in flow: click → type → Enter. */}
+          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-50">
+            <div className="flex items-center gap-1.5">
+              {TYPE_CYCLE.map((t) => {
+                const active = newType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      setNewType(t);
+                      inputRef.current?.focus();
+                    }}
+                    title={TYPE_TOOLTIP[t]}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      active
+                        ? TYPE_CHIP_ACTIVE[t]
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    {TYPE_LONG[t]}
+                  </button>
+                );
+              })}
+              <span className="ml-auto text-[10px] text-slate-400">
+                กด Enter เพื่อเพิ่ม
+              </span>
+            </div>
             <input
               ref={inputRef}
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onDraftKeyDown}
-              placeholder="พิมพ์ item ใหม่... (Enter เพื่อ commit)"
-              className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+              placeholder="พิมพ์ที่นี่ แล้วกด Enter เพื่อเพิ่ม"
+              className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
             />
           </div>
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar — short Thai labels matched to the three item types plus
+            the dropped/promoted lifecycle. The previous "Shortcuts" block
+            was removed when keyboard shortcuts stopped being central; the
+            remaining keys (Enter / Esc / arrows) are surfaced inline next
+            to where they apply. */}
         <aside className="w-full shrink-0 lg:w-64">
           <div className="rounded-lg border border-slate-200 p-4">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              In this session
+              สรุป
             </p>
             <ul className="space-y-1.5 text-xs">
-              <SidebarCount label="REQ" value={stats.REQ} dotClass="bg-red-500" />
-              <SidebarCount label="DEC" value={stats.DEC} dotClass="bg-blue-500" />
-              <SidebarCount label="Q open" value={stats.Q} dotClass="bg-amber-500" />
+              <SidebarCount label="สิ่งที่อยากได้" value={stats.REQ} dotClass="bg-red-500" />
+              <SidebarCount label="ที่ตกลงแล้ว" value={stats.DEC} dotClass="bg-blue-500" />
+              <SidebarCount label="คำถามค้าง" value={stats.Q} dotClass="bg-amber-500" />
               <SidebarCount
-                label="Dropped"
+                label="พักไว้ก่อน"
                 value={stats.dropped}
                 dotClass="bg-slate-300"
               />
@@ -360,7 +412,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
           {promotedItems.length > 0 && (
             <div className="mt-3 rounded-lg border border-slate-200 p-4">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Promoted → Board
+                ส่งเข้า Board แล้ว
               </p>
               <ul className="space-y-1 text-xs">
                 {promotedItems.slice(0, 6).map((it) => (
@@ -371,19 +423,6 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
               </ul>
             </div>
           )}
-
-          <div className="mt-3 rounded-lg border border-slate-200 p-4">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Shortcuts
-            </p>
-            <ul className="space-y-1 text-xs text-slate-600">
-              <ShortcutRow keys="⌘1 / ⌘2 / ⌘3" label="REQ / DEC / Q" />
-              <ShortcutRow keys="⌘D" label="Drop / undrop" />
-              <ShortcutRow keys="⌘S" label="Select / deselect" />
-              <ShortcutRow keys="⌘↵" label="Promote selected" />
-              <ShortcutRow keys="↑ / ↓" label="Navigate items" />
-            </ul>
-          </div>
         </aside>
       </div>
 
@@ -445,26 +484,10 @@ function ItemRow({
     if (trimmed !== item.title) onChangeTitle(trimmed);
   };
 
-  // KeyboardEvent<HTMLElement> covers both branches — the input while
-  // editing, and the button when displaying. They share the same shortcut
-  // set so a single handler keeps the keymap in one place.
+  // Row-level keys: Enter commits the edit, Escape cancels, arrows navigate.
+  // Type / drop / select / delete are click-only (see the rationale block at
+  // the top of the file).
   const onKey = (e: KeyboardEvent<HTMLElement>) => {
-    const meta = e.metaKey || e.ctrlKey;
-    if (meta && (e.key === "1" || e.key === "2" || e.key === "3")) {
-      e.preventDefault();
-      onChangeType(TYPE_CYCLE[parseInt(e.key, 10) - 1]);
-      return;
-    }
-    if (meta && e.key.toLowerCase() === "d") {
-      e.preventDefault();
-      onToggleStatus("dropped");
-      return;
-    }
-    if (meta && e.key.toLowerCase() === "s") {
-      e.preventDefault();
-      onToggleStatus("selected");
-      return;
-    }
     if (e.key === "Enter") {
       e.preventDefault();
       commit();
@@ -511,6 +534,7 @@ function ItemRow({
         }}
         className={`shrink-0 rounded border px-1.5 py-0 text-[10px] font-bold uppercase ${TYPE_CHIP[item.type]}`}
         disabled={promoted || dropped}
+        title={`${TYPE_TOOLTIP[item.type]} · คลิกเพื่อสลับชนิด`}
       >
         {item.type}
       </button>
@@ -544,13 +568,17 @@ function ItemRow({
       )}
       {selected && (
         <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-indigo-700">
-          Selected
+          เลือกแล้ว
         </span>
       )}
       {promoted && item.promoted_to_card_id && (
-        <span className="shrink-0 text-[10px] text-indigo-600">→ promoted</span>
+        <span className="shrink-0 text-[10px] text-indigo-600">→ บนบอร์ดแล้ว</span>
       )}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
+      {/* Action buttons — always visible at opacity-60 so users see them
+          without needing to hover the row first. Lifts to full opacity on
+          hover for affordance. Icon-only saves horizontal space; titles
+          carry the verbal cue. */}
+      <div className="flex shrink-0 items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
           onClick={(e) => {
@@ -558,9 +586,15 @@ function ItemRow({
             onToggleStatus("selected");
           }}
           disabled={promoted || dropped}
-          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-200 hover:text-slate-800 disabled:opacity-30"
+          title={selected ? "ยกเลิกการเลือก" : "เลือกเพื่อส่งเข้า Board"}
+          aria-label={selected ? "ยกเลิกการเลือก" : "เลือก"}
+          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            selected
+              ? "text-indigo-600 hover:bg-indigo-50"
+              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+          }`}
         >
-          {selected ? "Unsel" : "Sel"}
+          {selected ? <CheckSquare size={14} /> : <Square size={14} />}
         </button>
         <button
           type="button"
@@ -569,9 +603,15 @@ function ItemRow({
             onToggleStatus("dropped");
           }}
           disabled={promoted}
-          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-200 hover:text-slate-800 disabled:opacity-30"
+          title={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
+          aria-label={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
+          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            dropped
+              ? "text-amber-600 hover:bg-amber-50"
+              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+          }`}
         >
-          {dropped ? "Undrop" : "Drop"}
+          <Ban size={14} />
         </button>
         <button
           type="button"
@@ -579,10 +619,11 @@ function ItemRow({
             e.stopPropagation();
             onDelete();
           }}
-          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-          aria-label="Delete"
+          title="ลบรายการนี้"
+          aria-label="ลบ"
+          className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </button>
       </div>
     </div>
@@ -605,17 +646,6 @@ function SidebarCount({
         {label}
       </span>
       <span className="font-semibold text-slate-800">{value}</span>
-    </li>
-  );
-}
-
-function ShortcutRow({ keys, label }: { keys: string; label: string }) {
-  return (
-    <li className="flex items-center justify-between">
-      <span className="text-slate-500">{label}</span>
-      <kbd className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-700">
-        {keys}
-      </kbd>
     </li>
   );
 }
