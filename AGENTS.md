@@ -70,12 +70,31 @@ handler/  → service/  → db/ (sqlc-generated)
 - Up migration ควร additive. Destructive change ต้องมี backfill plan.
 - Down migration ต้อง revert ได้จริง หรือเว้นว่างพร้อม comment ว่าทำไม.
 - หลังแก้ schema/queries → `make sqlc` แล้ว commit ทั้ง SQL และ generated Go.
+- **Number conflicts:** อย่า reuse number ที่ merge ไป main แล้ว แม้ feature นั้นถูก revert. golang-migrate ต้อง find file ของ version ใน schema_migrations เพื่อ start. ดู [`docs/DATABASE.md` → Claiming a number](docs/DATABASE.md#claiming-a-number) สำหรับ process + `IF EXISTS` cleanup pattern.
 
 ### WebSocket events
 
 - Record `activities` row **ก่อน** broadcast เสมอ — audit log เป็น source of truth.
 - WS handlers ต้อง **idempotent** — รับ event ของ state ที่เป็นอยู่แล้ว = no-op (เพราะ writer ไม่ filter broadcast ของตัวเอง).
 - เพิ่ม event type ใหม่ → อัปเดต enum ทั้งฝั่ง Go และ TypeScript พร้อมกัน.
+
+### REST API conventions
+
+- **Endpoint shape:**
+  - `/api/boards/:boardID/<resource>` สำหรับ list / create (board scope ชัดใน URL — middleware gate ทำงานทันที)
+  - `/api/<resource>/:id` สำหรับ touch by ID — handler resolve board_id ก่อน re-check membership (404 not 403 on miss, anti-enumeration)
+- **DTO fields ทั้ง optional ใช้ `*type`** (pointer) — เพื่อให้ omit vs explicit distinguishable ที่ unmarshal.
+- **PATCH semantics:**
+  - field omit หรือ JSON `null` → **no change** (Go's *string ไม่สามารถแยก 2 case นี้ — convention collapse)
+  - `""` บน nullable column → store "" (≈ NULL ที่ app layer)
+  - `""` บน required column → **400 bad request** (validator's `omitempty,min=1` catches it; กัน defense-in-depth ที่ handler ด้วย)
+  - SQL update ใช้ `COALESCE(sqlc.narg(...), <existing>)` กับ **ทุก field** — แม้ nullable ก็ใช้, ไม่อย่างนั้น omit จะ silently clobber
+- **Activity log (REST path):** service mutation → return → handler call `activity.Record(...)` → respond. Best-effort: ถ้า audit fail แค่ log + ดำเนินต่อ (mutation already committed). อย่ารวมใน tx นอกจาก case critical จริง ๆ.
+- **Error mapping ที่ handler:** `errors.Is(err, sentinel)` → typed HTTP code. ตัวอย่าง:
+  - `ErrPlanningItemAlreadyPromoted` → 409
+  - `ErrPlanningItemDropped` / `ErrPlanningNoTodoColumn` → 422 (user-actionable)
+  - `pgx.ErrNoRows` → 404
+  - default → 500
 
 ---
 
@@ -84,6 +103,10 @@ handler/  → service/  → db/ (sqlc-generated)
 - **State:** ใช้ Zustand store ที่มี (`useBoardStore`, `useToastStore`, `useActivityStore`). **ห้าม** สร้าง global Context สำหรับ board data — re-render ทั้ง tree.
 - **Optimistic UI pattern:** apply local → fire API → revert ถ้าพัง. ดู `useBoardStore.moveCard` เป็น reference.
 - **API client:** ใช้ `lib/apiClient` ที่มีอยู่ — มัน post toast เองตอน 403/5xx อยู่แล้ว, **ห้าม** ทำซ้ำใน handler.
+- **API URL convention:** endpoint paths ไม่มี `/api` prefix — `NEXT_PUBLIC_API_URL` รวม `/api` ให้แล้ว. เขียน `/boards/${id}/...` ไม่ใช่ `/api/boards/${id}/...` (ดู `useCardActions`, `planningApi` เป็น reference).
+- **Component size:** target **≤ 200 บรรทัด/ไฟล์**. เกินแล้ว → extract sub-components หรือ custom hook. exception ได้ถ้าเป็น coherent unit (ItemRow, useSessionItems) แต่ document เหตุผลใน commit.
+- **Thai-first copy:** UI text + toast + error message เป็นภาษาไทยที่อ่านง่าย, ไม่ใช่ jargon ภาษาอังกฤษ. type chip code (REQ/DEC/Q) เก็บไว้เพื่อ density แต่ tooltip เป็นไทย.
+- **Refs ที่ส่ง parent → child:** ส่ง `RefObject` เป็น prop ตรง ๆ ไม่ใช่ `useImperativeHandle` (ดู `<CaptureInput inputRef={...}/>` เป็น reference).
 - **Next.js 16:** อ่าน `frontend/AGENTS.md` — API/conventions อาจต่างจาก training data, เช็ค `node_modules/next/dist/docs/` ก่อนเขียน.
 
 ### Data fetching & loading states
@@ -121,6 +144,13 @@ handler/  → service/  → db/ (sqlc-generated)
 
 > สำหรับ UI: type check และ unit test ยืนยันแค่ correctness ของโค้ด **ไม่ใช่** correctness ของ feature. ถ้าทดสอบ UI จริงไม่ได้ ต้องบอกตรง ๆ ห้ามอ้างว่าเสร็จ.
 
+### Test patterns
+
+- **Backend handlers:** mock service at the interface boundary (`MockBoardService`, `MockPlanningService`, `MockActivityRecorder` ใน `internal/service/mock/`). อย่า mock `pgx` ตรง ๆ — service layer คือ test seam.
+- **Service-layer integration:** project ยังไม่มี test DB infra. critical paths (เช่น promote transaction) ปัจจุบัน cover ที่ handler level ด้วย mock + manual smoke. Real-DB race tests defer ไว้เป็น "test infra" item แยก.
+- **Test naming:** `TestFunctionName_Scenario_ExpectedResult` (ตัวอย่าง: `TestPromoteItem_DroppedItem_Returns422`).
+- **เพิ่ม interface ใหม่:** ทุก service struct ที่ handler depend ควรมี `*Servicer` interface คู่กัน + mock ใน `service/mock/` ตาม pattern เดิม.
+
 ---
 
 ## Commit & PR hygiene
@@ -129,6 +159,16 @@ handler/  → service/  → db/ (sqlc-generated)
 - **ห้าม** commit generated files แยกจาก source — `sqlc` output ไปกับ query change เสมอ.
 - **ห้าม** ใส่ `.env` หรือ secret ลง repo. `.env.example` คือที่เดียวที่ document env vars.
 - **ห้าม** ใช้ `--no-verify` เพื่อข้าม pre-commit hook. ถ้า hook พัง — fix root cause.
+
+### PR checklist (ก่อน open หรือ ready-for-review)
+
+- [ ] Migration number ไม่ชนกับ main หรือ open PR (ดู `docs/DATABASE.md → Claiming a number`)
+- [ ] Mutation ใหม่บันทึก activity log (REST → after commit, WS → before broadcast)
+- [ ] Permission ใหม่ test ผ่านทั้ง member + non-member (non-member ต้องได้ 404, ไม่ใช่ 403)
+- [ ] `make verify` pass (vet + test + tsc + vitest)
+- [ ] Component ใหม่ ≤ 200 บรรทัด หรือมีเหตุผลใน commit message
+- [ ] UI change → เปิด browser ทดสอบจริง + เช็ค `frontend/design.md` tokens
+- [ ] DTO PATCH field ที่เป็น `*string` → SQL ใช้ `COALESCE` ครบ + handler ตรวจ `""` ถ้า field required
 
 ## Lint / CI guardrails
 
@@ -144,6 +184,8 @@ handler/  → service/  → db/ (sqlc-generated)
 
 ## ที่ตั้งใจไม่ทำ (อย่าเสนอเพิ่ม)
 
+### Architecture
+
 - ❌ ORM — sqlc + service layer พอ
 - ❌ GraphQL — REST + WS ครอบคลุมแล้ว
 - ❌ Redis cache / pub-sub — ใส่เมื่อมี hot path จริง
@@ -151,3 +193,17 @@ handler/  → service/  → db/ (sqlc-generated)
 - ❌ Event sourcing — `activities` คือ audit log ไม่ใช่ state log
 
 ถ้าจะเสนอเพิ่มของพวกนี้ — เขียนเหตุผลที่ trigger การเปลี่ยน design ลง `docs/decisions/` แล้วถามผู้ใช้ก่อน.
+
+### Code anti-patterns
+
+- ❌ Business logic ใน handler (place it in service)
+- ❌ Handler เรียก `s.queries.X` ตรง ๆ — ผ่าน service เสมอ
+- ❌ Skip activity log บน mutation ใหม่
+- ❌ Broadcast WS ก่อน commit DB (activity log + DB commit ต้องเสร็จก่อน)
+- ❌ `setState` synchronous ใน `useEffect` body (React 19 error — ใช้ setState-during-render pattern แทน)
+- ❌ Read `ref.current` ใน render body (React 19 error — ใช้ callback ref + state แทน)
+- ❌ Component > 200 บรรทัด ไม่ split (extract sub-component / hook)
+- ❌ Emoji ใน source code, UI text, หรือ commit message (เว้นเมื่อ user request)
+- ❌ Mock `pgx` ตรง ๆ — mock ที่ service interface แทน
+- ❌ `--no-verify` ข้าม pre-commit hook
+- ❌ `any` / `@ts-ignore` ที่ไม่มี comment อธิบาย
