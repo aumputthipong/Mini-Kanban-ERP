@@ -25,12 +25,12 @@ import (
 )
 
 type PlanningHandler struct {
-	planning *service.PlanningService
+	planning service.PlanningServicer
 	boards   service.BoardServicer
-	activity *service.ActivityService
+	activity service.ActivityRecorder
 }
 
-func NewPlanningHandler(p *service.PlanningService, b service.BoardServicer, a *service.ActivityService) *PlanningHandler {
+func NewPlanningHandler(p service.PlanningServicer, b service.BoardServicer, a service.ActivityRecorder) *PlanningHandler {
 	return &PlanningHandler{planning: p, boards: b, activity: a}
 }
 
@@ -468,6 +468,12 @@ func (h *PlanningHandler) PromoteItem(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		if errors.Is(err, service.ErrPlanningItemAlreadyPromoted) {
 			return httputil.NewAPIError(http.StatusConflict, "Item already promoted", err)
+		}
+		if errors.Is(err, service.ErrPlanningItemDropped) {
+			return httputil.NewAPIError(http.StatusUnprocessableEntity, "Cannot promote a dropped item — un-drop it first", err)
+		}
+		if errors.Is(err, service.ErrPlanningNoTodoColumn) {
+			return httputil.NewAPIError(http.StatusUnprocessableEntity, "Board has no TODO column — add one before promoting", err)
 		}
 		if errors.Is(err, service.ErrPlanningNotFound) {
 			return httputil.NewAPIError(http.StatusNotFound, "Not found", err)

@@ -41,6 +41,14 @@ var (
 	// ErrPlanningItemAlreadyPromoted prevents a double-promote — the second
 	// promote should be a 409, not a duplicate card.
 	ErrPlanningItemAlreadyPromoted = errors.New("planning item already promoted")
+	// ErrPlanningItemDropped is returned when promoting an item that the user
+	// explicitly dropped. Promoting a dropped item would contradict the
+	// previous decision; the user must un-drop it first.
+	ErrPlanningItemDropped = errors.New("planning item is dropped")
+	// ErrPlanningNoTodoColumn is returned when the owning board has no TODO
+	// column to receive the promoted card. This is user-actionable (add a
+	// TODO column) so handlers should surface it as 422, not 500.
+	ErrPlanningNoTodoColumn = errors.New("board has no TODO column")
 	// ErrPlanningNotFound is returned when a session/item lookup hits zero rows.
 	ErrPlanningNotFound = errors.New("planning resource not found")
 )
@@ -145,6 +153,12 @@ func (s *PlanningService) PromoteItem(ctx context.Context, itemID, userID string
 	if item.Status == "promoted" {
 		return db.PlanningItem{}, db.CreateCardRow{}, ErrPlanningItemAlreadyPromoted
 	}
+	// Block dropped items. A dropped status is the user's explicit "not
+	// doing this" decision; promoting it would silently flip a no-op into
+	// real work. They must un-drop (status → live) first.
+	if item.Status == "dropped" {
+		return db.PlanningItem{}, db.CreateCardRow{}, ErrPlanningItemDropped
+	}
 
 	boardID, err := qtx.GetBoardIDByPlanningSession(ctx, item.SessionID)
 	if err != nil {
@@ -156,6 +170,13 @@ func (s *PlanningService) PromoteItem(ctx context.Context, itemID, userID string
 		Category: "TODO",
 	})
 	if err != nil {
+		// pgx.ErrNoRows here means the board has no column with
+		// category='TODO'. Surface as a typed error so the handler can
+		// turn it into a 422 with an actionable message instead of a
+		// generic 500.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.PlanningItem{}, db.CreateCardRow{}, ErrPlanningNoTodoColumn
+		}
 		return db.PlanningItem{}, db.CreateCardRow{}, fmt.Errorf("find TODO column: %w", err)
 	}
 
