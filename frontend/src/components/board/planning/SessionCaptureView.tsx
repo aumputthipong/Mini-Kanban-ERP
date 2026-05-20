@@ -14,10 +14,6 @@ import {
   ChevronLeft,
   Download,
   ArrowRight,
-  Trash2,
-  CheckSquare,
-  Square,
-  Ban,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToastStore } from "@/store/useToastStore";
@@ -29,47 +25,19 @@ import type {
   PlanningSessionDetail,
 } from "@/types/planning";
 import { ExportDialog } from "./ExportDialog";
+import { ItemRow } from "./ItemRow";
 import { formatRelativeFromNow } from "./planningFormat";
+import {
+  TYPE_CHIP_ACTIVE,
+  TYPE_CYCLE,
+  TYPE_LONG,
+  TYPE_TOOLTIP,
+} from "./planningTypeMeta";
 
 interface Props {
   boardId: string;
   sessionId: string;
 }
-
-// Full Thai label used in tooltips on the small REQ/DEC/Q chips so a hover
-// reveals "what does this code actually mean" — keeps row density compact
-// while making the chip self-documenting for new users.
-const TYPE_TOOLTIP: Record<PlanningItemType, string> = {
-  REQ: "Requirement — สิ่งที่ต้องทำ",
-  DEC: "Decision — ที่ตกลงกัน",
-  Q: "Question — คำถามที่ยังตอบไม่ได้",
-};
-
-// Full Thai label used in the segmented control next to the input. The
-// abbreviated codes are kept only on row chips (density) and in the
-// sidebar count where users have time to read.
-const TYPE_LONG: Record<PlanningItemType, string> = {
-  REQ: "Requirement",
-  DEC: "Decision",
-  Q: "Question",
-};
-
-const TYPE_CHIP: Record<PlanningItemType, string> = {
-  REQ: "bg-red-50 text-red-700 border-red-200",
-  DEC: "bg-blue-50 text-blue-700 border-blue-200",
-  Q: "bg-amber-50 text-amber-700 border-amber-200",
-};
-
-// Solid (active) styles for the segmented control — match the filled
-// priority chip pattern from the calendar pill so the visual vocabulary
-// stays consistent across the app.
-const TYPE_CHIP_ACTIVE: Record<PlanningItemType, string> = {
-  REQ: "bg-red-600 text-white border-red-600",
-  DEC: "bg-blue-600 text-white border-blue-600",
-  Q: "bg-amber-500 text-white border-amber-500",
-};
-
-const TYPE_CYCLE: PlanningItemType[] = ["REQ", "DEC", "Q"];
 
 // The capture surface. Single text input at the bottom (Enter commits as new
 // item) plus a segmented control for choosing the item type. All other
@@ -433,206 +401,6 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
           onClose={() => setShowExport(false)}
         />
       )}
-    </div>
-  );
-}
-
-interface ItemRowProps {
-  index: number;
-  item: PlanningItem;
-  focused: boolean;
-  onFocus: () => void;
-  onChangeType: (t: PlanningItemType) => void;
-  onChangeTitle: (t: string) => void;
-  onToggleStatus: (s: PlanningItemStatus) => void;
-  onDelete: () => void;
-  onUp: () => void;
-  onDown: () => void;
-}
-
-function ItemRow({
-  index,
-  item,
-  focused,
-  onFocus,
-  onChangeType,
-  onChangeTitle,
-  onToggleStatus,
-  onDelete,
-  onUp,
-  onDown,
-}: ItemRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(item.title);
-  // Tracks the last item.title we synced from so we can detect prop changes
-  // during render without a useEffect+setState (which trips React 19's
-  // react-hooks/set-state-in-effect rule). When the parent updates the
-  // title (e.g. WS-driven refresh) we mirror it into local draft *before*
-  // rendering — same outcome, no cascading-render warning.
-  const [syncedTitle, setSyncedTitle] = useState(item.title);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  if (syncedTitle !== item.title) {
-    setSyncedTitle(item.title);
-    setDraft(item.title);
-  }
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (!trimmed) {
-      setDraft(item.title);
-      return;
-    }
-    if (trimmed !== item.title) onChangeTitle(trimmed);
-  };
-
-  // Row-level keys: Enter commits the edit, Escape cancels, arrows navigate.
-  // Type / drop / select / delete are click-only (see the rationale block at
-  // the top of the file).
-  const onKey = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commit();
-      return;
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      setDraft(item.title);
-      setEditing(false);
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      onUp();
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      onDown();
-      return;
-    }
-  };
-
-  const promoted = item.status === "promoted";
-  const dropped = item.status === "dropped";
-  const selected = item.status === "selected";
-
-  return (
-    <div
-      onClick={onFocus}
-      className={`group flex items-center gap-2 rounded px-2 py-1 ${
-        focused ? "bg-indigo-50" : "hover:bg-slate-50"
-      }`}
-    >
-      <span className="w-6 shrink-0 text-right text-[10px] text-slate-300">
-        {String(index + 1).padStart(2, "0")}
-      </span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          const idx = TYPE_CYCLE.indexOf(item.type);
-          onChangeType(TYPE_CYCLE[(idx + 1) % TYPE_CYCLE.length]);
-        }}
-        className={`shrink-0 rounded border px-1.5 py-0 text-[10px] font-bold uppercase ${TYPE_CHIP[item.type]}`}
-        disabled={promoted || dropped}
-        title={`${TYPE_TOOLTIP[item.type]} · คลิกเพื่อสลับชนิด`}
-      >
-        {item.type}
-      </button>
-      {editing ? (
-        <input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={onKey}
-          className="flex-1 bg-transparent text-sm text-slate-800 outline-none"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!promoted) setEditing(true);
-          }}
-          onKeyDown={onKey}
-          className={`flex-1 truncate bg-transparent text-left text-sm outline-none focus:ring-0 ${
-            dropped
-              ? "text-slate-400 line-through"
-              : promoted
-                ? "text-slate-500"
-                : "text-slate-800"
-          }`}
-        >
-          {item.title}
-        </button>
-      )}
-      {selected && (
-        <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-indigo-700">
-          เลือกแล้ว
-        </span>
-      )}
-      {promoted && item.promoted_to_card_id && (
-        <span className="shrink-0 text-[10px] text-indigo-600">→ บนบอร์ดแล้ว</span>
-      )}
-      {/* Action buttons — always visible at opacity-60 so users see them
-          without needing to hover the row first. Lifts to full opacity on
-          hover for affordance. Icon-only saves horizontal space; titles
-          carry the verbal cue. */}
-      <div className="flex shrink-0 items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus("selected");
-          }}
-          disabled={promoted || dropped}
-          title={selected ? "ยกเลิกการเลือก" : "เลือกเพื่อส่งเข้า Board"}
-          aria-label={selected ? "ยกเลิกการเลือก" : "เลือก"}
-          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-            selected
-              ? "text-indigo-600 hover:bg-indigo-50"
-              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-          }`}
-        >
-          {selected ? <CheckSquare size={14} /> : <Square size={14} />}
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus("dropped");
-          }}
-          disabled={promoted}
-          title={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
-          aria-label={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
-          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-            dropped
-              ? "text-amber-600 hover:bg-amber-50"
-              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-          }`}
-        >
-          <Ban size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          title="ลบรายการนี้"
-          aria-label="ลบ"
-          className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
     </div>
   );
 }
