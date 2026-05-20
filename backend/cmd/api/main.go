@@ -153,7 +153,7 @@ func run(ctx context.Context, cfg config) error {
 	boardHandler := handler.NewBoardHandler(boardService)
 	tagHandler := handler.NewTagHandler(tagService)
 	activityHandler := handler.NewActivityHandler(activityService)
-	planningHandler := handler.NewPlanningHandler(planningService, boardService)
+	planningHandler := handler.NewPlanningHandler(planningService, boardService, activityService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
 	oauthHandler := handler.NewOAuthHandler(
 		cfg.GoogleClientID,

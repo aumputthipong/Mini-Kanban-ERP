@@ -61,6 +61,12 @@ func (s *PlanningService) GetItemBoardID(ctx context.Context, itemID string) (st
 	return s.queries.GetBoardIDByPlanningItem(ctx, itemID)
 }
 
+// GetItem returns a single planning item. Used by handlers that need the
+// row's content for activity log payloads before deleting it.
+func (s *PlanningService) GetItem(ctx context.Context, itemID string) (db.PlanningItem, error) {
+	return s.queries.GetPlanningItem(ctx, itemID)
+}
+
 func (s *PlanningService) ListItems(ctx context.Context, sessionID string) ([]db.PlanningItem, error) {
 	return s.queries.ListPlanningItemsBySession(ctx, sessionID)
 }

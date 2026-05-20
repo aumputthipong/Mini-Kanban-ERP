@@ -19,9 +19,23 @@ const (
 	EventColumnRenamed    = "column.renamed"
 	EventMemberAdded      = "member.added"
 
-	EntityCard   = "card"
-	EntityColumn = "column"
-	EntityMember = "member"
+	// Planning section. Sessions hold meeting notes; items are the REQ/DEC/Q
+	// rows inside a session. PromoteItem turns an item into a Kanban card —
+	// we log only the planning side (planning.item_promoted) to avoid
+	// duplicating the card-created noise on the audit feed.
+	EventPlanningSessionCreated = "planning.session_created"
+	EventPlanningSessionUpdated = "planning.session_updated"
+	EventPlanningSessionDeleted = "planning.session_deleted"
+	EventPlanningItemCreated    = "planning.item_created"
+	EventPlanningItemUpdated    = "planning.item_updated"
+	EventPlanningItemDeleted    = "planning.item_deleted"
+	EventPlanningItemPromoted   = "planning.item_promoted"
+
+	EntityCard            = "card"
+	EntityColumn          = "column"
+	EntityMember          = "member"
+	EntityPlanningSession = "planning_session"
+	EntityPlanningItem    = "planning_item"
 )
 
 type ActivityService struct {
@@ -151,4 +165,44 @@ type ColumnDeletedPayload struct {
 type ColumnRenamedPayload struct {
 	OldTitle string `json:"old_title"`
 	NewTitle string `json:"new_title"`
+}
+
+// Planning payloads. Item-level events carry both title and type so the
+// feed can render "REQ: Add 2FA" without re-fetching the row. The Updated
+// payloads include a `fields` slice (same shape as CardUpdatedPayload) so
+// one event covers any partial PATCH — drop/undrop/select/rename/retype
+// all fold into "planning.item_updated" with fields=["status"] etc.
+type PlanningSessionCreatedPayload struct {
+	Title string `json:"title"`
+}
+
+type PlanningSessionUpdatedPayload struct {
+	Title  string   `json:"title"`
+	Fields []string `json:"fields"`
+}
+
+type PlanningSessionDeletedPayload struct {
+	Title string `json:"title"`
+}
+
+type PlanningItemCreatedPayload struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+type PlanningItemUpdatedPayload struct {
+	Type   string   `json:"type"`
+	Title  string   `json:"title"`
+	Fields []string `json:"fields"`
+}
+
+type PlanningItemDeletedPayload struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+type PlanningItemPromotedPayload struct {
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	ToCardID  string `json:"to_card_id"`
 }
