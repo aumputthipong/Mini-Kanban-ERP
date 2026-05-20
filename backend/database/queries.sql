@@ -477,10 +477,15 @@ RETURNING *;
 SELECT * FROM planning_sessions WHERE id = $1;
 
 -- name: UpdatePlanningSession :one
+-- PATCH semantics for planning: nil/omitted JSON fields preserve the existing
+-- value (COALESCE-driven). An empty string is treated as a real value — for
+-- nullable text columns (label) it stores ''. Required columns (title) must
+-- be rejected at the handler layer because the validator's `omitempty`
+-- short-circuits min=1 on *string pointing to "".
 UPDATE planning_sessions
 SET title      = COALESCE(sqlc.narg(title)::varchar, title),
-    label      = sqlc.narg(label)::text,
-    meeting_at = sqlc.narg(meeting_at)::timestamptz,
+    label      = COALESCE(sqlc.narg(label)::text, label),
+    meeting_at = COALESCE(sqlc.narg(meeting_at)::timestamptz, meeting_at),
     updated_at = now()
 WHERE id = sqlc.arg(id)
 RETURNING *;
@@ -502,10 +507,13 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: UpdatePlanningItem :one
+-- See UpdatePlanningSession's comment block on PATCH semantics. description
+-- is the only nullable column here; required ones (type/title/status) go
+-- through the handler-level "" check.
 UPDATE planning_items
 SET type        = COALESCE(sqlc.narg(type)::varchar, type),
     title       = COALESCE(sqlc.narg(title)::text, title),
-    description = sqlc.narg(description)::text,
+    description = COALESCE(sqlc.narg(description)::text, description),
     status      = COALESCE(sqlc.narg(status)::varchar, status),
     position    = COALESCE(sqlc.narg(position)::float8, position)
 WHERE id = sqlc.arg(id)
