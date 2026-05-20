@@ -1,28 +1,11 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  Download,
-  ArrowRight,
-} from "lucide-react";
+import { ChevronLeft, Download, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { useToastStore } from "@/store/useToastStore";
-import { planningApi } from "@/lib/planningApi";
-import type {
-  PlanningItem,
-  PlanningItemStatus,
-  PlanningItemType,
-  PlanningSessionDetail,
-} from "@/types/planning";
+import { useSessionItems } from "@/hooks/useSessionItems";
+import type { PlanningItemType } from "@/types/planning";
 import { CaptureInput } from "./CaptureInput";
 import { ExportDialog } from "./ExportDialog";
 import { ItemRow } from "./ItemRow";
@@ -43,179 +26,40 @@ interface Props {
 // browser default (tab switching / bookmark / save / new line), which made
 // the shortcuts unreliable and the wider UX feel like it required a manual.
 //
-// Local state is the source of truth for what the user sees; every mutation
-// fires the corresponding API call in the background. We don't wait for the
-// server response — capture velocity matters more than confirming success
-// for trivial writes, and any error surfaces as a toast via apiClient.
+// Items state + mutations live in useSessionItems. This component only owns
+// the local UI state (draft text, current type, which row is focused, export
+// modal open/close) plus the layout.
 export function SessionCaptureView({ boardId, sessionId }: Props) {
-  const router = useRouter();
-  const [detail, setDetail] = useState<PlanningSessionDetail | null>(null);
-  const [items, setItems] = useState<PlanningItem[]>([]);
+  const {
+    detail,
+    items,
+    savedAt,
+    stats,
+    promotedItems,
+    commitNew,
+    patchItem,
+    toggleStatus,
+    changeType,
+    removeItem,
+    promoteSelected,
+  } = useSessionItems(boardId, sessionId);
+
   const [newType, setNewType] = useState<PlanningItemType>("REQ");
   const [draft, setDraft] = useState("");
   const [focusIndex, setFocusIndex] = useState<number>(-1);
-  const [savedAt, setSavedAt] = useState<string>("");
   const [showExport, setShowExport] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const showToast = useToastStore((s) => s.show);
-
-  useEffect(() => {
-    let cancelled = false;
-    planningApi
-      .getSession(sessionId)
-      .then((d) => {
-        if (cancelled) return;
-        setDetail(d);
-        setItems(d.items);
-        setSavedAt(d.updated_at);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        showToast({ message: "โหลดบันทึกไม่ได้", duration: 4000 });
-        router.push(`/board/${boardId}/planning`);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, boardId, router, showToast]);
-
-  // Live counts displayed in the right sidebar. Same NOT IN exclusion as
-  // the backend's session-summary aggregate so the numbers don't drift.
-  const stats = useMemo(() => {
-    const s = { REQ: 0, DEC: 0, Q: 0, dropped: 0, promoted: 0, selected: 0 };
-    for (const it of items) {
-      if (it.status === "dropped") s.dropped++;
-      else if (it.status === "promoted") s.promoted++;
-      else {
-        s[it.type]++;
-        if (it.status === "selected") s.selected++;
-      }
-    }
-    return s;
-  }, [items]);
-
-  const promotedItems = useMemo(
-    () => items.filter((it) => it.status === "promoted"),
-    [items],
-  );
-
-  // Helpers ------------------------------------------------------
-
-  const patchItem = useCallback(
-    (id: string, patch: Partial<PlanningItem>, optimistic: Partial<PlanningItem>) => {
-      // Optimistic: write to local state right away, fire-and-forget API.
-      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...optimistic } : it)));
-      setSavedAt(new Date().toISOString());
-      planningApi
-        .updateItem(id, {
-          type: patch.type,
-          title: patch.title,
-          description: patch.description ?? undefined,
-          status: patch.status,
-          position: patch.position,
-        })
-        .catch(() => {
-          showToast({ message: "บันทึกไม่สำเร็จ", duration: 4000 });
-        });
-    },
-    [showToast],
-  );
-
-  const commitNew = useCallback(async () => {
-    const title = draft.trim();
-    if (!title) return;
-    setDraft("");
-    // Optimistic insert. The API call returns the real id; we then swap in
-    // place so subsequent edits target the real row, not the placeholder.
-    const tempId = `__pending_${Math.random().toString(36).slice(2)}`;
-    const placeholder: PlanningItem = {
-      id: tempId,
-      session_id: sessionId,
-      type: newType,
-      title,
-      description: null,
-      status: "live",
-      promoted_to_card_id: null,
-      position: Number.MAX_SAFE_INTEGER,
-      created_at: new Date().toISOString(),
-    };
-    setItems((prev) => [...prev, placeholder]);
-    setSavedAt(placeholder.created_at);
-    try {
-      const real = await planningApi.createItem(sessionId, {
-        type: newType,
-        title,
-      });
-      setItems((prev) => prev.map((it) => (it.id === tempId ? real : it)));
-    } catch {
-      setItems((prev) => prev.filter((it) => it.id !== tempId));
-      showToast({ message: "เพิ่มไม่ได้ ลองอีกครั้ง", duration: 4000 });
-    }
-  }, [draft, newType, sessionId, showToast]);
-
-  const toggleStatus = useCallback(
-    (item: PlanningItem, target: PlanningItemStatus) => {
-      // If already in target status, flip back to live.
-      const next: PlanningItemStatus = item.status === target ? "live" : target;
-      patchItem(item.id, { status: next }, { status: next });
-    },
-    [patchItem],
-  );
-
-  const changeType = useCallback(
-    (item: PlanningItem, t: PlanningItemType) => {
-      patchItem(item.id, { type: t }, { type: t });
-    },
-    [patchItem],
-  );
-
-  const removeItem = useCallback(
-    async (item: PlanningItem) => {
-      setItems((prev) => prev.filter((it) => it.id !== item.id));
-      try {
-        await planningApi.deleteItem(item.id);
-      } catch {
-        setItems((prev) => [...prev, item]);
-        showToast({ message: "ลบไม่ได้ ลองอีกครั้ง", duration: 4000 });
-      }
-    },
-    [showToast],
-  );
-
-  const promoteSelected = useCallback(async () => {
-    const targets = items.filter((it) => it.status === "selected");
-    if (targets.length === 0) {
-      showToast({
-        message: "ยังไม่ได้เลือกรายการ — กดปุ่มเลือกที่บรรทัดก่อน",
-        duration: 3000,
-      });
-      return;
-    }
-    // Promote sequentially to keep board card positions stable.
-    for (const it of targets) {
-      try {
-        const res = await planningApi.promoteItem(it.id);
-        setItems((prev) =>
-          prev.map((cur) => (cur.id === it.id ? res.item : cur)),
-        );
-      } catch {
-        showToast({
-          message: `ส่งเข้า Board ไม่ได้: ${it.title}`,
-          duration: 4000,
-        });
-      }
-    }
-    showToast({
-      message: `ส่งเข้า Board แล้ว ${targets.length} รายการ`,
-      duration: 3000,
-    });
-  }, [items, showToast]);
-
-  // Render ------------------------------------------------------
 
   if (!detail) {
     return <CaptureSkeleton />;
   }
+
+  const handleCommit = async () => {
+    if (!draft.trim()) return;
+    const title = draft;
+    setDraft("");
+    await commitNew(title, newType);
+  };
 
   return (
     <div>
@@ -296,7 +140,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             onDraftChange={setDraft}
             newType={newType}
             onTypeChange={setNewType}
-            onCommit={commitNew}
+            onCommit={handleCommit}
             onJumpToList={() => {
               if (items.length > 0) setFocusIndex(items.length - 1);
             }}
