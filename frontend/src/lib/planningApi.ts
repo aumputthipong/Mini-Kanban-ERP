@@ -13,7 +13,7 @@ import type {
 export const planningApi = {
   listSessions: (boardId: string) =>
     apiClient<PlanningSessionSummary[]>(
-      `/api/boards/${boardId}/planning/sessions`,
+      `/boards/${boardId}/planning/sessions`,
     ),
 
   createSession: (
@@ -21,13 +21,13 @@ export const planningApi = {
     data: { title: string; label?: string; meeting_at?: string },
   ) =>
     apiClient<PlanningSessionSummary>(
-      `/api/boards/${boardId}/planning/sessions`,
+      `/boards/${boardId}/planning/sessions`,
       { data },
     ),
 
   getSession: (sessionId: string) =>
     apiClient<PlanningSessionDetail>(
-      `/api/planning/sessions/${sessionId}`,
+      `/planning/sessions/${sessionId}`,
     ),
 
   updateSession: (
@@ -35,12 +35,12 @@ export const planningApi = {
     data: { title?: string; label?: string | null; meeting_at?: string | null },
   ) =>
     apiClient<PlanningSessionSummary>(
-      `/api/planning/sessions/${sessionId}`,
+      `/planning/sessions/${sessionId}`,
       { method: "PATCH", data },
     ),
 
   deleteSession: (sessionId: string) =>
-    apiClient<null>(`/api/planning/sessions/${sessionId}`, {
+    apiClient<null>(`/planning/sessions/${sessionId}`, {
       method: "DELETE",
     }),
 
@@ -49,7 +49,7 @@ export const planningApi = {
     data: { type: PlanningItemType; title: string; description?: string | null },
   ) =>
     apiClient<PlanningItem>(
-      `/api/planning/sessions/${sessionId}/items`,
+      `/planning/sessions/${sessionId}/items`,
       { data },
     ),
 
@@ -63,17 +63,17 @@ export const planningApi = {
       position?: number;
     },
   ) =>
-    apiClient<PlanningItem>(`/api/planning/items/${itemId}`, {
+    apiClient<PlanningItem>(`/planning/items/${itemId}`, {
       method: "PATCH",
       data,
     }),
 
   deleteItem: (itemId: string) =>
-    apiClient<null>(`/api/planning/items/${itemId}`, { method: "DELETE" }),
+    apiClient<null>(`/planning/items/${itemId}`, { method: "DELETE" }),
 
   promoteItem: (itemId: string) =>
     apiClient<{ item: PlanningItem; card_id: string }>(
-      `/api/planning/items/${itemId}/promote`,
+      `/planning/items/${itemId}/promote`,
       { method: "POST", data: {} },
     ),
 };
