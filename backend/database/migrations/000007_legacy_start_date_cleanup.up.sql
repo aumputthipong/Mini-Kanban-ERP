@@ -1,0 +1,12 @@
+-- Placeholder for version 7. An earlier branch claimed this version for a
+-- cards.start_date addition that was later reverted. Users who applied
+-- that intermediate migration before the revert have schema_migrations
+-- already at version 7 — without this file, golang-migrate refuses to
+-- start ("no migration found for version 7: read down ... file does not
+-- exist") because it can't locate the down counterpart for the version
+-- it sees in the DB.
+--
+-- The actual content is a guarded DROP so users who DID apply the old
+-- start_date migration get the orphan column cleaned up. Fresh databases
+-- hit this as a no-op.
+ALTER TABLE cards DROP COLUMN IF EXISTS start_date;
