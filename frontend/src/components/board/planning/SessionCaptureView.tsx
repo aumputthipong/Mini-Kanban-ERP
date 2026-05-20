@@ -26,6 +26,7 @@ import type {
 import { CaptureInput } from "./CaptureInput";
 import { ExportDialog } from "./ExportDialog";
 import { ItemRow } from "./ItemRow";
+import { SessionSidebar } from "./SessionSidebar";
 import { formatRelativeFromNow } from "./planningFormat";
 
 interface Props {
@@ -302,43 +303,7 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
           />
         </div>
 
-        {/* Sidebar — short Thai labels matched to the three item types plus
-            the dropped/promoted lifecycle. The previous "Shortcuts" block
-            was removed when keyboard shortcuts stopped being central; the
-            remaining keys (Enter / Esc / arrows) are surfaced inline next
-            to where they apply. */}
-        <aside className="w-full shrink-0 lg:w-64">
-          <div className="rounded-lg border border-slate-200 p-4">
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              สรุป
-            </p>
-            <ul className="space-y-1.5 text-xs">
-              <SidebarCount label="สิ่งที่อยากได้" value={stats.REQ} dotClass="bg-red-500" />
-              <SidebarCount label="ที่ตกลงแล้ว" value={stats.DEC} dotClass="bg-blue-500" />
-              <SidebarCount label="คำถามค้าง" value={stats.Q} dotClass="bg-amber-500" />
-              <SidebarCount
-                label="พักไว้ก่อน"
-                value={stats.dropped}
-                dotClass="bg-slate-300"
-              />
-            </ul>
-          </div>
-
-          {promotedItems.length > 0 && (
-            <div className="mt-3 rounded-lg border border-slate-200 p-4">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                ส่งเข้า Board แล้ว
-              </p>
-              <ul className="space-y-1 text-xs">
-                {promotedItems.slice(0, 6).map((it) => (
-                  <li key={it.id} className="truncate text-indigo-700">
-                    → {it.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </aside>
+        <SessionSidebar stats={stats} promotedItems={promotedItems} />
       </div>
 
       {showExport && (
@@ -349,26 +314,6 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
         />
       )}
     </div>
-  );
-}
-
-function SidebarCount({
-  label,
-  value,
-  dotClass,
-}: {
-  label: string;
-  value: number;
-  dotClass: string;
-}) {
-  return (
-    <li className="flex items-center justify-between text-slate-600">
-      <span className="flex items-center gap-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-        {label}
-      </span>
-      <span className="font-semibold text-slate-800">{value}</span>
-    </li>
   );
 }
 
