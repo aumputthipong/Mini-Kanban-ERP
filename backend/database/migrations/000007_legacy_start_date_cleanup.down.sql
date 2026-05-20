@@ -1,0 +1,4 @@
+-- Intentionally no-op. The 'up' for this version cleans up an orphan
+-- column from an abandoned migration; restoring it on rollback would
+-- bring the orphan back. If a true rollback is ever needed, do it as
+-- a new migration with a deliberate ALTER TABLE.
