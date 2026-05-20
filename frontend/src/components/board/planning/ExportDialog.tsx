@@ -76,10 +76,13 @@ export function ExportDialog({ session, items, onClose }: Props) {
         localStorage.setItem(DEFAULT_TASK_KEY, task);
       }
       setCopied(true);
-      showToast({ message: "Copied to clipboard", duration: 2000 });
+      showToast({ message: "คัดลอกแล้ว — ไปวางใน AI tool ได้เลย", duration: 2000 });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showToast({ message: "Couldn't copy — select and copy manually", duration: 4000 });
+      showToast({
+        message: "คัดลอกอัตโนมัติไม่ได้ ลองเลือกข้อความแล้ว Ctrl+C เอง",
+        duration: 4000,
+      });
     }
   };
 
@@ -92,7 +95,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
     >
       <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Export session</h2>
+          <h2 className="text-lg font-semibold text-slate-900">ส่งออกบันทึก</h2>
           <button
             type="button"
             onClick={onClose}
@@ -104,8 +107,8 @@ export function ExportDialog({ session, items, onClose }: Props) {
         </div>
 
         <p className="mb-3 text-xs text-slate-500">
-          แก้ Task ด้านล่างให้ตรงสิ่งที่อยากใช้ในการ paste → AI tool.
-          การกด copy จะจำ Task ล่าสุดไว้ครั้งหน้า
+          ปรับโจทย์ด้านล่างให้ตรงกับงาน แล้วกด copy ไปวางใน AI tool
+          (Claude / ChatGPT / Cursor). ระบบจะจำโจทย์ล่าสุดไว้ให้
         </p>
 
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -122,7 +125,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
         </div>
 
         <label className="mb-3 block text-xs text-slate-500">
-          Task (ปรับได้):
+          โจทย์ที่จะส่งให้ AI (ปรับได้):
           <textarea
             value={task}
             onChange={(e) => setTask(e.target.value)}
@@ -138,7 +141,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
               checked={includeQuestions}
               onChange={(e) => setIncludeQuestions(e.target.checked)}
             />
-            Open questions
+            คำถามค้าง
           </label>
           <label className="inline-flex items-center gap-1.5">
             <input
@@ -146,7 +149,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
               checked={includeDropped}
               onChange={(e) => setIncludeDropped(e.target.checked)}
             />
-            Dropped (as &quot;not doing&quot;)
+            ที่พักไว้ (ใส่เป็น &quot;ไม่ทำ&quot;)
           </label>
           <label className="inline-flex items-center gap-1.5">
             <input
@@ -154,7 +157,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
               checked={includePromoted}
               onChange={(e) => setIncludePromoted(e.target.checked)}
             />
-            Promoted-to-board notes
+            ที่ส่งเข้า Board แล้ว
           </label>
         </div>
 
@@ -168,7 +171,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
             onClick={onClose}
             className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
-            Close
+            ปิด
           </button>
           <button
             type="button"
@@ -176,7 +179,7 @@ export function ExportDialog({ session, items, onClose }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
           >
             {copied ? <Check size={14} /> : <Clipboard size={14} />}
-            {copied ? "Copied" : "Copy to clipboard"}
+            {copied ? "คัดลอกแล้ว" : "คัดลอก"}
           </button>
         </div>
       </div>

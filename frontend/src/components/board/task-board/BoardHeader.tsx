@@ -61,9 +61,6 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
             >
               <FileText size={16} />
               Planning
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
-                New
-              </span>
             </Link>
 
             <Link

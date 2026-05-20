@@ -47,7 +47,7 @@ export function SessionListView({ boardId }: Props) {
       });
       router.push(`/board/${boardId}/planning/${sess.id}`);
     } catch {
-      showToast({ message: "Couldn't create session", duration: 4000 });
+      showToast({ message: "สร้างบันทึกใหม่ไม่ได้", duration: 4000 });
       setCreating(false);
     }
   }, [boardId, creating, router, showToast]);
@@ -73,7 +73,7 @@ export function SessionListView({ boardId }: Props) {
             </h1>
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            จด requirement ระหว่างประชุม · promote เป็น Kanban task เมื่อพร้อม
+            บันทึกไอเดียที่คุย แล้วเลือกไปทำต่อบนบอร์ดได้ทันที
           </p>
         </div>
         <button
@@ -83,7 +83,7 @@ export function SessionListView({ boardId }: Props) {
           className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           <Plus size={14} />
-          New Session
+          บันทึกใหม่
         </button>
       </div>
 
@@ -93,15 +93,15 @@ export function SessionListView({ boardId }: Props) {
         <>
           <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-slate-500">
             <span>
-              <strong className="text-slate-800">{sessions.length}</strong>{" "}
-              session{sessions.length === 1 ? "" : "s"}
+              <strong className="text-slate-800">{sessions.length}</strong> บันทึก
             </span>
             <span>
-              <strong className="text-indigo-700">{promoted}</strong> promoted → tasks
+              ส่งเข้า Board แล้ว{" "}
+              <strong className="text-indigo-700">{promoted}</strong>
             </span>
             <span>
-              <strong className="text-amber-700">{openQuestions}</strong> open question
-              {openQuestions === 1 ? "" : "s"}
+              คำถามค้าง{" "}
+              <strong className="text-amber-700">{openQuestions}</strong>
             </span>
           </div>
 
@@ -181,12 +181,12 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center">
       <FileText size={32} className="mx-auto mb-3 text-slate-400" />
       <h3 className="text-base font-semibold text-slate-800">
-        ยังไม่มี session
+        ยังไม่มีบันทึก
       </h3>
       <p className="mt-1 mb-4 text-sm text-slate-500">
-        เริ่ม session ใหม่เพื่อจด requirement · decision · open question
+        เริ่มจดไอเดียแรก · สิ่งที่ตกลงกัน · คำถามที่ค้างใจ
         <br />
-        แล้ว promote เป็น task ลงบอร์ดเมื่อพร้อม
+        แล้วเลือกบางอันส่งเข้า Board ตอนพร้อม
       </p>
       <button
         type="button"
@@ -195,7 +195,7 @@ function EmptyState({ onCreate, creating }: { onCreate: () => void; creating: bo
         className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
       >
         <Plus size={14} />
-        New Session
+        บันทึกใหม่
       </button>
     </div>
   );
@@ -217,7 +217,7 @@ function ListSkeleton() {
 
 function defaultSessionTitle() {
   const d = new Date();
-  return `Session — ${d.toLocaleDateString("th-TH", {
+  return `บันทึก ${d.toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -233,16 +233,16 @@ function groupSessions(sessions: PlanningSessionSummary[]) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const buckets: Record<string, PlanningSessionSummary[]> = {
-    "This week": [],
-    "Earlier this month": [],
-    Older: [],
+    สัปดาห์นี้: [],
+    เดือนนี้: [],
+    ก่อนหน้า: [],
   };
 
   for (const s of sessions) {
     const when = new Date(s.meeting_at ?? s.updated_at);
-    if (when >= weekAgo) buckets["This week"].push(s);
-    else if (when >= monthStart) buckets["Earlier this month"].push(s);
-    else buckets.Older.push(s);
+    if (when >= weekAgo) buckets["สัปดาห์นี้"].push(s);
+    else if (when >= monthStart) buckets["เดือนนี้"].push(s);
+    else buckets["ก่อนหน้า"].push(s);
   }
 
   return Object.entries(buckets)
