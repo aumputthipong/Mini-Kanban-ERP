@@ -164,15 +164,46 @@ Versioned files in `backend/database/migrations/`:
 000003_add_column_color.{up,down}.sql
 000004_add_tags.{up,down}.sql
 000005_add_activities.{up,down}.sql
+000006_add_refresh_tokens.{up,down}.sql
+000007_legacy_start_date_cleanup.{up,down}.sql    # see "When a number conflicts"
+000008_add_planning.{up,down}.sql
 ```
 
-### Adding a new migration
+**Current applied version:** 8 — next migration claims `000009`.
 
-1. Create `backend/database/migrations/00000N_short_name.up.sql` and `.down.sql`. Use the next sequential number.
-2. Up should be additive when possible. Destructive changes (drop column, drop table) need a backfill plan and a heads-up to the team.
-3. The `down` migration must actually revert. If it can't (e.g. data loss), leave it empty with a comment — `migrate down` is rarely run in production but exists for local dev.
-4. Test locally: drop dev DB, recreate, restart backend → all migrations apply clean.
-5. Inspect: `psql` connect, run `SELECT * FROM schema_migrations;` to confirm the version.
+### Naming + file shape
+
+- `000XXX_short_description.{up,down}.sql` — six-digit zero-padded number, lowercase snake_case slug, both files required.
+- Up should be additive when possible. Destructive changes (drop column, drop table) need a backfill plan and a heads-up to the team.
+- Down must actually revert. If it can't (e.g. data loss), leave it empty with a `-- no-op: see header comment` line — `migrate down` is rarely run in production but exists for local dev.
+
+### Claiming a number
+
+Migration numbers are global and sequential. Two PRs both claiming `000009` will both build, both pass tests, and the second to merge will silently skip its own migration because `schema_migrations.version = 9` is already in the DB by the time it runs — leaving a dangling file with no DB effect (and possibly a real schema bug downstream when the next code change assumes the missing column exists).
+
+**Process to avoid this:**
+
+1. Before writing the migration, check `git fetch && git log --all -- backend/database/migrations/` for the highest in-flight number across `main` plus any open PR branches.
+2. Claim your number by **opening a draft PR with the empty migration files** (just the `.up.sql` + `.down.sql` placeholders + a TODO comment). The PR reserves the number visibly.
+3. If two devs hit the same number anyway: whoever merges second bumps to the next free number locally and force-pushes their branch before merging.
+
+### When a number conflicts after merge
+
+If a migration ships on `main` and you discover it was abandoned (reverted code, but the migration file may have applied to some devs' DBs):
+
+1. **Keep the original number's file alive** — even if it's now a no-op. Removing it makes `golang-migrate` refuse to start on DBs that already recorded that version: `no migration found for version N: read down for version N: file does not exist`.
+2. Turn the up into a guarded cleanup: `ALTER TABLE x DROP COLUMN IF EXISTS y;` — no-op on fresh DBs, cleans up on the ones that ran the original.
+3. The new feature gets the next free number.
+
+Real example: `000007_legacy_start_date_cleanup` is the placeholder for an abandoned `cards.start_date` migration. `000008_add_planning` is the actual current work; the planning tables intentionally landed at 8, not 7, because some local DBs had already applied the original 7.
+
+### Adding a new migration (checklist)
+
+1. Pick the next free number per "Claiming a number" above.
+2. Write `00000N_short_name.up.sql` and `.down.sql`.
+3. Restart backend; `internal/migrate` runs pending migrations on startup.
+4. Verify: `psql` connect → `SELECT * FROM schema_migrations;` → version matches.
+5. If the migration adds/changes columns, run `make sqlc` and commit the generated Go alongside the SQL — never split.
 
 ### Manual migration ops
 
@@ -185,6 +216,11 @@ go run github.com/golang-migrate/migrate/v4/cmd/migrate \
   -source file://backend/database/migrations \
   -database "pgx5://$DB_URL" \
   down 1
+
+# If migrate refuses to start with "Dirty database version N. Fix and force"
+# — a previous migration failed mid-run. Inspect the DB, fix manually, then
+# clear the dirty flag:
+psql "$DB_URL" -c "UPDATE schema_migrations SET dirty = false;"
 ```
 
 ## Indexes
