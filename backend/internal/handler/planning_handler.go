@@ -245,6 +245,14 @@ func (h *PlanningHandler) UpdateSession(w http.ResponseWriter, r *http.Request) 
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
 		return err
 	}
+	// Defence-in-depth check: title is required (NOT NULL). The DTO's
+	// `validate:"omitempty,min=1"` does currently reject &"" via the min
+	// rule, so this branch is normally unreachable — but keeping it makes
+	// the contract explicit even if a future tag change weakens validation
+	// (e.g. someone drops min=1 thinking omitempty already covers it).
+	if req.Title != nil && *req.Title == "" {
+		return httputil.NewAPIError(http.StatusBadRequest, "title cannot be empty", nil)
+	}
 	sess, err := h.planning.UpdateSession(r.Context(), sessionID, req.Title, req.Label, req.MeetingAt)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update session", err)
@@ -373,6 +381,12 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	var req dto.UpdatePlanningItemRequest
 	if err := httputil.DecodeAndValidate(r, &req); err != nil {
 		return err
+	}
+	// Same defence-in-depth note as UpdateSession's title check. Type and
+	// status are caught directly by `oneof` (their "" doesn't match any
+	// enum value), so this branch only guards title.
+	if req.Title != nil && *req.Title == "" {
+		return httputil.NewAPIError(http.StatusBadRequest, "title cannot be empty", nil)
 	}
 	item, err := h.planning.UpdateItem(r.Context(), itemID, req.Type, req.Title, req.Description, req.Status, req.Position)
 	if err != nil {
