@@ -464,11 +464,18 @@ function ItemRow({
 }: ItemRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
+  // Tracks the last item.title we synced from so we can detect prop changes
+  // during render without a useEffect+setState (which trips React 19's
+  // react-hooks/set-state-in-effect rule). When the parent updates the
+  // title (e.g. WS-driven refresh) we mirror it into local draft *before*
+  // rendering — same outcome, no cascading-render warning.
+  const [syncedTitle, setSyncedTitle] = useState(item.title);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
+  if (syncedTitle !== item.title) {
+    setSyncedTitle(item.title);
     setDraft(item.title);
-  }, [item.title]);
+  }
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
