@@ -447,3 +447,87 @@ WHERE id = $1 AND revoked_at IS NULL;
 UPDATE refresh_tokens
 SET revoked_at = now()
 WHERE user_id = $1 AND revoked_at IS NULL;
+
+
+-- =============================================================
+-- Planning sessions & items
+-- =============================================================
+
+-- name: ListPlanningSessionsByBoard :many
+SELECT
+    ps.id, ps.board_id, ps.title, ps.label, ps.meeting_at,
+    ps.created_by, ps.created_at, ps.updated_at,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'REQ' AND pi.status NOT IN ('dropped','promoted')) AS req_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'DEC' AND pi.status NOT IN ('dropped','promoted')) AS dec_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'Q'   AND pi.status NOT IN ('dropped','promoted')) AS q_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'promoted') AS promoted_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'dropped') AS dropped_count
+FROM planning_sessions ps
+LEFT JOIN planning_items pi ON pi.session_id = ps.id
+WHERE ps.board_id = $1
+GROUP BY ps.id
+ORDER BY COALESCE(ps.meeting_at, ps.created_at) DESC;
+
+-- name: CreatePlanningSession :one
+INSERT INTO planning_sessions (board_id, title, label, meeting_at, created_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetPlanningSession :one
+SELECT * FROM planning_sessions WHERE id = $1;
+
+-- name: UpdatePlanningSession :one
+UPDATE planning_sessions
+SET title      = COALESCE(sqlc.narg(title)::varchar, title),
+    label      = sqlc.narg(label)::text,
+    meeting_at = sqlc.narg(meeting_at)::timestamptz,
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: DeletePlanningSession :exec
+DELETE FROM planning_sessions WHERE id = $1;
+
+-- name: ListPlanningItemsBySession :many
+SELECT * FROM planning_items
+WHERE session_id = $1
+ORDER BY position ASC;
+
+-- name: GetMaxPlanningItemPosition :one
+SELECT COALESCE(MAX(position), 0)::float8 FROM planning_items WHERE session_id = $1;
+
+-- name: CreatePlanningItem :one
+INSERT INTO planning_items (session_id, type, title, description, position)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: UpdatePlanningItem :one
+UPDATE planning_items
+SET type        = COALESCE(sqlc.narg(type)::varchar, type),
+    title       = COALESCE(sqlc.narg(title)::text, title),
+    description = sqlc.narg(description)::text,
+    status      = COALESCE(sqlc.narg(status)::varchar, status),
+    position    = COALESCE(sqlc.narg(position)::float8, position)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: SetPlanningItemPromoted :exec
+UPDATE planning_items
+SET status = 'promoted',
+    promoted_to_card_id = $2
+WHERE id = $1;
+
+-- name: DeletePlanningItem :exec
+DELETE FROM planning_items WHERE id = $1;
+
+-- name: GetBoardIDByPlanningSession :one
+SELECT board_id FROM planning_sessions WHERE id = $1;
+
+-- name: GetBoardIDByPlanningItem :one
+SELECT ps.board_id
+FROM planning_items pi
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE pi.id = $1;
+
+-- name: GetPlanningItem :one
+SELECT * FROM planning_items WHERE id = $1;

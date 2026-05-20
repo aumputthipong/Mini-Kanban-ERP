@@ -28,6 +28,7 @@ type routerDeps struct {
 	subtaskHandler  *handler.SubtaskHandler
 	tagHandler      *handler.TagHandler
 	activityHandler *handler.ActivityHandler
+	planningHandler *handler.PlanningHandler
 	hub             *websocket.Hub
 	pool            *pgxpool.Pool
 	version         string
@@ -130,7 +131,29 @@ func setupRoutes(d routerDeps) http.Handler {
 						r.Delete("/{tagID}", httputil.MakeHandler(d.tagHandler.DeleteBoardTag))
 					})
 				})
+
+				// Planning section — sessions live under their board. Item-
+				// level endpoints sit at the top level (/api/planning/...)
+				// because the URL only carries the item ID; the handler
+				// re-resolves the board for membership check.
+				r.Route("/planning/sessions", func(r chi.Router) {
+					r.Get("/", httputil.MakeHandler(d.planningHandler.ListSessions))
+					r.Post("/", httputil.MakeHandler(d.planningHandler.CreateSession))
+				})
 			})
+		})
+
+		r.Route("/api/planning/sessions/{sessionID}", func(r chi.Router) {
+			r.Get("/", httputil.MakeHandler(d.planningHandler.GetSession))
+			r.Patch("/", httputil.MakeHandler(d.planningHandler.UpdateSession))
+			r.Delete("/", httputil.MakeHandler(d.planningHandler.DeleteSession))
+			r.Post("/items", httputil.MakeHandler(d.planningHandler.CreateItem))
+		})
+
+		r.Route("/api/planning/items/{itemID}", func(r chi.Router) {
+			r.Patch("/", httputil.MakeHandler(d.planningHandler.UpdateItem))
+			r.Delete("/", httputil.MakeHandler(d.planningHandler.DeleteItem))
+			r.Post("/promote", httputil.MakeHandler(d.planningHandler.PromoteItem))
 		})
 
 		r.Route("/api/cards", func(r chi.Router) {

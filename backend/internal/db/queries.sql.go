@@ -219,6 +219,79 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Cre
 	return i, err
 }
 
+const createPlanningItem = `-- name: CreatePlanningItem :one
+INSERT INTO planning_items (session_id, type, title, description, position)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, created_at
+`
+
+type CreatePlanningItemParams struct {
+	SessionID   string
+	Type        string
+	Title       string
+	Description *string
+	Position    float64
+}
+
+func (q *Queries) CreatePlanningItem(ctx context.Context, arg CreatePlanningItemParams) (PlanningItem, error) {
+	row := q.db.QueryRow(ctx, createPlanningItem,
+		arg.SessionID,
+		arg.Type,
+		arg.Title,
+		arg.Description,
+		arg.Position,
+	)
+	var i PlanningItem
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.PromotedToCardID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createPlanningSession = `-- name: CreatePlanningSession :one
+INSERT INTO planning_sessions (board_id, title, label, meeting_at, created_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, board_id, title, label, meeting_at, created_by, created_at, updated_at
+`
+
+type CreatePlanningSessionParams struct {
+	BoardID   string
+	Title     string
+	Label     *string
+	MeetingAt *time.Time
+	CreatedBy *string
+}
+
+func (q *Queries) CreatePlanningSession(ctx context.Context, arg CreatePlanningSessionParams) (PlanningSession, error) {
+	row := q.db.QueryRow(ctx, createPlanningSession,
+		arg.BoardID,
+		arg.Title,
+		arg.Label,
+		arg.MeetingAt,
+		arg.CreatedBy,
+	)
+	var i PlanningSession
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Title,
+		&i.Label,
+		&i.MeetingAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createSubtask = `-- name: CreateSubtask :one
 INSERT INTO card_subtasks (card_id, title, position)
 VALUES ($1, $2, $3)
@@ -322,6 +395,24 @@ DELETE FROM columns WHERE id = $1
 
 func (q *Queries) DeleteColumn(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteColumn, id)
+	return err
+}
+
+const deletePlanningItem = `-- name: DeletePlanningItem :exec
+DELETE FROM planning_items WHERE id = $1
+`
+
+func (q *Queries) DeletePlanningItem(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deletePlanningItem, id)
+	return err
+}
+
+const deletePlanningSession = `-- name: DeletePlanningSession :exec
+DELETE FROM planning_sessions WHERE id = $1
+`
+
+func (q *Queries) DeletePlanningSession(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deletePlanningSession, id)
 	return err
 }
 
@@ -533,6 +624,31 @@ SELECT board_id FROM columns WHERE id = $1
 
 func (q *Queries) GetBoardIDByColumn(ctx context.Context, id string) (string, error) {
 	row := q.db.QueryRow(ctx, getBoardIDByColumn, id)
+	var board_id string
+	err := row.Scan(&board_id)
+	return board_id, err
+}
+
+const getBoardIDByPlanningItem = `-- name: GetBoardIDByPlanningItem :one
+SELECT ps.board_id
+FROM planning_items pi
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE pi.id = $1
+`
+
+func (q *Queries) GetBoardIDByPlanningItem(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardIDByPlanningItem, id)
+	var board_id string
+	err := row.Scan(&board_id)
+	return board_id, err
+}
+
+const getBoardIDByPlanningSession = `-- name: GetBoardIDByPlanningSession :one
+SELECT board_id FROM planning_sessions WHERE id = $1
+`
+
+func (q *Queries) GetBoardIDByPlanningSession(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardIDByPlanningSession, id)
 	var board_id string
 	err := row.Scan(&board_id)
 	return board_id, err
@@ -816,6 +932,17 @@ func (q *Queries) GetMaxColumnPositionInBoard(ctx context.Context, boardID strin
 	return coalesce, err
 }
 
+const getMaxPlanningItemPosition = `-- name: GetMaxPlanningItemPosition :one
+SELECT COALESCE(MAX(position), 0)::float8 FROM planning_items WHERE session_id = $1
+`
+
+func (q *Queries) GetMaxPlanningItemPosition(ctx context.Context, sessionID string) (float64, error) {
+	row := q.db.QueryRow(ctx, getMaxPlanningItemPosition, sessionID)
+	var column_1 float64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getMaxPositionInColumn = `-- name: GetMaxPositionInColumn :one
 SELECT COALESCE(MAX(position), 0)
 FROM cards
@@ -951,6 +1078,47 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 		return nil, err
 	}
 	return items, nil
+}
+
+const getPlanningItem = `-- name: GetPlanningItem :one
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items WHERE id = $1
+`
+
+func (q *Queries) GetPlanningItem(ctx context.Context, id string) (PlanningItem, error) {
+	row := q.db.QueryRow(ctx, getPlanningItem, id)
+	var i PlanningItem
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.PromotedToCardID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPlanningSession = `-- name: GetPlanningSession :one
+SELECT id, board_id, title, label, meeting_at, created_by, created_at, updated_at FROM planning_sessions WHERE id = $1
+`
+
+func (q *Queries) GetPlanningSession(ctx context.Context, id string) (PlanningSession, error) {
+	row := q.db.QueryRow(ctx, getPlanningSession, id)
+	var i PlanningSession
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Title,
+		&i.Label,
+		&i.MeetingAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
@@ -1427,6 +1595,112 @@ func (q *Queries) ListActivitiesByBoardBefore(ctx context.Context, arg ListActiv
 	return items, nil
 }
 
+const listPlanningItemsBySession = `-- name: ListPlanningItemsBySession :many
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items
+WHERE session_id = $1
+ORDER BY position ASC
+`
+
+func (q *Queries) ListPlanningItemsBySession(ctx context.Context, sessionID string) ([]PlanningItem, error) {
+	rows, err := q.db.Query(ctx, listPlanningItemsBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PlanningItem
+	for rows.Next() {
+		var i PlanningItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Type,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.PromotedToCardID,
+			&i.Position,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanningSessionsByBoard = `-- name: ListPlanningSessionsByBoard :many
+
+SELECT
+    ps.id, ps.board_id, ps.title, ps.label, ps.meeting_at,
+    ps.created_by, ps.created_at, ps.updated_at,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'REQ' AND pi.status NOT IN ('dropped','promoted')) AS req_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'DEC' AND pi.status NOT IN ('dropped','promoted')) AS dec_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'Q'   AND pi.status NOT IN ('dropped','promoted')) AS q_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'promoted') AS promoted_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'dropped') AS dropped_count
+FROM planning_sessions ps
+LEFT JOIN planning_items pi ON pi.session_id = ps.id
+WHERE ps.board_id = $1
+GROUP BY ps.id
+ORDER BY COALESCE(ps.meeting_at, ps.created_at) DESC
+`
+
+type ListPlanningSessionsByBoardRow struct {
+	ID            string
+	BoardID       string
+	Title         string
+	Label         *string
+	MeetingAt     *time.Time
+	CreatedBy     *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	ReqCount      int64
+	DecCount      int64
+	QCount        int64
+	PromotedCount int64
+	DroppedCount  int64
+}
+
+// =============================================================
+// Planning sessions & items
+// =============================================================
+func (q *Queries) ListPlanningSessionsByBoard(ctx context.Context, boardID string) ([]ListPlanningSessionsByBoardRow, error) {
+	rows, err := q.db.Query(ctx, listPlanningSessionsByBoard, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPlanningSessionsByBoardRow
+	for rows.Next() {
+		var i ListPlanningSessionsByBoardRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Title,
+			&i.Label,
+			&i.MeetingAt,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReqCount,
+			&i.DecCount,
+			&i.QCount,
+			&i.PromotedCount,
+			&i.DroppedCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moveBoardToTrash = `-- name: MoveBoardToTrash :exec
 UPDATE boards 
 SET deleted_at = CURRENT_TIMESTAMP 
@@ -1509,6 +1783,23 @@ type RevokeRefreshTokenParams struct {
 // revoked.
 func (q *Queries) RevokeRefreshToken(ctx context.Context, arg RevokeRefreshTokenParams) error {
 	_, err := q.db.Exec(ctx, revokeRefreshToken, arg.ID, arg.ReplacedBy)
+	return err
+}
+
+const setPlanningItemPromoted = `-- name: SetPlanningItemPromoted :exec
+UPDATE planning_items
+SET status = 'promoted',
+    promoted_to_card_id = $2
+WHERE id = $1
+`
+
+type SetPlanningItemPromotedParams struct {
+	ID               string
+	PromotedToCardID *string
+}
+
+func (q *Queries) SetPlanningItemPromoted(ctx context.Context, arg SetPlanningItemPromotedParams) error {
+	_, err := q.db.Exec(ctx, setPlanningItemPromoted, arg.ID, arg.PromotedToCardID)
 	return err
 }
 
@@ -1675,6 +1966,88 @@ func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) erro
 		arg.Color,
 	)
 	return err
+}
+
+const updatePlanningItem = `-- name: UpdatePlanningItem :one
+UPDATE planning_items
+SET type        = COALESCE($1::varchar, type),
+    title       = COALESCE($2::text, title),
+    description = $3::text,
+    status      = COALESCE($4::varchar, status),
+    position    = COALESCE($5::float8, position)
+WHERE id = $6
+RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, created_at
+`
+
+type UpdatePlanningItemParams struct {
+	Type        *string
+	Title       *string
+	Description *string
+	Status      *string
+	Position    *float64
+	ID          string
+}
+
+func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItemParams) (PlanningItem, error) {
+	row := q.db.QueryRow(ctx, updatePlanningItem,
+		arg.Type,
+		arg.Title,
+		arg.Description,
+		arg.Status,
+		arg.Position,
+		arg.ID,
+	)
+	var i PlanningItem
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.PromotedToCardID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updatePlanningSession = `-- name: UpdatePlanningSession :one
+UPDATE planning_sessions
+SET title      = COALESCE($1::varchar, title),
+    label      = $2::text,
+    meeting_at = $3::timestamptz,
+    updated_at = now()
+WHERE id = $4
+RETURNING id, board_id, title, label, meeting_at, created_by, created_at, updated_at
+`
+
+type UpdatePlanningSessionParams struct {
+	Title     *string
+	Label     *string
+	MeetingAt *time.Time
+	ID        string
+}
+
+func (q *Queries) UpdatePlanningSession(ctx context.Context, arg UpdatePlanningSessionParams) (PlanningSession, error) {
+	row := q.db.QueryRow(ctx, updatePlanningSession,
+		arg.Title,
+		arg.Label,
+		arg.MeetingAt,
+		arg.ID,
+	)
+	var i PlanningSession
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Title,
+		&i.Label,
+		&i.MeetingAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateSubtask = `-- name: UpdateSubtask :one
