@@ -9,6 +9,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -26,11 +27,46 @@ import (
 type PlanningHandler struct {
 	planning *service.PlanningService
 	boards   service.BoardServicer
+	activity *service.ActivityService
 }
 
-func NewPlanningHandler(p *service.PlanningService, b service.BoardServicer) *PlanningHandler {
-	return &PlanningHandler{planning: p, boards: b}
+func NewPlanningHandler(p *service.PlanningService, b service.BoardServicer, a *service.ActivityService) *PlanningHandler {
+	return &PlanningHandler{planning: p, boards: b, activity: a}
 }
+
+// recordActivity is best-effort — matches the WS handlers' pattern where
+// activity is logged after the mutation succeeds. If the audit insert
+// fails we log and move on; the user-facing mutation already committed.
+// See AGENTS.md note about activity being recorded before broadcast for
+// the WS path; this REST path has no broadcast, so the audit row is the
+// only secondary write.
+func (h *PlanningHandler) recordActivity(
+	r *http.Request,
+	boardID, actorID, eventType, entityType string,
+	entityID *string,
+	payload any,
+) {
+	if h.activity == nil {
+		return
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return
+	}
+	if _, err := h.activity.Record(r.Context(), service.RecordParams{
+		BoardID:    boardID,
+		ActorID:    actorID,
+		EventType:  eventType,
+		EntityType: entityType,
+		EntityID:   entityID,
+		Payload:    payload,
+	}); err != nil {
+		log.Printf("Failed to record activity [%s]: %v", eventType, err)
+	}
+}
+
+// strPtr is a literal-to-pointer helper for passing entity IDs into
+// recordActivity. Matches the helper used in the WS layer.
+func strPtr(s string) *string { return &s }
 
 // requireMembership re-checks board membership when the URL only carries a
 // session/item ID — same 404-not-403 anti-enumeration pattern as the card
@@ -129,6 +165,11 @@ func (h *PlanningHandler) CreateSession(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create session", err)
 	}
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningSessionCreated, service.EntityPlanningSession,
+		strPtr(sess.ID),
+		service.PlanningSessionCreatedPayload{Title: sess.Title},
+	)
 	httputil.RespondJSON(w, http.StatusCreated, dto.PlanningSessionSummary{
 		ID:        sess.ID,
 		BoardID:   sess.BoardID,
@@ -208,6 +249,24 @@ func (h *PlanningHandler) UpdateSession(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update session", err)
 	}
+	// fields list mirrors the CardUpdatedPayload pattern — one event per
+	// PATCH, with the changed-field names so the activity feed can render
+	// "renamed" vs "rescheduled" without diff'ing payloads.
+	fields := make([]string, 0, 3)
+	if req.Title != nil {
+		fields = append(fields, "title")
+	}
+	if req.Label != nil {
+		fields = append(fields, "label")
+	}
+	if req.MeetingAt != nil {
+		fields = append(fields, "meeting_at")
+	}
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningSessionUpdated, service.EntityPlanningSession,
+		strPtr(sess.ID),
+		service.PlanningSessionUpdatedPayload{Title: sess.Title, Fields: fields},
+	)
 	httputil.RespondJSON(w, http.StatusOK, dto.PlanningSessionSummary{
 		ID:        sess.ID,
 		BoardID:   sess.BoardID,
@@ -229,19 +288,27 @@ func (h *PlanningHandler) DeleteSession(w http.ResponseWriter, r *http.Request) 
 	if apiErr != nil {
 		return apiErr
 	}
-	boardID, err := h.planning.GetSessionBoardID(r.Context(), sessionID)
+	// Fetch the full session before deleting so the activity payload can
+	// include the title — once DeleteSession runs the row is gone (and the
+	// items cascade with it; we only log the session deletion per spec).
+	sess, err := h.planning.GetSession(r.Context(), sessionID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return httputil.NewAPIError(http.StatusNotFound, "Not found", nil)
 		}
-		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to resolve board", err)
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load session", err)
 	}
-	if _, apiErr := h.requireMembership(r, boardID, userID); apiErr != nil {
+	if _, apiErr := h.requireMembership(r, sess.BoardID, userID); apiErr != nil {
 		return apiErr
 	}
 	if err := h.planning.DeleteSession(r.Context(), sessionID); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to delete session", err)
 	}
+	h.recordActivity(r, sess.BoardID, userID,
+		service.EventPlanningSessionDeleted, service.EntityPlanningSession,
+		strPtr(sessionID),
+		service.PlanningSessionDeletedPayload{Title: sess.Title},
+	)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -275,6 +342,11 @@ func (h *PlanningHandler) CreateItem(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to create item", err)
 	}
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningItemCreated, service.EntityPlanningItem,
+		strPtr(item.ID),
+		service.PlanningItemCreatedPayload{Type: item.Type, Title: item.Title},
+	)
 	httputil.RespondJSON(w, http.StatusCreated, itemToResponse(item))
 	return nil
 }
@@ -306,6 +378,31 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update item", err)
 	}
+	// position-only changes (drag-reorder) generate a noisy "updated" event;
+	// they're still logged so the feed reflects the action, but a future
+	// refinement may filter position-only edits from the visible feed at
+	// query time.
+	fields := make([]string, 0, 5)
+	if req.Type != nil {
+		fields = append(fields, "type")
+	}
+	if req.Title != nil {
+		fields = append(fields, "title")
+	}
+	if req.Description != nil {
+		fields = append(fields, "description")
+	}
+	if req.Status != nil {
+		fields = append(fields, "status")
+	}
+	if req.Position != nil {
+		fields = append(fields, "position")
+	}
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningItemUpdated, service.EntityPlanningItem,
+		strPtr(item.ID),
+		service.PlanningItemUpdatedPayload{Type: item.Type, Title: item.Title, Fields: fields},
+	)
 	httputil.RespondJSON(w, http.StatusOK, itemToResponse(item))
 	return nil
 }
@@ -319,11 +416,18 @@ func (h *PlanningHandler) DeleteItem(w http.ResponseWriter, r *http.Request) err
 	if apiErr != nil {
 		return apiErr
 	}
-	boardID, err := h.planning.GetItemBoardID(r.Context(), itemID)
+	// Fetch the row first so the activity payload can carry type+title
+	// after the delete. Pays one extra query per delete; acceptable since
+	// item delete isn't a hot path.
+	item, err := h.planning.GetItem(r.Context(), itemID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return httputil.NewAPIError(http.StatusNotFound, "Not found", nil)
 		}
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load item", err)
+	}
+	boardID, err := h.planning.GetItemBoardID(r.Context(), itemID)
+	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to resolve board", err)
 	}
 	if _, apiErr := h.requireMembership(r, boardID, userID); apiErr != nil {
@@ -332,6 +436,11 @@ func (h *PlanningHandler) DeleteItem(w http.ResponseWriter, r *http.Request) err
 	if err := h.planning.DeleteItem(r.Context(), itemID); err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to delete item", err)
 	}
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningItemDeleted, service.EntityPlanningItem,
+		strPtr(itemID),
+		service.PlanningItemDeletedPayload{Type: item.Type, Title: item.Title},
+	)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -365,6 +474,18 @@ func (h *PlanningHandler) PromoteItem(w http.ResponseWriter, r *http.Request) er
 		}
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to promote item", err)
 	}
+	// Single audit event for the planning side. We deliberately do NOT
+	// emit a card.created event here — that would double-count the same
+	// real-world action on the activity feed.
+	h.recordActivity(r, boardID, userID,
+		service.EventPlanningItemPromoted, service.EntityPlanningItem,
+		strPtr(item.ID),
+		service.PlanningItemPromotedPayload{
+			Type:     item.Type,
+			Title:    item.Title,
+			ToCardID: card.ID,
+		},
+	)
 	httputil.RespondJSON(w, http.StatusOK, map[string]any{
 		"item":    itemToResponse(item),
 		"card_id": card.ID,
