@@ -32,8 +32,8 @@ export function OverviewTabContent({
 }: OverviewTabContentProps) {
   return (
     <div className="flex flex-col gap-5">
-      {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats strip — stack at md (progress bar needs width), 3-col at lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-2.5 bg-emerald-50 rounded-lg">
             <CheckCircle2 size={20} className="text-emerald-500" />
