@@ -1,9 +1,24 @@
 "use client";
 
 import { CheckCircle2, BarChart3, Clock, Zap } from "lucide-react";
-import PieChartWidget from "./PieChartWidget";
-import { BurndownChartWidget } from "./BurndownChartWidget";
+import dynamic from "next/dynamic";
 import type { Card } from "@/types/board";
+
+// recharts is ~400KB. The overview tab is the only place we use it, so split
+// it out of the main bundle and render a lightweight placeholder while it loads.
+const PieChartWidget = dynamic(() => import("./PieChartWidget"), {
+  ssr: false,
+  loading: () => <div className="h-64 rounded-xl bg-slate-100 animate-pulse" />,
+});
+const BurndownChartWidget = dynamic(
+  () => import("./BurndownChartWidget").then((m) => m.BurndownChartWidget),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="lg:col-span-2 h-64 rounded-xl bg-slate-100 animate-pulse" />
+    ),
+  }
+);
 
 interface ColumnStat {
   title: string;
