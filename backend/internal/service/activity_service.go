@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
@@ -40,10 +41,79 @@ const (
 
 type ActivityService struct {
 	queries *db.Queries
+	jobs    chan RecordParams
+	stop    chan struct{}
 }
 
+const (
+	activityQueueSize  = 512
+	activityWriteTimeout = 5 * time.Second
+)
+
 func NewActivityService(queries *db.Queries) *ActivityService {
-	return &ActivityService{queries: queries}
+	s := &ActivityService{
+		queries: queries,
+		jobs:    make(chan RecordParams, activityQueueSize),
+		stop:    make(chan struct{}),
+	}
+	go s.worker()
+	return s
+}
+
+// worker drains queued RecordAsync jobs. Each job runs with a fresh background
+// context so a slow audit insert doesn't get cancelled when the HTTP request
+// that scheduled it returns. On Stop we drain whatever's still in the buffer
+// then return; new sends after Stop are dropped (see RecordAsync).
+func (s *ActivityService) worker() {
+	for {
+		select {
+		case <-s.stop:
+			for {
+				select {
+				case p := <-s.jobs:
+					s.writeOne(p)
+				default:
+					return
+				}
+			}
+		case p := <-s.jobs:
+			s.writeOne(p)
+		}
+	}
+}
+
+func (s *ActivityService) writeOne(p RecordParams) {
+	ctx, cancel := context.WithTimeout(context.Background(), activityWriteTimeout)
+	defer cancel()
+	if _, err := s.Record(ctx, p); err != nil {
+		slog.Warn("async activity record failed", "event_type", p.EventType, "err", err)
+	}
+}
+
+// Stop signals the worker to drain and exit. Idempotent. Call once at
+// graceful shutdown after the HTTP listener has drained.
+func (s *ActivityService) Stop() {
+	select {
+	case <-s.stop:
+	default:
+		close(s.stop)
+	}
+}
+
+// RecordAsync enqueues an audit insert and returns immediately. Use it from
+// REST mutation handlers where the response shouldn't be held up by the audit
+// row's round-trip. If the queue is full the job is dropped with a warning —
+// audit is best-effort by design (see AGENTS.md).
+//
+// Do NOT use this from the WebSocket path: the broadcast payload uses the
+// returned activity's ID and created_at, so that path needs Record's sync
+// return.
+func (s *ActivityService) RecordAsync(p RecordParams) {
+	select {
+	case s.jobs <- p:
+	default:
+		slog.Warn("activity queue full, dropping record", "event_type", p.EventType)
+	}
 }
 
 type RecordParams struct {

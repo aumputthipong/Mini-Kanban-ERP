@@ -33,6 +33,9 @@ func (h *BoardHandler) GetBoardMembers(w http.ResponseWriter, r *http.Request) e
 		})
 	}
 
+	// Board membership changes infrequently; short private cache cuts the
+	// refetch storm when a user opens multiple board tabs.
+	w.Header().Set("Cache-Control", "private, max-age=30")
 	httputil.RespondJSON(w, http.StatusOK, result)
 	return nil
 }
@@ -146,6 +149,9 @@ func (h *BoardHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) error
 		})
 	}
 
+	// User directory rarely changes within a session; cache privately for 30s
+	// so reopening assignee dropdowns doesn't hit the DB each time.
+	w.Header().Set("Cache-Control", "private, max-age=30")
 	httputil.RespondJSON(w, http.StatusOK, result)
 	return nil
 }

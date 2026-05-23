@@ -87,6 +87,10 @@ type PlanningServicer interface {
 // pull in the read-side methods they never touch.
 type ActivityRecorder interface {
 	Record(ctx context.Context, p RecordParams) (db.Activity, error)
+	// RecordAsync enqueues a best-effort audit insert. Used by REST handlers
+	// where the caller has no use for the resulting row; the WS path keeps
+	// using Record because broadcasts include the row's ID and created_at.
+	RecordAsync(p RecordParams)
 }
 
 // AuthServicer is the contract for credential and OAuth-based authentication.
