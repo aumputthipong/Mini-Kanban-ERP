@@ -262,7 +262,9 @@ DO UPDATE SET
 RETURNING *;
 
 -- name: GetAllUsers :many
-SELECT id, email, full_name FROM users ORDER BY full_name ASC;
+-- Capped at 500 rows. The assignee-picker dropdown calls this; beyond ~500
+-- users it needs a search endpoint, not a full dump. Bump only with a UX plan.
+SELECT id, email, full_name FROM users ORDER BY full_name ASC LIMIT 500;
 
 
 
