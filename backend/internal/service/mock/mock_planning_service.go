@@ -97,3 +97,9 @@ func (m *MockActivityRecorder) Record(ctx context.Context, p service.RecordParam
 	}
 	return db.Activity{EventType: p.EventType, EntityType: p.EntityType}, nil
 }
+
+// RecordAsync mirrors Record for capture purposes — tests still inspect
+// m.Calls regardless of whether the handler chose the sync or async path.
+func (m *MockActivityRecorder) RecordAsync(p service.RecordParams) {
+	m.Calls = append(m.Calls, p)
+}

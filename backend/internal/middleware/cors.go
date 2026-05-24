@@ -16,7 +16,11 @@ func CORS(frontendURL string, next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Content-Type", "application/json")
+		// Cache preflight for 10 minutes to skip the OPTIONS round-trip on
+		// subsequent calls. Handlers set their own Content-Type via
+		// httputil.RespondJSON; CORS used to force application/json here but
+		// that mis-typed Swagger UI assets and HTML error pages.
+		w.Header().Set("Access-Control-Max-Age", "600")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)

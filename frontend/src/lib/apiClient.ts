@@ -10,6 +10,13 @@ interface FetchOptions extends Omit<RequestInit, "body"> {
   data?: unknown;
 }
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const REFRESH_ENDPOINT = "/api/auth/refresh";
 
 // Single-flight guard: while a refresh is in progress, every other 401
@@ -98,7 +105,7 @@ export async function apiClient<T = unknown>(
         duration: 5000,
       });
     }
-    throw new Error(errorMessage);
+    throw new ApiError(response.status, errorMessage);
   }
 
   if (response.status === 204) {

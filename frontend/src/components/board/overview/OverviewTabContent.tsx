@@ -1,9 +1,24 @@
 "use client";
 
 import { CheckCircle2, BarChart3, Clock, Zap } from "lucide-react";
-import PieChartWidget from "./PieChartWidget";
-import { BurndownChartWidget } from "./BurndownChartWidget";
+import dynamic from "next/dynamic";
 import type { Card } from "@/types/board";
+
+// recharts is ~400KB. The overview tab is the only place we use it, so split
+// it out of the main bundle and render a lightweight placeholder while it loads.
+const PieChartWidget = dynamic(() => import("./PieChartWidget"), {
+  ssr: false,
+  loading: () => <div className="h-64 rounded-xl bg-slate-100 animate-pulse" />,
+});
+const BurndownChartWidget = dynamic(
+  () => import("./BurndownChartWidget").then((m) => m.BurndownChartWidget),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="lg:col-span-2 h-64 rounded-xl bg-slate-100 animate-pulse" />
+    ),
+  }
+);
 
 interface ColumnStat {
   title: string;
@@ -32,8 +47,8 @@ export function OverviewTabContent({
 }: OverviewTabContentProps) {
   return (
     <div className="flex flex-col gap-5">
-      {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats strip — stack at md (progress bar needs width), 3-col at lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-2.5 bg-emerald-50 rounded-lg">
             <CheckCircle2 size={20} className="text-emerald-500" />

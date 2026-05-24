@@ -8,6 +8,11 @@ services:
   db:
     image: postgres:15-alpine
     restart: unless-stopped
+    # Slow query log: anything > PG_SLOW_LOG_MS (default 200ms) is logged.
+    command:
+      - "postgres"
+      - "-c"
+      - "log_min_duration_statement=${PG_SLOW_LOG_MS:-200}"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-erp_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_password}
