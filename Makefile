@@ -48,8 +48,12 @@ vet: ## go vet ./...
 	cd backend && go vet ./...
 
 .PHONY: test
-test: ## Run backend tests with -race
+test: ## Run backend tests with -race (skips integration tests)
 	cd backend && go test -race ./...
+
+.PHONY: test-integration
+test-integration: ## Run integration tests (real Postgres via testcontainers, needs Docker)
+	cd backend && go test -race -tags=integration ./...
 
 .PHONY: test-cover
 test-cover: ## Backend tests + write coverage.out

@@ -1701,6 +1701,32 @@ func (q *Queries) ListPlanningSessionsByBoard(ctx context.Context, boardID strin
 	return items, nil
 }
 
+const lockPlanningItemForUpdate = `-- name: LockPlanningItemForUpdate :one
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items WHERE id = $1 FOR UPDATE
+`
+
+// LockPlanningItemForUpdate takes a row-level write lock on the planning
+// item so concurrent PromoteItem callers serialize. Without this, two
+// transactions running at READ COMMITTED can both read status='live',
+// both pass the "already promoted?" check, and both create a card —
+// producing duplicates. Always pair with a transaction.
+func (q *Queries) LockPlanningItemForUpdate(ctx context.Context, id string) (PlanningItem, error) {
+	row := q.db.QueryRow(ctx, lockPlanningItemForUpdate, id)
+	var i PlanningItem
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.PromotedToCardID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const moveBoardToTrash = `-- name: MoveBoardToTrash :exec
 UPDATE boards 
 SET deleted_at = CURRENT_TIMESTAMP 

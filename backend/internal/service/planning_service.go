@@ -143,7 +143,14 @@ func (s *PlanningService) PromoteItem(ctx context.Context, itemID, userID string
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 
-	item, err := qtx.GetPlanningItem(ctx, itemID)
+	// Lock the row for the duration of the tx. Without FOR UPDATE, two
+	// concurrent promoters on the same item both see status='live' at
+	// READ COMMITTED, both pass the "already promoted?" check below,
+	// and both go on to create a card — producing duplicate Kanban
+	// cards from a single planning item. The lock serializes them so
+	// the second caller sees the freshly written status='promoted'
+	// once the first commits.
+	item, err := qtx.LockPlanningItemForUpdate(ctx, itemID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return db.PlanningItem{}, db.CreateCardRow{}, ErrPlanningNotFound
