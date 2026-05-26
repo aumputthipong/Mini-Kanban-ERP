@@ -39,6 +39,15 @@ const (
 	EventPlanningCommentEdited  = "planning.comment_edited"
 	EventPlanningCommentDeleted = "planning.comment_deleted"
 
+	// Claim events — a soft "I'm looking at this" lock on a planning item.
+	// AutoReleased is emitted by PromoteItem so the feed can distinguish
+	// "X let go of it" from "the item was promoted to a card, claim
+	// auto-cleared" without the reader having to correlate timestamps
+	// with a separate promote event.
+	EventPlanningItemClaimed              = "planning.item_claimed"
+	EventPlanningItemReleased             = "planning.item_released"
+	EventPlanningItemClaimAutoReleased    = "planning.claim_auto_released_on_promote"
+
 	EntityCard            = "card"
 	EntityColumn          = "column"
 	EntityMember          = "member"
@@ -283,6 +292,19 @@ type PlanningCommentEditedPayload struct {
 
 type PlanningCommentDeletedPayload struct {
 	ItemID string `json:"item_id"`
+}
+
+// Claim payloads carry the item title so the feed can render
+// "X is looking at 'Add Google login'" without a re-fetch. Released
+// + AutoReleased share the same shape.
+type PlanningItemClaimedPayload struct {
+	Title string `json:"title"`
+	Type  string `json:"type"`
+}
+
+type PlanningItemReleasedPayload struct {
+	Title string `json:"title"`
+	Type  string `json:"type"`
 }
 
 type PlanningItemUpdatedPayload struct {

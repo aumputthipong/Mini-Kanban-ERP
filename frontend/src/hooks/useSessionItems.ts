@@ -34,6 +34,8 @@ export interface UseSessionItemsResult {
   changeType: (item: PlanningItem, t: PlanningItemType) => void;
   removeItem: (item: PlanningItem) => Promise<void>;
   promoteSelected: () => Promise<void>;
+  claimItem: (item: PlanningItem, currentUserId: string) => Promise<void>;
+  releaseItem: (item: PlanningItem) => Promise<void>;
 }
 
 export function useSessionItems(
@@ -195,6 +197,69 @@ export function useSessionItems(
     [showToast],
   );
 
+  const claimItem = useCallback(
+    async (item: PlanningItem, currentUserId: string) => {
+      // Optimistic claim: mark the row immediately so the button flips
+      // without a roundtrip. Revert on 409 (someone got there first) and
+      // surface the backend message — apiClient passes the Thai 409
+      // message through err.message.
+      const now = new Date().toISOString();
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? { ...it, claimed_by_user_id: currentUserId, claimed_at: now }
+            : it,
+        ),
+      );
+      try {
+        await planningApi.claimItem(item.id);
+      } catch (err: unknown) {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  claimed_by_user_id: item.claimed_by_user_id ?? null,
+                  claimed_at: item.claimed_at ?? null,
+                }
+              : it,
+          ),
+        );
+        const message =
+          err instanceof Error && err.message ? err.message : "claim ไม่ได้";
+        showToast({ message, duration: 4000 });
+      }
+    },
+    [showToast],
+  );
+
+  const releaseItem = useCallback(
+    async (item: PlanningItem) => {
+      const previousClaim = item.claimed_by_user_id ?? null;
+      const previousAt = item.claimed_at ?? null;
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? { ...it, claimed_by_user_id: null, claimed_at: null }
+            : it,
+        ),
+      );
+      try {
+        await planningApi.releaseItem(item.id);
+      } catch {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? { ...it, claimed_by_user_id: previousClaim, claimed_at: previousAt }
+              : it,
+          ),
+        );
+        showToast({ message: "release ไม่ได้", duration: 4000 });
+      }
+    },
+    [showToast],
+  );
+
   const promoteSelected = useCallback(async () => {
     const targets = items.filter((it) => it.status === "selected");
     if (targets.length === 0) {
@@ -236,5 +301,7 @@ export function useSessionItems(
     changeType,
     removeItem,
     promoteSelected,
+    claimItem,
+    releaseItem,
   };
 }

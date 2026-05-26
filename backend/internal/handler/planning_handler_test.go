@@ -53,9 +53,7 @@ func newPromoteRequest(t *testing.T, itemID, userID string) *http.Request {
 
 func TestPromoteItem_HappyPath_CreatesCardAndRecordsActivity(t *testing.T) {
 	plan, _, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
 		return db.PlanningItem{
 				ID:     validPlanningItemID,
@@ -92,9 +90,7 @@ func TestPromoteItem_HappyPath_CreatesCardAndRecordsActivity(t *testing.T) {
 
 func TestPromoteItem_AlreadyPromoted_Returns409(t *testing.T) {
 	plan, _, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
 		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningItemAlreadyPromoted
 	}
@@ -111,9 +107,7 @@ func TestPromoteItem_AlreadyPromoted_Returns409(t *testing.T) {
 
 func TestPromoteItem_DroppedItem_Returns422(t *testing.T) {
 	plan, _, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
 		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningItemDropped
 	}
@@ -128,9 +122,7 @@ func TestPromoteItem_DroppedItem_Returns422(t *testing.T) {
 
 func TestPromoteItem_NoTodoColumn_Returns422(t *testing.T) {
 	plan, _, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
 		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningNoTodoColumn
 	}
@@ -145,9 +137,7 @@ func TestPromoteItem_NoTodoColumn_Returns422(t *testing.T) {
 
 func TestPromoteItem_NotMember_Returns404(t *testing.T) {
 	plan, boards, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	// Membership lookup returns pgx.ErrNoRows when the user isn't a member;
 	// the handler must surface this as 404 (anti-enumeration), not 403.
 	boards.GetBoardMemberRoleFn = func(ctx context.Context, boardID, userID string) (string, error) {
