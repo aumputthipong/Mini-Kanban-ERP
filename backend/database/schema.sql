@@ -148,6 +148,20 @@ CREATE TABLE planning_items (
 CREATE INDEX idx_planning_sessions_board ON planning_sessions(board_id);
 CREATE INDEX idx_planning_items_session ON planning_items(session_id);
 
+CREATE TABLE planning_item_comments (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    item_id    UUID NOT NULL REFERENCES planning_items(id) ON DELETE CASCADE,
+    author_id  UUID NOT NULL REFERENCES users(id),
+    body       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_planning_comments_item
+    ON planning_item_comments(item_id, created_at)
+    WHERE deleted_at IS NULL;
+
 CREATE TABLE refresh_tokens (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

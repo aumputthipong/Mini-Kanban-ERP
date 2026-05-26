@@ -270,6 +270,33 @@ func (q *Queries) CreatePlanningItem(ctx context.Context, arg CreatePlanningItem
 	return i, err
 }
 
+const createPlanningItemComment = `-- name: CreatePlanningItemComment :one
+INSERT INTO planning_item_comments (item_id, author_id, body)
+VALUES ($1, $2, $3)
+RETURNING id, item_id, author_id, body, created_at, updated_at, deleted_at
+`
+
+type CreatePlanningItemCommentParams struct {
+	ItemID   string
+	AuthorID string
+	Body     string
+}
+
+func (q *Queries) CreatePlanningItemComment(ctx context.Context, arg CreatePlanningItemCommentParams) (PlanningItemComment, error) {
+	row := q.db.QueryRow(ctx, createPlanningItemComment, arg.ItemID, arg.AuthorID, arg.Body)
+	var i PlanningItemComment
+	err := row.Scan(
+		&i.ID,
+		&i.ItemID,
+		&i.AuthorID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const createPlanningSession = `-- name: CreatePlanningSession :one
 INSERT INTO planning_sessions (board_id, title, label, meeting_at, created_by)
 VALUES ($1, $2, $3, $4, $5)
@@ -640,6 +667,24 @@ SELECT board_id FROM columns WHERE id = $1
 
 func (q *Queries) GetBoardIDByColumn(ctx context.Context, id string) (string, error) {
 	row := q.db.QueryRow(ctx, getBoardIDByColumn, id)
+	var board_id string
+	err := row.Scan(&board_id)
+	return board_id, err
+}
+
+const getBoardIDByPlanningComment = `-- name: GetBoardIDByPlanningComment :one
+SELECT ps.board_id
+FROM planning_item_comments c
+JOIN planning_items pi ON pi.id = c.item_id
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE c.id = $1
+`
+
+// GetBoardIDByPlanningComment resolves comment → item → session → board
+// in one round-trip. Used by edit/delete handlers to re-check membership
+// before touching the row.
+func (q *Queries) GetBoardIDByPlanningComment(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getBoardIDByPlanningComment, id)
 	var board_id string
 	err := row.Scan(&board_id)
 	return board_id, err
@@ -1117,6 +1162,27 @@ func (q *Queries) GetPlanningItem(ctx context.Context, id string) (PlanningItem,
 		&i.AcceptanceCriteria,
 		&i.ImplementationNote,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPlanningItemComment = `-- name: GetPlanningItemComment :one
+SELECT id, item_id, author_id, body, created_at, updated_at, deleted_at
+FROM planning_item_comments
+WHERE id = $1
+`
+
+func (q *Queries) GetPlanningItemComment(ctx context.Context, id string) (PlanningItemComment, error) {
+	row := q.db.QueryRow(ctx, getPlanningItemComment, id)
+	var i PlanningItemComment
+	err := row.Scan(
+		&i.ID,
+		&i.ItemID,
+		&i.AuthorID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -1709,6 +1775,67 @@ func (q *Queries) ListPendingQuestionsBySession(ctx context.Context, arg ListPen
 	return items, nil
 }
 
+const listPlanningItemComments = `-- name: ListPlanningItemComments :many
+
+SELECT
+    c.id,
+    c.item_id,
+    c.author_id,
+    u.full_name AS author_name,
+    c.body,
+    c.created_at,
+    c.updated_at,
+    c.deleted_at
+FROM planning_item_comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.item_id = $1
+ORDER BY c.created_at ASC
+`
+
+type ListPlanningItemCommentsRow struct {
+	ID         string
+	ItemID     string
+	AuthorID   string
+	AuthorName string
+	Body       string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  *time.Time
+}
+
+// Planning item comments — CRUD with soft delete + author name joined in
+// so the list endpoint stays a single round-trip per item.
+// Listing keeps deleted comments visible (the UI renders them as
+// "ถูกลบแล้ว") so the thread's position doesn't shift on delete.
+func (q *Queries) ListPlanningItemComments(ctx context.Context, itemID string) ([]ListPlanningItemCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listPlanningItemComments, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPlanningItemCommentsRow
+	for rows.Next() {
+		var i ListPlanningItemCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemID,
+			&i.AuthorID,
+			&i.AuthorName,
+			&i.Body,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlanningItemsBySession = `-- name: ListPlanningItemsBySession :many
 SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at FROM planning_items
 WHERE session_id = $1
@@ -1947,6 +2074,18 @@ func (q *Queries) SetPlanningItemPromoted(ctx context.Context, arg SetPlanningIt
 	return err
 }
 
+const softDeletePlanningItemComment = `-- name: SoftDeletePlanningItemComment :exec
+UPDATE planning_item_comments
+SET deleted_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`
+
+func (q *Queries) SoftDeletePlanningItemComment(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, softDeletePlanningItemComment, id)
+	return err
+}
+
 const updateBoard = `-- name: UpdateBoard :one
 UPDATE boards 
 SET title = $2, 
@@ -2179,6 +2318,38 @@ func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItem
 		&i.AcceptanceCriteria,
 		&i.ImplementationNote,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updatePlanningItemComment = `-- name: UpdatePlanningItemComment :one
+UPDATE planning_item_comments
+SET body       = $2,
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, item_id, author_id, body, created_at, updated_at, deleted_at
+`
+
+type UpdatePlanningItemCommentParams struct {
+	ID   string
+	Body string
+}
+
+// UpdatePlanningItemComment edits body. updated_at refreshes so the UI can
+// show an "(edited X ago)" hint. deleted_at is unchanged — the soft-delete
+// path has its own query.
+func (q *Queries) UpdatePlanningItemComment(ctx context.Context, arg UpdatePlanningItemCommentParams) (PlanningItemComment, error) {
+	row := q.db.QueryRow(ctx, updatePlanningItemComment, arg.ID, arg.Body)
+	var i PlanningItemComment
+	err := row.Scan(
+		&i.ID,
+		&i.ItemID,
+		&i.AuthorID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

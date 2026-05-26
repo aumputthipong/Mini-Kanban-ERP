@@ -128,3 +128,26 @@ type CardSourceQuestion struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 }
+
+// PlanningCommentResponse is one row in an item's comment thread. Body is
+// nil when the comment has been soft-deleted — the UI renders that case
+// as italic "ถูกลบแล้ว" + the original author + time, so the thread's
+// position doesn't shift around as comments are removed.
+type PlanningCommentResponse struct {
+	ID         string  `json:"id"`
+	ItemID     string  `json:"item_id"`
+	AuthorID   string  `json:"author_id"`
+	AuthorName string  `json:"author_name"`
+	Body       *string `json:"body"`
+	CreatedAt  string  `json:"created_at"`
+	UpdatedAt  string  `json:"updated_at"`
+	DeletedAt  *string `json:"deleted_at"`
+}
+
+type CreatePlanningCommentRequest struct {
+	Body string `json:"body" validate:"required,min=1,max=2000"`
+}
+
+type UpdatePlanningCommentRequest struct {
+	Body string `json:"body" validate:"required,min=1,max=2000"`
+}

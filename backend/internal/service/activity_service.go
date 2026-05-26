@@ -32,11 +32,19 @@ const (
 	EventPlanningItemDeleted    = "planning.item_deleted"
 	EventPlanningItemPromoted   = "planning.item_promoted"
 
+	// Comment events scope to one item's thread. The payload carries a
+	// truncated body preview so the feed reads sensibly without a join
+	// back to the comments table at render time.
+	EventPlanningCommentCreated = "planning.comment_created"
+	EventPlanningCommentEdited  = "planning.comment_edited"
+	EventPlanningCommentDeleted = "planning.comment_deleted"
+
 	EntityCard            = "card"
 	EntityColumn          = "column"
 	EntityMember          = "member"
 	EntityPlanningSession = "planning_session"
 	EntityPlanningItem    = "planning_item"
+	EntityPlanningComment = "planning_comment"
 )
 
 type ActivityService struct {
@@ -258,6 +266,23 @@ type PlanningSessionDeletedPayload struct {
 type PlanningItemCreatedPayload struct {
 	Type  string `json:"type"`
 	Title string `json:"title"`
+}
+
+// Comment payloads. Carry a truncated body preview so the feed can render
+// "X commented: 'first 80 chars…'" without joining back to the comments
+// table when rendering.
+type PlanningCommentCreatedPayload struct {
+	ItemID       string `json:"item_id"`
+	BodyPreview  string `json:"body_preview"`
+}
+
+type PlanningCommentEditedPayload struct {
+	ItemID       string `json:"item_id"`
+	BodyPreview  string `json:"body_preview"`
+}
+
+type PlanningCommentDeletedPayload struct {
+	ItemID string `json:"item_id"`
 }
 
 type PlanningItemUpdatedPayload struct {

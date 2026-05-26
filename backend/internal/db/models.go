@@ -97,6 +97,16 @@ type PlanningItem struct {
 	CreatedAt          time.Time
 }
 
+type PlanningItemComment struct {
+	ID        string
+	ItemID    string
+	AuthorID  string
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+}
+
 type PlanningSession struct {
 	ID        string
 	BoardID   string

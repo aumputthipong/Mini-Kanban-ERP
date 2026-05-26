@@ -6,13 +6,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { Ban, CheckSquare, ChevronDown, ChevronRight, FileText, ListChecks, Square, Trash2 } from "lucide-react";
+import { Ban, CheckSquare, ChevronDown, ChevronRight, FileText, ListChecks, MessageSquare, Square, Trash2 } from "lucide-react";
+import { useBoardStore } from "@/store/useBoardStore";
 import type {
   PlanningItem,
   PlanningItemStatus,
   PlanningItemType,
 } from "@/types/planning";
+import { CommentThread } from "./CommentThread";
 import { ItemDetailsPanel, countNonEmptyLines } from "./ItemDetailsPanel";
+import { usePlanningComments } from "@/hooks/usePlanningComments";
 import {
   TYPE_CHIP,
   TYPE_CHIP_ACTIVE,
@@ -59,6 +62,12 @@ export function ItemRow({
   const [editing, setEditing] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const currentUserId = useBoardStore((s) => s.currentUserId);
+  // Lazy comment thread — the hook never fetches until `load()` is called,
+  // which happens the first time the user clicks the comment badge. Each
+  // row owns its own hook instance so the threads don't interleave.
+  const comments = usePlanningComments(item.id, currentUserId || null);
   const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(item.title);
   // Tracks the last item.title we synced from so we can detect prop changes
@@ -249,6 +258,33 @@ export function ItemRow({
           <FileText size={10} /> มี note
         </span>
       )}
+      {/* Comment count badge — click toggles the thread expansion. The
+          count comes from the hook's local list (includes optimistic
+          additions, excludes soft-deleted) so it stays in sync with what
+          the thread actually shows. Initial value is "—" until first
+          load; clicking triggers the fetch so an unopened row never
+          burns a request. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!commentsExpanded && !comments.loaded) void comments.load();
+          setCommentsExpanded((v) => !v);
+        }}
+        title={commentsExpanded ? "ซ่อนความคิดเห็น" : "ดูความคิดเห็น"}
+        aria-label="ความคิดเห็น"
+        aria-expanded={commentsExpanded}
+        className={`inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+          commentsExpanded
+            ? "bg-indigo-50 text-indigo-700"
+            : "text-slate-500 hover:bg-slate-100"
+        }`}
+      >
+        <MessageSquare size={10} />
+        {comments.loaded
+          ? comments.comments.filter((c) => !c.deleted_at).length
+          : ""}
+      </button>
       {/* Action buttons — always visible at opacity-60 so users see them
           without needing to hover the row first. Lifts to full opacity on
           hover for affordance. Icon-only saves horizontal space; titles
@@ -324,6 +360,17 @@ export function ItemRow({
         implementationNote={item.implementation_note}
         onChangeAcceptanceCriteria={onChangeAcceptanceCriteria}
         onChangeImplementationNote={onChangeImplementationNote}
+      />
+    )}
+    {commentsExpanded && (
+      <CommentThread
+        comments={comments.comments}
+        isLoading={comments.isLoading}
+        loaded={comments.loaded}
+        currentUserId={currentUserId || null}
+        onCreate={comments.create}
+        onEdit={comments.edit}
+        onDelete={comments.remove}
       />
     )}
     </div>

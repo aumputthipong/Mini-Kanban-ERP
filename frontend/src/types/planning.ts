@@ -55,6 +55,20 @@ export interface PlanningSessionDetail {
 // Returned by GET /cards/:cardID/source. The handler responds with `null`
 // (not 404) when a card wasn't promoted from planning, so the modal can
 // render its "ที่มา" section conditionally without an error fork.
+// One comment on a planning item's thread. Body is null on soft-deleted
+// rows — the UI then renders italic "ถูกลบแล้ว" + the original author so
+// the thread's position doesn't shift on delete.
+export interface PlanningComment {
+  id: string;
+  item_id: string;
+  author_id: string;
+  author_name: string;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 export interface CardSource {
   session: {
     id: string;

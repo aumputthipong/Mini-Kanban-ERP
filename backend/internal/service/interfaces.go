@@ -80,6 +80,14 @@ type PlanningServicer interface {
 	DeleteItem(ctx context.Context, itemID string) error
 	PromoteItem(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
 	GetCardSource(ctx context.Context, cardID string, pendingLimit int32) (*CardSource, error)
+
+	// Item comments
+	ListItemComments(ctx context.Context, itemID string) ([]db.ListPlanningItemCommentsRow, error)
+	GetComment(ctx context.Context, commentID string) (db.PlanningItemComment, error)
+	GetCommentBoardID(ctx context.Context, commentID string) (string, error)
+	CreateComment(ctx context.Context, itemID, authorID, body string) (db.PlanningItemComment, error)
+	EditComment(ctx context.Context, commentID, body string) (db.PlanningItemComment, error)
+	DeleteComment(ctx context.Context, commentID string) error
 }
 
 // ActivityRecorder is the narrow contract handlers need to log audit events.
