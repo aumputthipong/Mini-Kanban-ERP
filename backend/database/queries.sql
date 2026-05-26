@@ -541,3 +541,11 @@ WHERE pi.id = $1;
 
 -- name: GetPlanningItem :one
 SELECT * FROM planning_items WHERE id = $1;
+
+-- LockPlanningItemForUpdate takes a row-level write lock on the planning
+-- item so concurrent PromoteItem callers serialize. Without this, two
+-- transactions running at READ COMMITTED can both read status='live',
+-- both pass the "already promoted?" check, and both create a card —
+-- producing duplicates. Always pair with a transaction.
+-- name: LockPlanningItemForUpdate :one
+SELECT * FROM planning_items WHERE id = $1 FOR UPDATE;

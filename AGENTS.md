@@ -136,6 +136,7 @@ handler/  → service/  → db/ (sqlc-generated)
 | ประเภทงาน          | ต้องรัน                                              |
 |---------------------|------------------------------------------------------|
 | Backend logic       | `make test` (`go test ./...`)                        |
+| Backend critical path | `make test-integration` (real Postgres via Docker) |
 | Frontend logic      | `make test-fe` (vitest)                              |
 | Frontend types      | `make typecheck` (`tsc --noEmit`)                    |
 | **UI change**       | `npm run design:link` + เปิด browser ทดสอบจริง       |
@@ -147,7 +148,8 @@ handler/  → service/  → db/ (sqlc-generated)
 ### Test patterns
 
 - **Backend handlers:** mock service at the interface boundary (`MockBoardService`, `MockPlanningService`, `MockActivityRecorder` ใน `internal/service/mock/`). อย่า mock `pgx` ตรง ๆ — service layer คือ test seam.
-- **Service-layer integration:** project ยังไม่มี test DB infra. critical paths (เช่น promote transaction) ปัจจุบัน cover ที่ handler level ด้วย mock + manual smoke. Real-DB race tests defer ไว้เป็น "test infra" item แยก.
+- **Service-layer integration (real DB):** ใช้ `internal/testutil` (testcontainers-go) สำหรับ critical-path tests ที่ mock จับไม่ได้ — race condition, cross-table transaction, schema/migration drift. Pattern: `pool := testutil.NewTestDB(t); seed := testutil.NewSeed(t, pool)` → คืน fresh DB cloned จาก migrated template (~10ms ต่อ test). Build tag `//go:build integration` แยกไฟล์ test ออก — `make test` (CI fast path) skip, `make test-integration` รัน. ต้องการ Docker.
+- **เมื่อไหร่ต้องเขียน integration test:** mutation ที่อยู่ใน transaction ข้าม table (เช่น `PromoteItem`), permission/race ที่ mock จับไม่ได้, query ที่ใช้ Postgres-specific feature (FOR UPDATE, advisory lock, JSON ops). ของอื่นยังคง mock service interface ตามเดิม.
 - **Test naming:** `TestFunctionName_Scenario_ExpectedResult` (ตัวอย่าง: `TestPromoteItem_DroppedItem_Returns422`).
 - **เพิ่ม interface ใหม่:** ทุก service struct ที่ handler depend ควรมี `*Servicer` interface คู่กัน + mock ใน `service/mock/` ตาม pattern เดิม.
 
