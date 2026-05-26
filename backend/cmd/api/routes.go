@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	_ "github.com/aumputthipong/mini-erp-kanban/backend/docs" // swagger generated
@@ -46,10 +47,18 @@ func setupRoutes(d routerDeps) http.Handler {
 	r.Use(observability.SentryRecoverer())
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.SecurityHeaders(d.production))
+	r.Use(observability.HTTPMetrics)
+	// gzip JSON/text responses. Board payloads (columns + cards + tags) compress
+	// 4–8×; skipped for already-compressed types (images, fonts).
+	r.Use(chiMiddleware.Compress(5, "application/json", "text/html", "text/css", "text/plain"))
 
 	// Health endpoints — used by load balancers / uptime monitors / k8s probes
 	r.Get("/health", healthHandler(d.pool, d.version, d.startedAt))
 	r.Get("/healthz", healthHandler(d.pool, d.version, d.startedAt))
+
+	// Prometheus scrape target. Not gated by auth — assume the network layer
+	// (firewall / k8s NetworkPolicy) is what restricts access.
+	r.Handle("/metrics", observability.MetricsHandler())
 
 	// API docs (Swagger UI). Spec is regenerated via `swag init` — see Makefile.
 	// In production, gate behind an admin flag or remove if not desired.
@@ -206,11 +215,32 @@ type HealthResponse struct {
 // @Router   /healthz [get]
 func healthHandler(pool *pgxpool.Pool, version string, startedAt time.Time) http.HandlerFunc {
 	type response = HealthResponse
+
+	// Memoize the DB ping for 1 second so an uptime monitor hitting /healthz
+	// every 100ms doesn't hammer the pool. Single goroutine writes; mutex
+	// keeps readers consistent.
+	var (
+		mu        sync.Mutex
+		cachedOK  bool
+		cachedAt  time.Time
+		cacheTTL  = time.Second
+	)
+	probe := func(ctx context.Context) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		if time.Since(cachedAt) < cacheTTL {
+			return cachedOK
+		}
+		cachedOK = pool.Ping(ctx) == nil
+		cachedAt = time.Now()
+		return cachedOK
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 
-		dbOK := pool.Ping(ctx) == nil
+		dbOK := probe(ctx)
 
 		body := response{
 			Status:      "ok",

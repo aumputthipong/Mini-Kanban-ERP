@@ -12,6 +12,7 @@ type Hub struct {
 	broadcast  chan BroadcastMessage
 	register   chan *Client
 	unregister chan *Client
+	stop       chan struct{}
 	boardCmd   *service.BoardCommandService
 	activities *service.ActivityService
 	// allowedOrigin is the single trusted browser origin (FRONTEND_URL).
@@ -30,15 +31,37 @@ func NewHub(boardCmd *service.BoardCommandService, activities *service.ActivityS
 		broadcast:     make(chan BroadcastMessage),
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
+		stop:          make(chan struct{}),
 		boardCmd:      boardCmd,
 		activities:    activities,
 		allowedOrigin: allowedOrigin,
 	}
 }
 
+// Shutdown closes every active WS connection and stops the hub goroutine.
+// Idempotent — safe to call once at SIGTERM. Pumps observe a closed `send`
+// channel and exit; ReadPump returns when the underlying conn closes.
+func (h *Hub) Shutdown() {
+	select {
+	case <-h.stop:
+		// already stopped
+	default:
+		close(h.stop)
+	}
+}
+
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.stop:
+			for boardID, clients := range h.rooms {
+				for client := range clients {
+					close(client.send)
+					_ = client.conn.Close()
+				}
+				delete(h.rooms, boardID)
+			}
+			return
 		case client := <-h.register:
 			// เช็คว่ามีห้องสำหรับ BoardID นี้หรือยัง ถ้ายังไม่มีให้สร้างใหม่
 			if _, ok := h.rooms[client.boardID]; !ok {

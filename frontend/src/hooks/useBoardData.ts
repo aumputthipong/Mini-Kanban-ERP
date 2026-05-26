@@ -1,7 +1,12 @@
 // hooks/useBoardData.ts
 import { useState, useEffect } from "react";
 import { useBoardStore } from "@/store/useBoardStore";
-import { API_URL } from "@/lib/constants";
+import { apiClient, ApiError } from "@/lib/apiClient";
+import type { Column, BoardMember } from "@/types/board";
+
+interface MeResponse {
+  user_id?: string;
+}
 
 /**
  * Bootstraps a board view by hydrating `useBoardStore` in three parallel
@@ -13,6 +18,10 @@ import { API_URL } from "@/lib/constants";
  * generic error states. The string `"NOT_FOUND"` is used as a sentinel for
  * 404 (board missing or not a member) so the page can show a tailored
  * message instead of the generic error UI.
+ *
+ * Uses `apiClient` (not raw fetch) so 401 → silent token refresh works the
+ * same way as the rest of the app. me/members failures fall back to
+ * sensible defaults instead of failing the whole bootstrap.
  */
 export function useBoardData(boardId: string) {
   const { setColumns, setCurrentUser, setBoardMembers, setLoading } = useBoardStore();
@@ -21,45 +30,55 @@ export function useBoardData(boardId: string) {
 
   useEffect(() => {
     if (!boardId) return;
+    let cancelled = false;
 
     const fetchAll = async () => {
       setIsLoading(true);
       setLoading(true);
       setError(null);
       try {
-        const [boardRes, meRes, membersRes] = await Promise.all([
-          fetch(`${API_URL}/boards/${boardId}`, { credentials: "include" }),
-          fetch(`${API_URL}/auth/me`, { credentials: "include" }),
-          fetch(`${API_URL}/boards/${boardId}/members`, { credentials: "include" }),
+        const [boardRes, meRes, membersRes] = await Promise.allSettled([
+          apiClient<Column[]>(`/boards/${boardId}`),
+          apiClient<MeResponse>(`/auth/me`),
+          apiClient<BoardMember[]>(`/boards/${boardId}/members`),
         ]);
 
-        if (boardRes.status === 404) {
-          setError("NOT_FOUND");
-          return;
+        if (cancelled) return;
+
+        if (boardRes.status === "rejected") {
+          const err = boardRes.reason;
+          if (err instanceof ApiError && err.status === 404) {
+            setError("NOT_FOUND");
+            return;
+          }
+          throw err;
         }
-        if (!boardRes.ok) throw new Error(`Failed to load board (${boardRes.status})`);
 
-        const [boardData, meData, membersData] = await Promise.all([
-          boardRes.json(),
-          meRes.ok ? meRes.json() : Promise.resolve(null),
-          membersRes.ok ? membersRes.json() : Promise.resolve([]),
-        ]);
-
-        setColumns(boardData);
-        if (meData?.user_id) setCurrentUser(meData.user_id);
-        setBoardMembers(
-          Array.isArray(membersData) ? membersData.filter(Boolean) : []
-        );
+        setColumns(boardRes.value);
+        if (meRes.status === "fulfilled" && meRes.value?.user_id) {
+          setCurrentUser(meRes.value.user_id);
+        }
+        const members =
+          membersRes.status === "fulfilled" && Array.isArray(membersRes.value)
+            ? membersRes.value.filter(Boolean)
+            : [];
+        setBoardMembers(members);
       } catch (err) {
+        if (cancelled) return;
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
-        setIsLoading(false);
-        setLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setLoading(false);
+        }
       }
     };
 
     fetchAll();
-  }, [boardId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [boardId, setColumns, setCurrentUser, setBoardMembers, setLoading]);
 
   return { isLoading, error };
 }
