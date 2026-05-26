@@ -10,6 +10,16 @@
 //   - edit:   patch local state immediately, revert on failure.
 //   - delete: flip body→null + deleted_at→now() locally, revert if the
 //             server rejects.
+//
+// Multi-instance note (per-row mounting): ItemRow instantiates this hook
+// once per visible item, so a session with 50 items has 50 instances.
+// Memory + render cost stay flat because (1) the hook never fetches
+// until load() is called — unloaded threads cost only the hook's local
+// state, (2) the visibility listener is only added after `loaded`
+// becomes true, so non-expanded rows don't attach listeners. The handful
+// of threads a user actually expands keep this well under any meaningful
+// budget. If a future "expand all" affordance ships, revisit by hoisting
+// the visibility listener to a shared subscriber.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useToastStore } from "@/store/useToastStore";
 import { planningApi } from "@/lib/planningApi";
