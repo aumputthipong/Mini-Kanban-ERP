@@ -14,7 +14,9 @@ import type {
 } from "@/types/planning";
 import {
   TYPE_CHIP,
+  TYPE_CHIP_ACTIVE,
   TYPE_CYCLE,
+  TYPE_LONG,
   TYPE_TOOLTIP,
 } from "./planningTypeMeta";
 
@@ -31,10 +33,12 @@ interface ItemRowProps {
   onDown: () => void;
 }
 
-// One row of the capture surface. Renders the index, the type chip
-// (click to cycle), the title (click to edit), the status badges, and the
-// three icon-action buttons. Click-first; the only keyboard surface is
-// inside the edit input (Enter to commit, Escape to cancel, arrows to nav).
+// One row of the capture surface. Renders the index, the type chip (click
+// opens a 3-option popover; the previous cycle-on-click was discoverable
+// only by accident and made REQ → DEC a two-click trip for new users), the
+// title (click to edit), the status badges, and the three icon-action
+// buttons. Click-first; the only keyboard surface is inside the edit input
+// (Enter to commit, Escape to cancel, arrows to nav).
 export function ItemRow({
   index,
   item,
@@ -48,6 +52,8 @@ export function ItemRow({
   onDown,
 }: ItemRowProps) {
   const [editing, setEditing] = useState(false);
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(item.title);
   // Tracks the last item.title we synced from so we can detect prop changes
   // during render without a useEffect+setState (which trips React 19's
@@ -65,6 +71,21 @@ export function ItemRow({
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  // Close the type menu when the user clicks anywhere outside it. Listening
+  // on mousedown (not click) so the menu closes before the outside element
+  // gets its own click handler — avoids accidentally toggling row focus or
+  // entering edit mode on the very click that dismissed the menu.
+  useEffect(() => {
+    if (!typeMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (!typeMenuRef.current?.contains(e.target as Node)) {
+        setTypeMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [typeMenuOpen]);
 
   const commit = () => {
     setEditing(false);
@@ -116,19 +137,54 @@ export function ItemRow({
       <span className="w-6 shrink-0 text-right text-[10px] text-slate-300">
         {String(index + 1).padStart(2, "0")}
       </span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          const idx = TYPE_CYCLE.indexOf(item.type);
-          onChangeType(TYPE_CYCLE[(idx + 1) % TYPE_CYCLE.length]);
-        }}
-        className={`shrink-0 rounded border px-1.5 py-0 text-[10px] font-bold uppercase ${TYPE_CHIP[item.type]}`}
-        disabled={promoted || dropped}
-        title={`${TYPE_TOOLTIP[item.type]} · คลิกเพื่อสลับชนิด`}
-      >
-        {item.type}
-      </button>
+      <div ref={typeMenuRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (promoted) return;
+            setTypeMenuOpen((open) => !open);
+          }}
+          className={`rounded border px-1.5 py-0 text-[10px] font-bold uppercase ${TYPE_CHIP[item.type]} ${
+            promoted ? "cursor-not-allowed opacity-60" : "hover:brightness-95"
+          }`}
+          disabled={promoted}
+          title={
+            promoted
+              ? "ส่งเข้า Board แล้ว เปลี่ยนประเภทไม่ได้"
+              : `${TYPE_TOOLTIP[item.type]} · คลิกเพื่อเปลี่ยน`
+          }
+        >
+          {item.type}
+        </button>
+        {typeMenuOpen && (
+          <div
+            className="absolute left-0 top-full z-10 mt-1 flex gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {TYPE_CYCLE.map((t) => {
+              const active = t === item.type;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTypeMenuOpen(false);
+                    if (t !== item.type) onChangeType(t);
+                  }}
+                  className={`whitespace-nowrap rounded border px-2 py-0.5 text-[10px] font-bold uppercase transition-colors ${
+                    active ? TYPE_CHIP_ACTIVE[t] : TYPE_CHIP[t]
+                  }`}
+                  title={TYPE_LONG[t]}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
       {editing ? (
         <input
           ref={inputRef}
