@@ -242,11 +242,32 @@ func TestUpdateSession_EmptyLabel_PassedThroughToService(t *testing.T) {
 	assert.Equal(t, "", *capturedLabel)
 }
 
-func TestUpdateItem_TitleEmpty_Returns400(t *testing.T) {
-	plan, _, act, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+// stubItemAndBoard wires the GetItem + GetSessionBoardID pair that
+// UpdateItem now calls. Default returns a live REQ item under validBoardID;
+// pass overrides via the optional mutator to model promoted / dropped /
+// different-type items in retype tests.
+func stubItemAndBoard(plan *mock.MockPlanningService, mutate ...func(*db.PlanningItem)) {
+	plan.GetItemFn = func(ctx context.Context, itemID string) (db.PlanningItem, error) {
+		it := db.PlanningItem{
+			ID:        itemID,
+			SessionID: validPlanningSessionID,
+			Type:      "REQ",
+			Title:     "Existing item",
+			Status:    "live",
+		}
+		for _, m := range mutate {
+			m(&it)
+		}
+		return it, nil
+	}
+	plan.GetSessionBoardIDFn = func(ctx context.Context, sessionID string) (string, error) {
 		return validBoardID, nil
 	}
+}
+
+func TestUpdateItem_TitleEmpty_Returns400(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	stubItemAndBoard(plan)
 
 	body := strings.NewReader(`{"title": ""}`)
 	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
@@ -262,9 +283,7 @@ func TestUpdateItem_TitleEmpty_Returns400(t *testing.T) {
 
 func TestUpdateItem_EmptyDescription_PassedThroughToService(t *testing.T) {
 	plan, _, _, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	var capturedDescription *string
 	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
 		capturedDescription = description
@@ -288,9 +307,7 @@ func TestUpdateItem_OnlyStatusSent_OtherFieldsNilAtService(t *testing.T) {
 	// see type/title/description/position as nil so SQL's COALESCE keeps
 	// them. Regressions here would silently wipe titles on drop.
 	plan, _, _, h := newPromoteTestRig()
-	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
-		return validBoardID, nil
-	}
+	stubItemAndBoard(plan)
 	var capturedType, capturedTitle, capturedDescription, capturedStatus *string
 	var capturedPosition *float64
 	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
@@ -316,4 +333,85 @@ func TestUpdateItem_OnlyStatusSent_OtherFieldsNilAtService(t *testing.T) {
 	require.NotNil(t, capturedStatus)
 	assert.Equal(t, "dropped", *capturedStatus)
 	assert.Nil(t, capturedPosition)
+}
+
+// ────────────────────────────────────────────────
+// UpdateItem — type conversion (B-F2)
+// ────────────────────────────────────────────────
+
+func TestUpdateItem_RetypeOnLiveItem_RecordsPreviousType(t *testing.T) {
+	// Q → DEC on a live item is the common "we finally decided this" flow.
+	// Activity payload must carry both the new type (item.Type) AND the
+	// previous_type so the chip-history tooltip can render
+	// "เคยเป็น Q · เปลี่ยนเมื่อ X ที่แล้ว" without a second query.
+	plan, _, act, h := newPromoteTestRig()
+	stubItemAndBoard(plan, func(it *db.PlanningItem) { it.Type = "Q" })
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+		require.NotNil(t, itemType)
+		assert.Equal(t, "DEC", *itemType)
+		return db.PlanningItem{ID: itemID, Type: "DEC", Title: "Existing item", Status: "live"}, nil
+	}
+
+	body := strings.NewReader(`{"type": "DEC"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, act.Calls, 1)
+	payload, ok := act.Calls[0].Payload.(service.PlanningItemUpdatedPayload)
+	require.True(t, ok)
+	assert.Equal(t, []string{"type"}, payload.Fields)
+	assert.Equal(t, "DEC", payload.Type)
+	assert.Equal(t, "Q", payload.PreviousType, "previous_type must record the pre-update type for the history tooltip")
+}
+
+func TestUpdateItem_RetypeOnPromoted_Returns400(t *testing.T) {
+	// Promoted items are frozen for retype — a card already lives on the
+	// Kanban board with the original semantics. Allowing REQ → Q would
+	// disconnect the card from the user's intent without renaming. The
+	// handler must reject with a Thai-friendly 400 so the optimistic UI
+	// can revert and toast.
+	plan, _, act, h := newPromoteTestRig()
+	stubItemAndBoard(plan, func(it *db.PlanningItem) {
+		it.Type = "REQ"
+		it.Status = "promoted"
+	})
+
+	body := strings.NewReader(`{"type": "Q"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Board")
+	assert.Empty(t, act.Calls, "rejected retype must not produce an audit row")
+}
+
+func TestUpdateItem_RetypeSameType_NoPreviousTypeInPayload(t *testing.T) {
+	// Idempotent retype (REQ → REQ) — the type field is "set" in the
+	// request but didn't actually change. previous_type should be empty so
+	// the feed doesn't render a misleading "changed from REQ to REQ" line.
+	plan, _, act, h := newPromoteTestRig()
+	stubItemAndBoard(plan, func(it *db.PlanningItem) { it.Type = "REQ" })
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Existing item"}, nil
+	}
+
+	body := strings.NewReader(`{"type": "REQ"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, act.Calls, 1)
+	payload, ok := act.Calls[0].Payload.(service.PlanningItemUpdatedPayload)
+	require.True(t, ok)
+	assert.Equal(t, "", payload.PreviousType)
 }

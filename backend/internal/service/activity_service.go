@@ -264,6 +264,11 @@ type PlanningItemUpdatedPayload struct {
 	Type   string   `json:"type"`
 	Title  string   `json:"title"`
 	Fields []string `json:"fields"`
+	// PreviousType is set only when "type" is in Fields — lets the feed and
+	// the item-row chip tooltip render "เคยเป็น Q · เปลี่ยนเมื่อ X ที่แล้ว"
+	// without a second query. Omitted from JSON when empty so non-retype
+	// updates stay byte-identical to the old payload shape.
+	PreviousType string `json:"previous_type,omitempty"`
 }
 
 type PlanningItemDeletedPayload struct {
