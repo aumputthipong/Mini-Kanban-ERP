@@ -317,3 +317,106 @@ func TestUpdateItem_OnlyStatusSent_OtherFieldsNilAtService(t *testing.T) {
 	assert.Equal(t, "dropped", *capturedStatus)
 	assert.Nil(t, capturedPosition)
 }
+
+// ────────────────────────────────────────────────
+// GetCardSource — backlink card → planning item
+// ────────────────────────────────────────────────
+
+func newCardSourceRequest(t *testing.T, cardID, userID string) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/cards/"+cardID+"/source", nil)
+	req = chiCtx(req, "cardID", cardID)
+	return withUserID(req, userID)
+}
+
+func TestGetCardSource_PromotedCard_ReturnsSessionAndItem(t *testing.T) {
+	plan, boards, _, h := newPromoteTestRig()
+	boards.GetBoardIDByCardFn = func(ctx context.Context, cardID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.GetCardSourceFn = func(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error) {
+		assert.Equal(t, int32(3), pendingLimit)
+		return &service.CardSource{
+			SessionID:    validPlanningSessionID,
+			SessionTitle: "Sprint Kickoff",
+			ItemID:       validPlanningItemID,
+			ItemType:     "REQ",
+			ItemTitle:    "Add Google login",
+			ItemStatus:   "promoted",
+			PendingQuestions: []service.CardSourcePendingQuestion{
+				{ID: "q1", Title: "Which Google scope?"},
+			},
+		}, nil
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, validPromotedCardID, validUserID))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&body))
+	session, _ := body["session"].(map[string]any)
+	require.NotNil(t, session, "session field must be present")
+	assert.Equal(t, "Sprint Kickoff", session["title"])
+	item, _ := body["item"].(map[string]any)
+	require.NotNil(t, item)
+	assert.Equal(t, "REQ", item["type"])
+	questions, _ := body["pending_questions"].([]any)
+	require.Len(t, questions, 1)
+}
+
+func TestGetCardSource_CardNotPromoted_Returns200Null(t *testing.T) {
+	// A non-planning-promoted card must NOT return 404 — the endpoint says
+	// "what's the source of this card?" and "no source" is a valid answer.
+	// 404 would force the frontend into an error fork for the common case.
+	plan, boards, _, h := newPromoteTestRig()
+	boards.GetBoardIDByCardFn = func(ctx context.Context, cardID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.GetCardSourceFn = func(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error) {
+		return nil, nil
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, validPromotedCardID, validUserID))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "null", w.Body.String())
+}
+
+func TestGetCardSource_CardNotFound_Returns404(t *testing.T) {
+	_, boards, _, h := newPromoteTestRig()
+	boards.GetBoardIDByCardFn = func(ctx context.Context, cardID string) (string, error) {
+		return "", pgx.ErrNoRows
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, validPromotedCardID, validUserID))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetCardSource_NotMember_Returns404(t *testing.T) {
+	// Anti-enumeration: a non-member probing /api/cards/X/source must not
+	// be able to tell apart "card doesn't exist" from "you don't have
+	// access to its board". Both arrive as 404.
+	_, boards, _, h := newPromoteTestRig()
+	boards.GetBoardIDByCardFn = func(ctx context.Context, cardID string) (string, error) {
+		return validBoardID, nil
+	}
+	boards.GetBoardMemberRoleFn = func(ctx context.Context, boardID, userID string) (string, error) {
+		return "", pgx.ErrNoRows
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, validPromotedCardID, validUserID))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetCardSource_BadCardID_Returns400(t *testing.T) {
+	_, _, _, h := newPromoteTestRig()
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, "not-a-uuid", validUserID))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}

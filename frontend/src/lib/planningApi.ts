@@ -3,6 +3,7 @@
 // makes it cheap to swap the transport later (e.g. WS sync in Phase 3).
 import { apiClient } from "@/lib/apiClient";
 import type {
+  CardSource,
   PlanningSessionSummary,
   PlanningSessionDetail,
   PlanningItem,
@@ -76,4 +77,10 @@ export const planningApi = {
       `/planning/items/${itemId}/promote`,
       { method: "POST", data: {} },
     ),
+
+  // Backlink lookup for the card detail modal's "ที่มา" section. Returns
+  // null when the card wasn't promoted from planning — apiClient passes
+  // through the JSON-null body as JS null, so callers branch on `!source`.
+  getCardSource: (cardId: string) =>
+    apiClient<CardSource | null>(`/cards/${cardId}/source`),
 };

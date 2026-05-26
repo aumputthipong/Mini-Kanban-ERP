@@ -25,6 +25,7 @@ type MockPlanningService struct {
 	UpdateItemFn          func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error)
 	DeleteItemFn          func(ctx context.Context, itemID string) error
 	PromoteItemFn         func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
+	GetCardSourceFn       func(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error)
 }
 
 func (m *MockPlanningService) ListSessionsByBoard(ctx context.Context, boardID string) ([]db.ListPlanningSessionsByBoardRow, error) {
@@ -77,6 +78,10 @@ func (m *MockPlanningService) DeleteItem(ctx context.Context, itemID string) err
 
 func (m *MockPlanningService) PromoteItem(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
 	return m.PromoteItemFn(ctx, itemID, userID)
+}
+
+func (m *MockPlanningService) GetCardSource(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error) {
+	return m.GetCardSourceFn(ctx, cardID, pendingLimit)
 }
 
 // MockActivityRecorder records each Record() invocation in a slice so tests

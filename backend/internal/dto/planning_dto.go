@@ -92,3 +92,35 @@ type UpdatePlanningItemRequest struct {
 	Status      *string  `json:"status"      validate:"omitempty,oneof=live selected dropped promoted"`
 	Position    *float64 `json:"position"`
 }
+
+// CardSourceResponse describes which planning session/item a Kanban card
+// was promoted from. Returned by GET /api/cards/{cardID}/source — `null`
+// (not 404) when the card wasn't promoted from planning, so the modal can
+// render its "ที่มา" section conditionally without an error fork. The
+// pending_questions list is capped server-side (default 3) and excludes
+// dropped / already-promoted questions — only questions still worth
+// re-visiting are surfaced next to the resulting card.
+type CardSourceResponse struct {
+	Session          CardSourceSession    `json:"session"`
+	Item             CardSourceItem       `json:"item"`
+	PendingQuestions []CardSourceQuestion `json:"pending_questions"`
+}
+
+type CardSourceSession struct {
+	ID        string  `json:"id"`
+	Title     string  `json:"title"`
+	Label     *string `json:"label"`
+	MeetingAt *string `json:"meeting_at"`
+}
+
+type CardSourceItem struct {
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
+type CardSourceQuestion struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}

@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/util"
@@ -129,6 +130,75 @@ func (s *PlanningService) UpdateItem(ctx context.Context, itemID string, itemTyp
 
 func (s *PlanningService) DeleteItem(ctx context.Context, itemID string) error {
 	return s.queries.DeletePlanningItem(ctx, itemID)
+}
+
+// CardSource is the data behind the card detail modal's "ที่มา" section
+// — the planning session + item that produced this card, plus a few of
+// the session's still-open questions so the dev opening the card can see
+// "what else came up in this meeting that's not yet decided".
+type CardSource struct {
+	SessionID        string
+	SessionTitle     string
+	SessionLabel     *string
+	SessionMeetingAt *time.Time
+	SessionBoardID   string
+	ItemID           string
+	ItemType         string
+	ItemTitle        string
+	ItemStatus       string
+	PendingQuestions []CardSourcePendingQuestion
+}
+
+type CardSourcePendingQuestion struct {
+	ID    string
+	Title string
+}
+
+// GetCardSource returns the planning origin of a card, or nil if the card
+// was never promoted from planning (or the source session/item has been
+// deleted — FK is ON DELETE SET NULL on planning_items.promoted_to_card_id,
+// so a deleted card can still leave dangling items, but a deleted item
+// orphans the link from the card side, which we treat as "no source"). The
+// pendingLimit caps how many open questions we surface — pass 3 to match
+// the modal's render budget.
+func (s *PlanningService) GetCardSource(ctx context.Context, cardID string, pendingLimit int32) (*CardSource, error) {
+	row, err := s.queries.GetPlanningSourceByCard(ctx, &cardID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get card source: %w", err)
+	}
+
+	if pendingLimit <= 0 {
+		pendingLimit = 3
+	}
+	questions, err := s.queries.ListPendingQuestionsBySession(ctx,
+		db.ListPendingQuestionsBySessionParams{
+			SessionID: row.SessionID,
+			Limit:     pendingLimit,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("list pending questions: %w", err)
+	}
+
+	pending := make([]CardSourcePendingQuestion, len(questions))
+	for i, q := range questions {
+		pending[i] = CardSourcePendingQuestion{ID: q.ID, Title: q.Title}
+	}
+
+	return &CardSource{
+		SessionID:        row.SessionID,
+		SessionTitle:     row.SessionTitle,
+		SessionLabel:     row.SessionLabel,
+		SessionMeetingAt: row.SessionMeetingAt,
+		SessionBoardID:   row.SessionBoardID,
+		ItemID:           row.ItemID,
+		ItemType:         row.ItemType,
+		ItemTitle:        row.ItemTitle,
+		ItemStatus:       row.ItemStatus,
+		PendingQuestions: pending,
+	}, nil
 }
 
 // PromoteItem turns a planning item into a Kanban card in the same board's

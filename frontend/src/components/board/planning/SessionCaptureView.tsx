@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Download, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -49,6 +49,24 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
   const [focusIndex, setFocusIndex] = useState<number>(-1);
   const [showExport, setShowExport] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Deep-link target from #item-<id> — when the card detail modal's "ที่มา"
+  // section links here, focus the source item so the user lands directly
+  // on the row that became this card. Runs once items have loaded.
+  useEffect(() => {
+    if (!items.length) return;
+    const hash = window.location.hash;
+    const match = /^#item-(.+)$/.exec(hash);
+    if (!match) return;
+    const targetIdx = items.findIndex((it) => it.id === match[1]);
+    if (targetIdx < 0) return;
+    setFocusIndex(targetIdx);
+    // Defer scroll one frame so the row has rendered with the focus class.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`item-${match[1]}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [items]);
 
   if (!detail) {
     return <CaptureSkeleton />;

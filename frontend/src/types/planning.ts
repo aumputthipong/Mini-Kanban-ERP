@@ -46,3 +46,22 @@ export interface PlanningSessionDetail {
   updated_at: string;
   items: PlanningItem[];
 }
+
+// Returned by GET /cards/:cardID/source. The handler responds with `null`
+// (not 404) when a card wasn't promoted from planning, so the modal can
+// render its "ที่มา" section conditionally without an error fork.
+export interface CardSource {
+  session: {
+    id: string;
+    title: string;
+    label: string | null;
+    meeting_at: string | null;
+  };
+  item: {
+    id: string;
+    type: PlanningItemType;
+    title: string;
+    status: PlanningItemStatus;
+  };
+  pending_questions: { id: string; title: string }[];
+}
