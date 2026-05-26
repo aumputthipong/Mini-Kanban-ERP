@@ -16,6 +16,10 @@ interface Props {
   isClaimedByMe: boolean;
   claimerName: string;
   claimedAt: string | null;
+  // canForceRelease enables the moderation path — owner/manager can clear
+  // someone else's claim (the backend's DELETE /claim accepts both own
+  // and force-release in the same endpoint, gated by board role).
+  canForceRelease: boolean;
   onClaim: () => void;
   onRelease: () => void;
 }
@@ -25,6 +29,7 @@ export function ItemClaimAffordance({
   isClaimedByMe,
   claimerName,
   claimedAt,
+  canForceRelease,
   onClaim,
   onRelease,
 }: Props) {
@@ -45,28 +50,42 @@ export function ItemClaimAffordance({
     );
   }
 
-  // Claimed by someone — own claim is interactive (click to release);
-  // other people's claims are display-only here. Manager force-release is
-  // an API-only path right now (no UI exposed in the row); a moderator
-  // affordance can land later without changing this component's surface.
+  // Claimed by someone. Three branches:
+  //   - own claim → click releases
+  //   - other's claim + I'm owner/manager → click force-releases (moderation)
+  //   - other's claim + I'm a regular member → display-only
+  // The "force release" path looks the same as the disabled-display path
+  // except it's interactive on hover and shows a moderator-specific
+  // tooltip. Keeping the same shape avoids re-flowing the row when role
+  // changes around the user.
+  const clickable = isClaimedByMe || canForceRelease;
+  const ownTooltip = `กำลังดูอยู่${claimedAt ? " · " + new Date(claimedAt).toLocaleTimeString("th-TH") : ""} · คลิกเพื่อเลิกดู`;
+  const forceTooltip = `${claimerName} กำลังดูอยู่ · คลิกเพื่อบังคับเลิก (manager/owner)`;
+  const readOnlyTooltip = `${claimerName} กำลังดูอยู่`;
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        if (isClaimedByMe) onRelease();
+        if (clickable) onRelease();
       }}
-      disabled={!isClaimedByMe}
+      disabled={!clickable}
       title={
-        isClaimedByMe
-          ? `กำลังดูอยู่${claimedAt ? " · " + new Date(claimedAt).toLocaleTimeString("th-TH") : ""} · คลิกเพื่อเลิกดู`
-          : `${claimerName} กำลังดูอยู่`
+        isClaimedByMe ? ownTooltip : canForceRelease ? forceTooltip : readOnlyTooltip
       }
-      aria-label={isClaimedByMe ? "เลิกดู" : `${claimerName} กำลังดู`}
+      aria-label={
+        isClaimedByMe
+          ? "เลิกดู"
+          : canForceRelease
+            ? `บังคับเลิก ${claimerName} กำลังดู`
+            : `${claimerName} กำลังดู`
+      }
       className={`inline-flex shrink-0 items-center gap-1 rounded-full pr-1 text-[10px] font-semibold transition-colors ${
         isClaimedByMe
           ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-          : "bg-slate-100 text-slate-600 cursor-not-allowed"
+          : canForceRelease
+            ? "bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
+            : "bg-slate-100 text-slate-600 cursor-not-allowed"
       }`}
     >
       <span
@@ -81,6 +100,10 @@ export function ItemClaimAffordance({
       {isClaimedByMe ? (
         <span className="inline-flex items-center gap-0.5">
           <EyeOff size={9} /> เลิกดู
+        </span>
+      ) : canForceRelease ? (
+        <span className="inline-flex items-center gap-0.5 pr-1">
+          <EyeOff size={9} /> ดูอยู่
         </span>
       ) : (
         <span className="pr-1">ดูอยู่</span>

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { FileText, ListChecks, MessageSquare } from "lucide-react";
 import { useBoardStore } from "@/store/useBoardStore";
+import { useCanManageBoard } from "@/hooks/useBoardRole";
 import type {
   PlanningItem,
   PlanningItemStatus,
@@ -64,6 +65,7 @@ export function ItemRow({
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const currentUserId = useBoardStore((s) => s.currentUserId);
   const boardMembers = useBoardStore((s) => s.boardMembers);
+  const canManage = useCanManageBoard();
   // Lazy comment thread — the hook never fetches until `load()` is called,
   // which happens the first time the user clicks the comment badge. Each
   // row owns its own hook instance so the threads don't interleave.
@@ -211,6 +213,7 @@ export function ItemRow({
           isClaimedByMe={isClaimedByMe}
           claimerName={claimerName}
           claimedAt={item.claimed_at ?? null}
+          canForceRelease={canManage && !isClaimedByMe}
           onClaim={onClaim}
           onRelease={onRelease}
         />
@@ -238,9 +241,11 @@ export function ItemRow({
         }`}
       >
         <MessageSquare size={10} />
+        {/* "—" placeholder until first load so the user sees "count
+            unknown yet" instead of mistaking blank for zero. */}
         {comments.loaded
           ? comments.comments.filter((c) => !c.deleted_at).length
-          : ""}
+          : "—"}
       </button>
       <ItemActionButtons
         selected={selected}
