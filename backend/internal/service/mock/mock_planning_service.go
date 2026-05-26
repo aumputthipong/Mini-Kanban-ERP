@@ -22,7 +22,7 @@ type MockPlanningService struct {
 	UpdateSessionFn       func(ctx context.Context, sessionID string, title, label, meetingAt *string) (db.PlanningSession, error)
 	DeleteSessionFn       func(ctx context.Context, sessionID string) error
 	CreateItemFn          func(ctx context.Context, sessionID, itemType, title string, description *string) (db.PlanningItem, error)
-	UpdateItemFn          func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error)
+	UpdateItemFn          func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error)
 	DeleteItemFn          func(ctx context.Context, itemID string) error
 	PromoteItemFn         func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
 	GetCardSourceFn       func(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error)
@@ -68,8 +68,8 @@ func (m *MockPlanningService) CreateItem(ctx context.Context, sessionID, itemTyp
 	return m.CreateItemFn(ctx, sessionID, itemType, title, description)
 }
 
-func (m *MockPlanningService) UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
-	return m.UpdateItemFn(ctx, itemID, itemType, title, description, status, position)
+func (m *MockPlanningService) UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
+	return m.UpdateItemFn(ctx, itemID, itemType, title, description, status, position, acceptanceCriteria, implementationNote)
 }
 
 func (m *MockPlanningService) DeleteItem(ctx context.Context, itemID string) error {

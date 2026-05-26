@@ -62,6 +62,8 @@ export const planningApi = {
       description?: string | null;
       status?: PlanningItemStatus;
       position?: number;
+      acceptance_criteria?: string | null;
+      implementation_note?: string | null;
     },
   ) =>
     apiClient<PlanningItem>(`/planning/items/${itemId}`, {

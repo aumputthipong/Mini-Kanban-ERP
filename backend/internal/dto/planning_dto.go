@@ -56,15 +56,17 @@ type PlanningSessionDetail struct {
 }
 
 type PlanningItemResponse struct {
-	ID                string  `json:"id"`
-	SessionID         string  `json:"session_id"`
-	Type              string  `json:"type"`
-	Title             string  `json:"title"`
-	Description       *string `json:"description"`
-	Status            string  `json:"status"`
-	PromotedToCardID  *string `json:"promoted_to_card_id"`
-	Position          float64 `json:"position"`
-	CreatedAt         string  `json:"created_at"`
+	ID                 string  `json:"id"`
+	SessionID          string  `json:"session_id"`
+	Type               string  `json:"type"`
+	Title              string  `json:"title"`
+	Description        *string `json:"description"`
+	Status             string  `json:"status"`
+	PromotedToCardID   *string `json:"promoted_to_card_id"`
+	Position           float64 `json:"position"`
+	CreatedAt          string  `json:"created_at"`
+	AcceptanceCriteria *string `json:"acceptance_criteria"`
+	ImplementationNote *string `json:"implementation_note"`
 }
 
 type CreatePlanningSessionRequest struct {
@@ -86,11 +88,13 @@ type CreatePlanningItemRequest struct {
 }
 
 type UpdatePlanningItemRequest struct {
-	Type        *string  `json:"type"        validate:"omitempty,oneof=REQ DEC Q"`
-	Title       *string  `json:"title"       validate:"omitempty,min=1,max=500"`
-	Description *string  `json:"description" validate:"omitempty,max=5000"`
-	Status      *string  `json:"status"      validate:"omitempty,oneof=live selected dropped promoted"`
-	Position    *float64 `json:"position"`
+	Type               *string  `json:"type"                validate:"omitempty,oneof=REQ DEC Q"`
+	Title              *string  `json:"title"               validate:"omitempty,min=1,max=500"`
+	Description        *string  `json:"description"         validate:"omitempty,max=5000"`
+	Status             *string  `json:"status"              validate:"omitempty,oneof=live selected dropped promoted"`
+	Position           *float64 `json:"position"`
+	AcceptanceCriteria *string  `json:"acceptance_criteria" validate:"omitempty,max=10000"`
+	ImplementationNote *string  `json:"implementation_note" validate:"omitempty,max=10000"`
 }
 
 // CardSourceResponse describes which planning session/item a Kanban card

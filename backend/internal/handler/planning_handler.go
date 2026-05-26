@@ -113,15 +113,17 @@ func sessionRowToSummary(r db.ListPlanningSessionsByBoardRow) dto.PlanningSessio
 
 func itemToResponse(it db.PlanningItem) dto.PlanningItemResponse {
 	return dto.PlanningItemResponse{
-		ID:               it.ID,
-		SessionID:        it.SessionID,
-		Type:             it.Type,
-		Title:            it.Title,
-		Description:      it.Description,
-		Status:           it.Status,
-		PromotedToCardID: it.PromotedToCardID,
-		Position:         it.Position,
-		CreatedAt:        it.CreatedAt.Format(time.RFC3339),
+		ID:                 it.ID,
+		SessionID:          it.SessionID,
+		Type:               it.Type,
+		Title:              it.Title,
+		Description:        it.Description,
+		Status:             it.Status,
+		PromotedToCardID:   it.PromotedToCardID,
+		Position:           it.Position,
+		CreatedAt:          it.CreatedAt.Format(time.RFC3339),
+		AcceptanceCriteria: it.AcceptanceCriteria,
+		ImplementationNote: it.ImplementationNote,
 	}
 }
 
@@ -400,7 +402,7 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	if req.Type != nil && *req.Type != current.Type && current.Status == "promoted" {
 		return httputil.NewAPIError(http.StatusBadRequest, "ส่งเข้า Board แล้ว เปลี่ยนประเภทไม่ได้", nil)
 	}
-	item, err := h.planning.UpdateItem(r.Context(), itemID, req.Type, req.Title, req.Description, req.Status, req.Position)
+	item, err := h.planning.UpdateItem(r.Context(), itemID, req.Type, req.Title, req.Description, req.Status, req.Position, req.AcceptanceCriteria, req.ImplementationNote)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update item", err)
 	}
@@ -408,7 +410,7 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	// they're still logged so the feed reflects the action, but a future
 	// refinement may filter position-only edits from the visible feed at
 	// query time.
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 7)
 	if req.Type != nil {
 		fields = append(fields, "type")
 	}
@@ -423,6 +425,12 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	}
 	if req.Position != nil {
 		fields = append(fields, "position")
+	}
+	if req.AcceptanceCriteria != nil {
+		fields = append(fields, "acceptance_criteria")
+	}
+	if req.ImplementationNote != nil {
+		fields = append(fields, "implementation_note")
 	}
 	payload := service.PlanningItemUpdatedPayload{
 		Type:   item.Type,

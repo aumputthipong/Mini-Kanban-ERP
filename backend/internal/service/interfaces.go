@@ -76,7 +76,7 @@ type PlanningServicer interface {
 	UpdateSession(ctx context.Context, sessionID string, title, label, meetingAt *string) (db.PlanningSession, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	CreateItem(ctx context.Context, sessionID, itemType, title string, description *string) (db.PlanningItem, error)
-	UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error)
+	UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error)
 	DeleteItem(ctx context.Context, itemID string) error
 	PromoteItem(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
 	GetCardSource(ctx context.Context, cardID string, pendingLimit int32) (*CardSource, error)

@@ -147,6 +147,8 @@ export function TaskPill({ card, boardId, inPopover = false }: TaskPillProps) {
       priority: form.priority,
       estimated_hours: form.estimated_hours,
       tags: form.tags,
+      acceptance_criteria: form.acceptance_criteria,
+      implementation_note: form.implementation_note,
     });
     setIsDetailOpen(false);
   };

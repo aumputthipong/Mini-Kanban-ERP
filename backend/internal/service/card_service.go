@@ -20,6 +20,12 @@ type UpdateCardParams struct {
 	Priority       *string
 	EstimatedHours *float64
 	TagIDs         *[]string // nil = don't touch, &[]string{} = clear all
+	// AcceptanceCriteria and ImplementationNote follow PATCH semantics
+	// (nil = no change, &"" = clear). Unlike the fields above, the SQL
+	// uses COALESCE for these two so a "title only" edit doesn't wipe
+	// out values that PromoteItem copied over from the planning row.
+	AcceptanceCriteria *string
+	ImplementationNote *string
 }
 
 type CardService struct {
@@ -40,13 +46,15 @@ func (s *BoardService) UpdateCard(ctx context.Context, arg UpdateCardParams) (db
 	qtx := s.queries.WithTx(tx)
 
 	card, err := qtx.UpdateCard(ctx, db.UpdateCardParams{
-		ID:             arg.ID,
-		Title:          arg.Title,
-		Description:    arg.Description,
-		Priority:       arg.Priority,
-		DueDate:        arg.DueDate,
-		AssigneeID:     arg.AssigneeID,
-		EstimatedHours: util.PtrFloatToPgNumeric(arg.EstimatedHours),
+		ID:                 arg.ID,
+		Title:              arg.Title,
+		Description:        arg.Description,
+		Priority:           arg.Priority,
+		DueDate:            arg.DueDate,
+		AssigneeID:         arg.AssigneeID,
+		EstimatedHours:     util.PtrFloatToPgNumeric(arg.EstimatedHours),
+		AcceptanceCriteria: arg.AcceptanceCriteria,
+		ImplementationNote: arg.ImplementationNote,
 	})
 	if err != nil {
 		return db.Card{}, fmt.Errorf("update card: %w", err)

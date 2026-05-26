@@ -128,33 +128,41 @@ func (q *Queries) CreateBoard(ctx context.Context, title string) (CreateBoardRow
 }
 
 const createCard = `-- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by, acceptance_criteria, implementation_note)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by, acceptance_criteria, implementation_note
 `
 
 type CreateCardParams struct {
-	ColumnID   string
-	Title      string
-	Position   float64
-	DueDate    *time.Time
-	AssigneeID *string
-	Priority   *string
-	CreatedBy  *string
+	ColumnID           string
+	Title              string
+	Position           float64
+	DueDate            *time.Time
+	AssigneeID         *string
+	Priority           *string
+	CreatedBy          *string
+	AcceptanceCriteria *string
+	ImplementationNote *string
 }
 
 type CreateCardRow struct {
-	ID          string
-	ColumnID    string
-	Title       string
-	Description *string
-	Position    float64
-	DueDate     *time.Time
-	AssigneeID  *string
-	Priority    *string
-	CreatedBy   *string
+	ID                 string
+	ColumnID           string
+	Title              string
+	Description        *string
+	Position           float64
+	DueDate            *time.Time
+	AssigneeID         *string
+	Priority           *string
+	CreatedBy          *string
+	AcceptanceCriteria *string
+	ImplementationNote *string
 }
 
+// acceptance_criteria and implementation_note are accepted as optional
+// inserts so PromoteItem can carry the planning row's values onto the
+// resulting card in one statement. User-initiated card creation passes
+// nil and the columns stay NULL.
 func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateCardRow, error) {
 	row := q.db.QueryRow(ctx, createCard,
 		arg.ColumnID,
@@ -164,6 +172,8 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 		arg.AssigneeID,
 		arg.Priority,
 		arg.CreatedBy,
+		arg.AcceptanceCriteria,
+		arg.ImplementationNote,
 	)
 	var i CreateCardRow
 	err := row.Scan(
@@ -176,6 +186,8 @@ func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (CreateC
 		&i.AssigneeID,
 		&i.Priority,
 		&i.CreatedBy,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 	)
 	return i, err
 }
@@ -222,7 +234,7 @@ func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (Cre
 const createPlanningItem = `-- name: CreatePlanningItem :one
 INSERT INTO planning_items (session_id, type, title, description, position)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, created_at
+RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at
 `
 
 type CreatePlanningItemParams struct {
@@ -251,6 +263,8 @@ func (q *Queries) CreatePlanningItem(ctx context.Context, arg CreatePlanningItem
 		&i.Status,
 		&i.PromotedToCardID,
 		&i.Position,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -724,7 +738,7 @@ func (q *Queries) GetBoardMembers(ctx context.Context, boardID string) ([]GetBoa
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, created_at, updated_at FROM cards 
+SELECT id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, acceptance_criteria, implementation_note, created_at, updated_at FROM cards 
 WHERE id = $1 LIMIT 1
 `
 
@@ -744,6 +758,8 @@ func (q *Queries) GetCard(ctx context.Context, id string) (Card, error) {
 		&i.CompletedAt,
 		&i.CreatedBy,
 		&i.IsDone,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1083,7 +1099,7 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 }
 
 const getPlanningItem = `-- name: GetPlanningItem :one
-SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items WHERE id = $1
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at FROM planning_items WHERE id = $1
 `
 
 func (q *Queries) GetPlanningItem(ctx context.Context, id string) (PlanningItem, error) {
@@ -1098,6 +1114,8 @@ func (q *Queries) GetPlanningItem(ctx context.Context, id string) (PlanningItem,
 		&i.Status,
 		&i.PromotedToCardID,
 		&i.Position,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1692,7 +1710,7 @@ func (q *Queries) ListPendingQuestionsBySession(ctx context.Context, arg ListPen
 }
 
 const listPlanningItemsBySession = `-- name: ListPlanningItemsBySession :many
-SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at FROM planning_items
 WHERE session_id = $1
 ORDER BY position ASC
 `
@@ -1715,6 +1733,8 @@ func (q *Queries) ListPlanningItemsBySession(ctx context.Context, sessionID stri
 			&i.Status,
 			&i.PromotedToCardID,
 			&i.Position,
+			&i.AcceptanceCriteria,
+			&i.ImplementationNote,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1798,7 +1818,7 @@ func (q *Queries) ListPlanningSessionsByBoard(ctx context.Context, boardID strin
 }
 
 const lockPlanningItemForUpdate = `-- name: LockPlanningItemForUpdate :one
-SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, created_at FROM planning_items WHERE id = $1 FOR UPDATE
+SELECT id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at FROM planning_items WHERE id = $1 FOR UPDATE
 `
 
 // LockPlanningItemForUpdate takes a row-level write lock on the planning
@@ -1818,6 +1838,8 @@ func (q *Queries) LockPlanningItemForUpdate(ctx context.Context, id string) (Pla
 		&i.Status,
 		&i.PromotedToCardID,
 		&i.Position,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1983,27 +2005,37 @@ func (q *Queries) UpdateBoardMemberRole(ctx context.Context, arg UpdateBoardMemb
 const updateCard = `-- name: UpdateCard :one
 UPDATE cards
 SET
-    title            = $2,
-    description      = $3,
-    due_date         = $4,
-    assignee_id      = $5,
-    priority         = $6,
-    estimated_hours  = $7,
-    updated_at       = CURRENT_TIMESTAMP
+    title               = $2,
+    description         = $3,
+    due_date            = $4,
+    assignee_id         = $5,
+    priority            = $6,
+    estimated_hours     = $7,
+    acceptance_criteria = COALESCE($8::text, acceptance_criteria),
+    implementation_note = COALESCE($9::text, implementation_note),
+    updated_at          = CURRENT_TIMESTAMP
 WHERE id = $1
-RETURNING id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, created_at, updated_at
+RETURNING id, column_id, assignee_id, title, description, estimated_hours, priority, due_date, position, completed_at, created_by, is_done, acceptance_criteria, implementation_note, created_at, updated_at
 `
 
 type UpdateCardParams struct {
-	ID             string
-	Title          string
-	Description    *string
-	DueDate        *time.Time
-	AssigneeID     *string
-	Priority       *string
-	EstimatedHours pgtype.Numeric
+	ID                 string
+	Title              string
+	Description        *string
+	DueDate            *time.Time
+	AssigneeID         *string
+	Priority           *string
+	EstimatedHours     pgtype.Numeric
+	AcceptanceCriteria *string
+	ImplementationNote *string
 }
 
+// title/description/due_date/assignee_id/priority/estimated_hours are
+// overwritten (the handler reads the existing row first; this is PUT-like
+// in spirit even though the route is PATCH). acceptance_criteria and
+// implementation_note use COALESCE so a card update that doesn't touch
+// them keeps whatever PromoteItem copied in — without this guard, any
+// edit of title would silently wipe the AC the dev rely on.
 func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, error) {
 	row := q.db.QueryRow(ctx, updateCard,
 		arg.ID,
@@ -2013,6 +2045,8 @@ func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, e
 		arg.AssigneeID,
 		arg.Priority,
 		arg.EstimatedHours,
+		arg.AcceptanceCriteria,
+		arg.ImplementationNote,
 	)
 	var i Card
 	err := row.Scan(
@@ -2028,6 +2062,8 @@ func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, e
 		&i.CompletedAt,
 		&i.CreatedBy,
 		&i.IsDone,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -2092,27 +2128,33 @@ func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) erro
 
 const updatePlanningItem = `-- name: UpdatePlanningItem :one
 UPDATE planning_items
-SET type        = COALESCE($1::varchar, type),
-    title       = COALESCE($2::text, title),
-    description = COALESCE($3::text, description),
-    status      = COALESCE($4::varchar, status),
-    position    = COALESCE($5::float8, position)
-WHERE id = $6
-RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, created_at
+SET type                = COALESCE($1::varchar, type),
+    title               = COALESCE($2::text, title),
+    description         = COALESCE($3::text, description),
+    status              = COALESCE($4::varchar, status),
+    position            = COALESCE($5::float8, position),
+    acceptance_criteria = COALESCE($6::text, acceptance_criteria),
+    implementation_note = COALESCE($7::text, implementation_note)
+WHERE id = $8
+RETURNING id, session_id, type, title, description, status, promoted_to_card_id, position, acceptance_criteria, implementation_note, created_at
 `
 
 type UpdatePlanningItemParams struct {
-	Type        *string
-	Title       *string
-	Description *string
-	Status      *string
-	Position    *float64
-	ID          string
+	Type               *string
+	Title              *string
+	Description        *string
+	Status             *string
+	Position           *float64
+	AcceptanceCriteria *string
+	ImplementationNote *string
+	ID                 string
 }
 
-// See UpdatePlanningSession's comment block on PATCH semantics. description
-// is the only nullable column here; required ones (type/title/status) go
-// through the handler-level "" check.
+// See UpdatePlanningSession's comment block on PATCH semantics. description,
+// acceptance_criteria, and implementation_note are nullable columns —
+// omitted via nil arg keeps the existing value, "" stores "" (treated as
+// NULL by the app layer). Required ones (type/title/status) go through
+// the handler-level "" check.
 func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItemParams) (PlanningItem, error) {
 	row := q.db.QueryRow(ctx, updatePlanningItem,
 		arg.Type,
@@ -2120,6 +2162,8 @@ func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItem
 		arg.Description,
 		arg.Status,
 		arg.Position,
+		arg.AcceptanceCriteria,
+		arg.ImplementationNote,
 		arg.ID,
 	)
 	var i PlanningItem
@@ -2132,6 +2176,8 @@ func (q *Queries) UpdatePlanningItem(ctx context.Context, arg UpdatePlanningItem
 		&i.Status,
 		&i.PromotedToCardID,
 		&i.Position,
+		&i.AcceptanceCriteria,
+		&i.ImplementationNote,
 		&i.CreatedAt,
 	)
 	return i, err

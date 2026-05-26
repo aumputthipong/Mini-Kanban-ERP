@@ -166,6 +166,20 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
                   onChangeTitle={(title) =>
                     patchItem(it.id, { title }, { title })
                   }
+                  onChangeAcceptanceCriteria={(value) =>
+                    patchItem(
+                      it.id,
+                      { acceptance_criteria: value },
+                      { acceptance_criteria: value },
+                    )
+                  }
+                  onChangeImplementationNote={(value) =>
+                    patchItem(
+                      it.id,
+                      { implementation_note: value },
+                      { implementation_note: value },
+                    )
+                  }
                   onToggleStatus={(s) => toggleStatus(it, s)}
                   onDelete={() => removeItem(it)}
                   onUp={() => setFocusIndex(Math.max(0, i - 1))}

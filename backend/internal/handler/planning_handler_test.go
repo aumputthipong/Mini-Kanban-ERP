@@ -285,7 +285,7 @@ func TestUpdateItem_EmptyDescription_PassedThroughToService(t *testing.T) {
 	plan, _, _, h := newPromoteTestRig()
 	stubItemAndBoard(plan)
 	var capturedDescription *string
-	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
 		capturedDescription = description
 		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Test"}, nil
 	}
@@ -310,7 +310,7 @@ func TestUpdateItem_OnlyStatusSent_OtherFieldsNilAtService(t *testing.T) {
 	stubItemAndBoard(plan)
 	var capturedType, capturedTitle, capturedDescription, capturedStatus *string
 	var capturedPosition *float64
-	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
 		capturedType = itemType
 		capturedTitle = title
 		capturedDescription = description
@@ -436,6 +436,9 @@ func TestGetCardSource_BadCardID_Returns400(t *testing.T) {
 	w := httptest.NewRecorder()
 	httputil.MakeHandler(h.GetCardSource)(w, newCardSourceRequest(t, "not-a-uuid", validUserID))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// ────────────────────────────────────────────────
 // UpdateItem — type conversion (B-F2)
 // ────────────────────────────────────────────────
 
@@ -446,7 +449,7 @@ func TestUpdateItem_RetypeOnLiveItem_RecordsPreviousType(t *testing.T) {
 	// "เคยเป็น Q · เปลี่ยนเมื่อ X ที่แล้ว" without a second query.
 	plan, _, act, h := newPromoteTestRig()
 	stubItemAndBoard(plan, func(it *db.PlanningItem) { it.Type = "Q" })
-	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
 		require.NotNil(t, itemType)
 		assert.Equal(t, "DEC", *itemType)
 		return db.PlanningItem{ID: itemID, Type: "DEC", Title: "Existing item", Status: "live"}, nil
@@ -498,7 +501,7 @@ func TestUpdateItem_RetypeSameType_NoPreviousTypeInPayload(t *testing.T) {
 	// the feed doesn't render a misleading "changed from REQ to REQ" line.
 	plan, _, act, h := newPromoteTestRig()
 	stubItemAndBoard(plan, func(it *db.PlanningItem) { it.Type = "REQ" })
-	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
 		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Existing item"}, nil
 	}
 
@@ -514,4 +517,41 @@ func TestUpdateItem_RetypeSameType_NoPreviousTypeInPayload(t *testing.T) {
 	payload, ok := act.Calls[0].Payload.(service.PlanningItemUpdatedPayload)
 	require.True(t, ok)
 	assert.Equal(t, "", payload.PreviousType)
+}
+
+// ────────────────────────────────────────────────
+// UpdateItem — acceptance_criteria + implementation_note (B-F3)
+// ────────────────────────────────────────────────
+
+func TestUpdateItem_SetAcceptanceCriteria_PassesThroughAndLogsField(t *testing.T) {
+	// Confirms the new PATCH fields actually reach the service layer and
+	// show up in the activity payload's Fields list. Without this, a UI
+	// regression that drops the body field would silently no-op and the
+	// audit feed would lie about what changed.
+	plan, _, act, h := newPromoteTestRig()
+	stubItemAndBoard(plan)
+	var capturedAC, capturedNote *string
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64, acceptanceCriteria, implementationNote *string) (db.PlanningItem, error) {
+		capturedAC = acceptanceCriteria
+		capturedNote = implementationNote
+		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Existing item"}, nil
+	}
+
+	body := strings.NewReader(`{"acceptance_criteria": "login ด้วย email ได้\nlogin ด้วย Google ได้"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, capturedAC)
+	assert.Contains(t, *capturedAC, "login")
+	assert.Nil(t, capturedNote, "omitted note should arrive nil so COALESCE preserves it")
+
+	require.Len(t, act.Calls, 1)
+	payload, ok := act.Calls[0].Payload.(service.PlanningItemUpdatedPayload)
+	require.True(t, ok)
+	assert.Contains(t, payload.Fields, "acceptance_criteria")
+	assert.NotContains(t, payload.Fields, "implementation_note")
 }
