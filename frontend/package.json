@@ -22,7 +22,6 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "@sentry/browser": "^10.53.1",
-    "@types/recharts": "^1.8.29",
     "@mui/material-nextjs": "^9.0.1",
     "@types/recharts": "^2.0.1",
     "date-fns": "^4.3.0",
