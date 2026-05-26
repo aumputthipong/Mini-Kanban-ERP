@@ -4,12 +4,17 @@
 import { useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 
+// fieldKey is left as a union (even though "title" is currently the only
+// option) so re-introducing a numeric setting later doesn't require
+// rewriting the validation branches below. The budget option was
+// removed when the budget UI was retired — the backend still accepts
+// the field via PATCH, but no user-facing form writes to it.
 interface EditableFieldProps {
   title: string;
   description: string;
   initialValue: string | number;
   type?: "text" | "number";
-  fieldKey: "title" | "budget";
+  fieldKey: "title";
   prefix?: string;
   onSave: (fieldKey: string, value: string | number) => Promise<void>;
   readOnly?: boolean;
@@ -39,13 +44,6 @@ export function EditableField({
     if (fieldKey === "title" && !cleanValue) {
       setError("Cannot be empty.");
       return;
-    }
-    if (fieldKey === "budget") {
-      const num = parseFloat(cleanValue);
-      if (isNaN(num) || num < 0) {
-        setError("Invalid number.");
-        return;
-      }
     }
 
     setIsSaving(true);
