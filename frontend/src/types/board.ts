@@ -25,6 +25,11 @@ export interface Card {
   completed_subtasks: number;      // เพิ่ม — มาจาก COUNT
   subtasks?: Subtask[];
   tags?: Tag[];
+  // Free-text fields populated either by PromoteItem (copied from the source
+  // planning row) or by the card detail modal directly. Null = never set;
+  // empty string = explicitly cleared.
+  acceptance_criteria?: string | null;
+  implementation_note?: string | null;
 }
 
 export interface Column {
@@ -81,4 +86,11 @@ export interface CardUpdateForm {
   priority: string;
   estimated_hours: string;
   tags: Tag[];
+  // Free-text fields edited in the card detail modal. Initialised from the
+  // card prop and round-tripped through the PATCH endpoint. Stored as "" in
+  // form state (textareas hate undefined) and sent as "" when explicitly
+  // cleared — the backend's COALESCE pattern handles unchanged-omit so the
+  // PromoteItem-copied value isn't wiped by an unrelated title edit.
+  acceptance_criteria: string;
+  implementation_note: string;
 }

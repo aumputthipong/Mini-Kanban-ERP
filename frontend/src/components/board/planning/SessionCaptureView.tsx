@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Download, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -62,21 +62,34 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
 
   // Deep-link target from #item-<id> — when the card detail modal's "ที่มา"
   // section links here, focus the source item so the user lands directly
-  // on the row that became this card. Runs once items have loaded.
-  useEffect(() => {
-    if (!items.length) return;
-    const hash = window.location.hash;
+  // on the row that became this card. Runs exactly once after items load.
+  //
+  // Using the setState-during-render pattern (gate flag + conditional set
+  // in render body) instead of a useEffect: React 19's
+  // react-hooks/set-state-in-effect flags sync setState inside effects as
+  // a cascading render, and a deep-link is conceptually "derive focus
+  // from initial URL", not "subscribe to URL changes" — exactly the case
+  // the rule wants out of effects.
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  if (!deepLinkHandled && items.length > 0) {
+    setDeepLinkHandled(true);
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
     const match = /^#item-(.+)$/.exec(hash);
-    if (!match) return;
-    const targetIdx = items.findIndex((it) => it.id === match[1]);
-    if (targetIdx < 0) return;
-    setFocusIndex(targetIdx);
-    // Defer scroll one frame so the row has rendered with the focus class.
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`item-${match[1]}`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-  }, [items]);
+    if (match) {
+      const targetIdx = items.findIndex((it) => it.id === match[1]);
+      if (targetIdx >= 0) {
+        setFocusIndex(targetIdx);
+        // requestAnimationFrame defers DOM read to after paint, so reading
+        // a ref-less element by id is safe here even though we're in the
+        // render path.
+        requestAnimationFrame(() => {
+          const el = document.getElementById(`item-${match[1]}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+    }
+  }
+
   const visibleItems = useMemo(() => applySessionFilter(items, filter), [items, filter]);
   const filterCounts = useMemo(() => computeFilterCounts(items), [items]);
 
@@ -165,6 +178,20 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
                   onChangeType={(t) => changeType(it, t)}
                   onChangeTitle={(title) =>
                     patchItem(it.id, { title }, { title })
+                  }
+                  onChangeAcceptanceCriteria={(value) =>
+                    patchItem(
+                      it.id,
+                      { acceptance_criteria: value },
+                      { acceptance_criteria: value },
+                    )
+                  }
+                  onChangeImplementationNote={(value) =>
+                    patchItem(
+                      it.id,
+                      { implementation_note: value },
+                      { implementation_note: value },
+                    )
                   }
                   onToggleStatus={(s) => toggleStatus(it, s)}
                   onDelete={() => removeItem(it)}

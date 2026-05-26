@@ -19,6 +19,8 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     priority: card.priority ?? "",
     estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
     tags: card.tags ?? [],
+    acceptance_criteria: card.acceptance_criteria ?? "",
+    implementation_note: card.implementation_note ?? "",
   });
 
   const [members, setMembers] = useState<BoardMember[]>([]);
@@ -50,7 +52,9 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     form.assignee_id !== (card.assignee_id ?? "") ||
     form.priority !== (card.priority ?? "") ||
     form.estimated_hours !== (card.estimated_hours != null ? String(card.estimated_hours) : "") ||
-    formTagIds !== cardTagIds;
+    formTagIds !== cardTagIds ||
+    form.acceptance_criteria !== (card.acceptance_criteria ?? "") ||
+    form.implementation_note !== (card.implementation_note ?? "");
 
   // Helper สำหรับ Update State (text/select inputs)
   const handleChange = (field: keyof FormState) => (

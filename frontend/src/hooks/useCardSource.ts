@@ -15,14 +15,27 @@ interface State {
 export function useCardSource(cardId: string | null): State {
   const [source, setSource] = useState<CardSource | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  // Track the cardId we last started a fetch for. When the consumer
+  // navigates between cards (or closes the modal entirely), we reset
+  // local state synchronously during render — calling setSource(undefined)
+  // inside the effect tripped react-hooks/set-state-in-effect under
+  // React 19, and the cascading render that pattern caused was the
+  // actual problem the rule is trying to surface.
+  const [trackedCardId, setTrackedCardId] = useState<string | null>(cardId);
+  if (trackedCardId !== cardId) {
+    setTrackedCardId(cardId);
+    setSource(undefined);
+    // Flip the loading flag synchronously during render — moving this out
+    // of the effect was needed to satisfy react-hooks/set-state-in-effect.
+    // Setting it during render is fine because the next render runs
+    // immediately anyway (we just set state), and the effect below picks
+    // up the new cardId on the same commit.
+    setIsLoading(Boolean(cardId));
+  }
 
   useEffect(() => {
-    if (!cardId) {
-      setSource(undefined);
-      return;
-    }
+    if (!cardId) return;
     let cancelled = false;
-    setIsLoading(true);
     planningApi
       .getCardSource(cardId)
       .then((result) => {

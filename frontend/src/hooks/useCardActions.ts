@@ -102,22 +102,51 @@ export function useCardActions(boardId: string) {
       priority: (form.priority as Card["priority"]) || null,
       estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
       tags: form.tags,
+      acceptance_criteria: form.acceptance_criteria || null,
+      implementation_note: form.implementation_note || null,
     });
 
-    // Persist via REST (handles tag_ids through service layer)
+    // Persist via REST (handles tag_ids through service layer). For
+    // acceptance_criteria / implementation_note we only include the field
+    // in the body when it actually changed — backend uses COALESCE on
+    // these two, so an omitted field preserves the existing value (matters
+    // for cards that PromoteItem copied AC into; a "title only" edit must
+    // not clobber the source acceptance criteria).
+    type CardPatchBody = {
+      title: string;
+      description: string | null;
+      due_date: string | null;
+      assignee_id: string | null;
+      priority: string | null;
+      estimated_hours: number | null;
+      tag_ids: string[];
+      acceptance_criteria?: string;
+      implementation_note?: string;
+    };
+    const body: CardPatchBody = {
+      title: form.title,
+      description: form.description || null,
+      due_date: form.due_date || null,
+      assignee_id: newAssigneeId,
+      priority: form.priority || null,
+      estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+      tag_ids: form.tags.map((t) => t.id),
+    };
+    if (original) {
+      if (form.acceptance_criteria !== (original.acceptance_criteria ?? "")) {
+        body.acceptance_criteria = form.acceptance_criteria;
+        changedFields.push("acceptance_criteria");
+      }
+      if (form.implementation_note !== (original.implementation_note ?? "")) {
+        body.implementation_note = form.implementation_note;
+        changedFields.push("implementation_note");
+      }
+    }
     fetch(`${API_URL}/cards/${cardId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: form.title,
-        description: form.description || null,
-        due_date: form.due_date || null,
-        assignee_id: newAssigneeId,
-        priority: form.priority || null,
-        estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
-        tag_ids: form.tags.map((t) => t.id),
-      }),
+      body: JSON.stringify(body),
     }).catch(() => {});
 
     sendMessage({

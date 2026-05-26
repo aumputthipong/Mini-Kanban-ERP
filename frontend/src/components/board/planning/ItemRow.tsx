@@ -6,12 +6,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Ban, CheckSquare, Square, Trash2 } from "lucide-react";
+import { Ban, CheckSquare, ChevronDown, ChevronRight, FileText, ListChecks, Square, Trash2 } from "lucide-react";
 import type {
   PlanningItem,
   PlanningItemStatus,
   PlanningItemType,
 } from "@/types/planning";
+import { ItemDetailsPanel, countNonEmptyLines } from "./ItemDetailsPanel";
 import {
   TYPE_CHIP,
   TYPE_CHIP_ACTIVE,
@@ -29,6 +30,8 @@ interface ItemRowProps {
   onChangeTitle: (t: string) => void;
   onToggleStatus: (s: PlanningItemStatus) => void;
   onDelete: () => void;
+  onChangeAcceptanceCriteria: (value: string) => void;
+  onChangeImplementationNote: (value: string) => void;
   onUp: () => void;
   onDown: () => void;
 }
@@ -48,11 +51,14 @@ export function ItemRow({
   onChangeTitle,
   onToggleStatus,
   onDelete,
+  onChangeAcceptanceCriteria,
+  onChangeImplementationNote,
   onUp,
   onDown,
 }: ItemRowProps) {
   const [editing, setEditing] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(item.title);
   // Tracks the last item.title we synced from so we can detect prop changes
@@ -126,10 +132,13 @@ export function ItemRow({
   const promoted = item.status === "promoted";
   const dropped = item.status === "dropped";
   const selected = item.status === "selected";
+  const acCount = countNonEmptyLines(item.acceptance_criteria);
+  const hasNote = (item.implementation_note ?? "").trim().length > 0;
+  const hasDetails = acCount > 0 || hasNote;
 
   return (
+    <div id={`item-${item.id}`} className="flex flex-col">
     <div
-      id={`item-${item.id}`}
       onClick={onFocus}
       className={`group flex items-center gap-2 rounded px-2 py-1 ${
         focused ? "bg-indigo-50" : "hover:bg-slate-50"
@@ -222,6 +231,24 @@ export function ItemRow({
       {promoted && item.promoted_to_card_id && (
         <span className="shrink-0 text-[10px] text-indigo-600">→ บนบอร์ดแล้ว</span>
       )}
+      {/* Indicator badges — visible at full opacity so a glance reveals
+          which rows have detail attached without having to expand them. */}
+      {!expanded && acCount > 0 && (
+        <span
+          className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+          title={`Acceptance criteria · ${acCount} ข้อ`}
+        >
+          <ListChecks size={10} /> AC: {acCount} ข้อ
+        </span>
+      )}
+      {!expanded && hasNote && (
+        <span
+          className="inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
+          title="มี implementation note"
+        >
+          <FileText size={10} /> มี note
+        </span>
+      )}
       {/* Action buttons — always visible at opacity-60 so users see them
           without needing to hover the row first. Lifts to full opacity on
           hover for affordance. Icon-only saves horizontal space; titles
@@ -273,7 +300,32 @@ export function ItemRow({
         >
           <Trash2 size={14} />
         </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+          title={expanded ? "ซ่อนรายละเอียด" : "เปิดรายละเอียด"}
+          aria-label="รายละเอียด"
+          aria-expanded={expanded}
+          className={`rounded p-1 transition-colors hover:bg-slate-200 ${
+            hasDetails ? "text-indigo-600" : "text-slate-400 hover:text-slate-700"
+          }`}
+        >
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
       </div>
+    </div>
+    {expanded && (
+      <ItemDetailsPanel
+        itemType={item.type}
+        acceptanceCriteria={item.acceptance_criteria}
+        implementationNote={item.implementation_note}
+        onChangeAcceptanceCriteria={onChangeAcceptanceCriteria}
+        onChangeImplementationNote={onChangeImplementationNote}
+      />
+    )}
     </div>
   );
 }

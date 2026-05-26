@@ -117,14 +117,24 @@ func (s *PlanningService) CreateItem(ctx context.Context, sessionID, itemType, t
 	})
 }
 
-func (s *PlanningService) UpdateItem(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+func (s *PlanningService) UpdateItem(
+	ctx context.Context,
+	itemID string,
+	itemType, title *string,
+	description *string,
+	status *string,
+	position *float64,
+	acceptanceCriteria, implementationNote *string,
+) (db.PlanningItem, error) {
 	return s.queries.UpdatePlanningItem(ctx, db.UpdatePlanningItemParams{
-		ID:          itemID,
-		Type:        itemType,
-		Title:       title,
-		Description: description,
-		Status:      status,
-		Position:    position,
+		ID:                  itemID,
+		Type:                itemType,
+		Title:               title,
+		Description:         description,
+		Status:              status,
+		Position:            position,
+		AcceptanceCriteria:  acceptanceCriteria,
+		ImplementationNote:  implementationNote,
 	})
 }
 
@@ -259,11 +269,17 @@ func (s *PlanningService) PromoteItem(ctx context.Context, itemID, userID string
 
 	// Position 0 lands the card at the column's logical top so the user
 	// can triage promoted ideas without scrolling.
+	// Carry AC + Note forward so the dev opening the resulting card sees the
+	// same context the requirement owner captured during planning. Nil
+	// passthrough — the columns stay NULL on cards that had nothing
+	// attached.
 	card, err := qtx.CreateCard(ctx, db.CreateCardParams{
-		ColumnID:  col.ID,
-		Title:     item.Title,
-		Position:  0,
-		CreatedBy: util.StringToPtr(userID),
+		ColumnID:           col.ID,
+		Title:              item.Title,
+		Position:           0,
+		CreatedBy:          util.StringToPtr(userID),
+		AcceptanceCriteria: item.AcceptanceCriteria,
+		ImplementationNote: item.ImplementationNote,
 	})
 	if err != nil {
 		return db.PlanningItem{}, db.CreateCardRow{}, fmt.Errorf("create card: %w", err)

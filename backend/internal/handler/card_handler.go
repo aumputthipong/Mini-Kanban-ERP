@@ -147,14 +147,16 @@ func (h *BoardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	card, err := h.boardService.UpdateCard(r.Context(), service.UpdateCardParams{
-		ID:             cardIDStr,
-		Title:          title,
-		Description:    req.Description,
-		DueDate:        util.PtrStringToTimePtr(req.DueDate),
-		AssigneeID:     req.AssigneeID,
-		Priority:       req.Priority,
-		EstimatedHours: req.EstimatedHours,
-		TagIDs:         req.TagIDs,
+		ID:                 cardIDStr,
+		Title:              title,
+		Description:        req.Description,
+		DueDate:            util.PtrStringToTimePtr(req.DueDate),
+		AssigneeID:         req.AssigneeID,
+		Priority:           req.Priority,
+		EstimatedHours:     req.EstimatedHours,
+		TagIDs:             req.TagIDs,
+		AcceptanceCriteria: req.AcceptanceCriteria,
+		ImplementationNote: req.ImplementationNote,
 	})
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to update card", err)

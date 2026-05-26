@@ -133,9 +133,13 @@ FROM cards
 WHERE column_id = $1;
 
 -- name: CreateCard :one
-INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by;
+-- acceptance_criteria and implementation_note are accepted as optional
+-- inserts so PromoteItem can carry the planning row's values onto the
+-- resulting card in one statement. User-initiated card creation passes
+-- nil and the columns stay NULL.
+INSERT INTO cards (column_id, title, position, due_date, assignee_id, priority, created_by, acceptance_criteria, implementation_note)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, column_id, title, description, position, due_date, assignee_id, priority, created_by, acceptance_criteria, implementation_note;
 
 -- name: UpdateCardColumn :exec
 UPDATE cards
@@ -222,15 +226,23 @@ SELECT * FROM boards
 WHERE id = $1 LIMIT 1;
 
 -- name: UpdateCard :one
+-- title/description/due_date/assignee_id/priority/estimated_hours are
+-- overwritten (the handler reads the existing row first; this is PUT-like
+-- in spirit even though the route is PATCH). acceptance_criteria and
+-- implementation_note use COALESCE so a card update that doesn't touch
+-- them keeps whatever PromoteItem copied in — without this guard, any
+-- edit of title would silently wipe the AC the dev rely on.
 UPDATE cards
 SET
-    title            = $2,
-    description      = $3,
-    due_date         = $4,
-    assignee_id      = $5,
-    priority         = $6,
-    estimated_hours  = $7,
-    updated_at       = CURRENT_TIMESTAMP
+    title               = $2,
+    description         = $3,
+    due_date            = $4,
+    assignee_id         = $5,
+    priority            = $6,
+    estimated_hours     = $7,
+    acceptance_criteria = COALESCE(sqlc.narg(acceptance_criteria)::text, acceptance_criteria),
+    implementation_note = COALESCE(sqlc.narg(implementation_note)::text, implementation_note),
+    updated_at          = CURRENT_TIMESTAMP
 WHERE id = $1
 RETURNING *;
 
@@ -509,15 +521,19 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: UpdatePlanningItem :one
--- See UpdatePlanningSession's comment block on PATCH semantics. description
--- is the only nullable column here; required ones (type/title/status) go
--- through the handler-level "" check.
+-- See UpdatePlanningSession's comment block on PATCH semantics. description,
+-- acceptance_criteria, and implementation_note are nullable columns —
+-- omitted via nil arg keeps the existing value, "" stores "" (treated as
+-- NULL by the app layer). Required ones (type/title/status) go through
+-- the handler-level "" check.
 UPDATE planning_items
-SET type        = COALESCE(sqlc.narg(type)::varchar, type),
-    title       = COALESCE(sqlc.narg(title)::text, title),
-    description = COALESCE(sqlc.narg(description)::text, description),
-    status      = COALESCE(sqlc.narg(status)::varchar, status),
-    position    = COALESCE(sqlc.narg(position)::float8, position)
+SET type                = COALESCE(sqlc.narg(type)::varchar, type),
+    title               = COALESCE(sqlc.narg(title)::text, title),
+    description         = COALESCE(sqlc.narg(description)::text, description),
+    status              = COALESCE(sqlc.narg(status)::varchar, status),
+    position            = COALESCE(sqlc.narg(position)::float8, position),
+    acceptance_criteria = COALESCE(sqlc.narg(acceptance_criteria)::text, acceptance_criteria),
+    implementation_note = COALESCE(sqlc.narg(implementation_note)::text, implementation_note)
 WHERE id = sqlc.arg(id)
 RETURNING *;
 

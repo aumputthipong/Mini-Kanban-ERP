@@ -7,7 +7,9 @@ import type { Card, Tag } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useBoardActions } from "@/hooks/useBoardActions";
+import { CardAcceptanceCriteria } from "./CardAcceptanceCriteria";
 import { CardFormFields } from "./CardFormFields";
+import { CardImplementationNote } from "./CardImplementationNote";
 import { CardModalHeader } from "./CardModalHeader";
 import { CardDescriptionField } from "./CardDescriptionField";
 import { CardSourceSection } from "./CardSourceSection";
@@ -22,6 +24,8 @@ export interface FormState {
   priority: string;
   estimated_hours: string;
   tags: Tag[];
+  acceptance_criteria: string;
+  implementation_note: string;
 }
 
 interface CardDetailModalProps {
@@ -103,6 +107,16 @@ export function CardDetailModal({
               <CardDescriptionField
                 value={form.description}
                 onChange={handleChange("description")}
+                canEdit={canEdit}
+              />
+              <CardAcceptanceCriteria
+                value={form.acceptance_criteria}
+                onChange={handleChange("acceptance_criteria")}
+                canEdit={canEdit}
+              />
+              <CardImplementationNote
+                value={form.implementation_note}
+                onChange={handleChange("implementation_note")}
                 canEdit={canEdit}
               />
               <CardSubtaskSection

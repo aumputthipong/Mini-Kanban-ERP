@@ -34,6 +34,11 @@ export interface PlanningItem {
   promoted_to_card_id: string | null;
   position: number;
   created_at: string;
+  // Free-text fields surfaced via the row's chevron expand. On promote, the
+  // service copies these to the resulting card so the dev opening the card
+  // sees the same context the requirement owner captured during planning.
+  acceptance_criteria?: string | null;
+  implementation_note?: string | null;
 }
 
 export interface PlanningSessionDetail {

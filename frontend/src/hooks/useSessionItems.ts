@@ -100,6 +100,8 @@ export function useSessionItems(
           description: patch.description ?? undefined,
           status: patch.status,
           position: patch.position,
+          acceptance_criteria: patch.acceptance_criteria ?? undefined,
+          implementation_note: patch.implementation_note ?? undefined,
         })
         .catch(() => {
           showToast({ message: "บันทึกไม่สำเร็จ", duration: 4000 });

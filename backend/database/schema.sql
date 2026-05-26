@@ -44,6 +44,8 @@ CREATE TABLE cards (
     completed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     is_done BOOLEAN NOT NULL DEFAULT FALSE,
+    acceptance_criteria TEXT,
+    implementation_note TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -138,6 +140,8 @@ CREATE TABLE planning_items (
         CHECK (status IN ('live','selected','dropped','promoted')),
     promoted_to_card_id   UUID REFERENCES cards(id) ON DELETE SET NULL,
     position              DOUBLE PRECISION NOT NULL,
+    acceptance_criteria   TEXT,
+    implementation_note   TEXT,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

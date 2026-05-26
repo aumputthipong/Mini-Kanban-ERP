@@ -69,6 +69,8 @@ export function CardPreviewPopover({
     priority: card.priority ?? "",
     estimated_hours: card.estimated_hours != null ? String(card.estimated_hours) : "",
     tags: card.tags ?? [],
+    acceptance_criteria: card.acceptance_criteria ?? "",
+    implementation_note: card.implementation_note ?? "",
     ...overrides,
   });
 

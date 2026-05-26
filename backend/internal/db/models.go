@@ -39,20 +39,22 @@ type BoardMember struct {
 }
 
 type Card struct {
-	ID             string
-	ColumnID       string
-	AssigneeID     *string
-	Title          string
-	Description    *string
-	EstimatedHours pgtype.Numeric
-	Priority       *string
-	DueDate        *time.Time
-	Position       float64
-	CompletedAt    pgtype.Timestamptz
-	CreatedBy      *string
-	IsDone         bool
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	ID                 string
+	ColumnID           string
+	AssigneeID         *string
+	Title              string
+	Description        *string
+	EstimatedHours     pgtype.Numeric
+	Priority           *string
+	DueDate            *time.Time
+	Position           float64
+	CompletedAt        pgtype.Timestamptz
+	CreatedBy          *string
+	IsDone             bool
+	AcceptanceCriteria *string
+	ImplementationNote *string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type CardSubtask struct {
@@ -82,15 +84,17 @@ type Column struct {
 }
 
 type PlanningItem struct {
-	ID               string
-	SessionID        string
-	Type             string
-	Title            string
-	Description      *string
-	Status           string
-	PromotedToCardID *string
-	Position         float64
-	CreatedAt        time.Time
+	ID                 string
+	SessionID          string
+	Type               string
+	Title              string
+	Description        *string
+	Status             string
+	PromotedToCardID   *string
+	Position           float64
+	AcceptanceCriteria *string
+	ImplementationNote *string
+	CreatedAt          time.Time
 }
 
 type PlanningSession struct {
