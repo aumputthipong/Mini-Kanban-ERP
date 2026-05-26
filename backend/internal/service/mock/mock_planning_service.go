@@ -26,6 +26,12 @@ type MockPlanningService struct {
 	DeleteItemFn          func(ctx context.Context, itemID string) error
 	PromoteItemFn         func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error)
 	GetCardSourceFn       func(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error)
+	ListItemCommentsFn    func(ctx context.Context, itemID string) ([]db.ListPlanningItemCommentsRow, error)
+	GetCommentFn          func(ctx context.Context, commentID string) (db.PlanningItemComment, error)
+	GetCommentBoardIDFn   func(ctx context.Context, commentID string) (string, error)
+	CreateCommentFn       func(ctx context.Context, itemID, authorID, body string) (db.PlanningItemComment, error)
+	EditCommentFn         func(ctx context.Context, commentID, body string) (db.PlanningItemComment, error)
+	DeleteCommentFn       func(ctx context.Context, commentID string) error
 }
 
 func (m *MockPlanningService) ListSessionsByBoard(ctx context.Context, boardID string) ([]db.ListPlanningSessionsByBoardRow, error) {
@@ -82,6 +88,30 @@ func (m *MockPlanningService) PromoteItem(ctx context.Context, itemID, userID st
 
 func (m *MockPlanningService) GetCardSource(ctx context.Context, cardID string, pendingLimit int32) (*service.CardSource, error) {
 	return m.GetCardSourceFn(ctx, cardID, pendingLimit)
+}
+
+func (m *MockPlanningService) ListItemComments(ctx context.Context, itemID string) ([]db.ListPlanningItemCommentsRow, error) {
+	return m.ListItemCommentsFn(ctx, itemID)
+}
+
+func (m *MockPlanningService) GetComment(ctx context.Context, commentID string) (db.PlanningItemComment, error) {
+	return m.GetCommentFn(ctx, commentID)
+}
+
+func (m *MockPlanningService) GetCommentBoardID(ctx context.Context, commentID string) (string, error) {
+	return m.GetCommentBoardIDFn(ctx, commentID)
+}
+
+func (m *MockPlanningService) CreateComment(ctx context.Context, itemID, authorID, body string) (db.PlanningItemComment, error) {
+	return m.CreateCommentFn(ctx, itemID, authorID, body)
+}
+
+func (m *MockPlanningService) EditComment(ctx context.Context, commentID, body string) (db.PlanningItemComment, error) {
+	return m.EditCommentFn(ctx, commentID, body)
+}
+
+func (m *MockPlanningService) DeleteComment(ctx context.Context, commentID string) error {
+	return m.DeleteCommentFn(ctx, commentID)
 }
 
 // MockActivityRecorder records each Record() invocation in a slice so tests

@@ -163,6 +163,13 @@ func setupRoutes(d routerDeps) http.Handler {
 			r.Patch("/", httputil.MakeHandler(d.planningHandler.UpdateItem))
 			r.Delete("/", httputil.MakeHandler(d.planningHandler.DeleteItem))
 			r.Post("/promote", httputil.MakeHandler(d.planningHandler.PromoteItem))
+			r.Get("/comments", httputil.MakeHandler(d.planningHandler.ListComments))
+			r.Post("/comments", httputil.MakeHandler(d.planningHandler.CreateComment))
+		})
+
+		r.Route("/api/planning/comments/{commentID}", func(r chi.Router) {
+			r.Patch("/", httputil.MakeHandler(d.planningHandler.EditComment))
+			r.Delete("/", httputil.MakeHandler(d.planningHandler.DeleteComment))
 		})
 
 		r.Route("/api/cards", func(r chi.Router) {

@@ -598,3 +598,60 @@ WHERE session_id = $1
   AND status NOT IN ('dropped', 'promoted')
 ORDER BY position ASC
 LIMIT $2;
+
+-- Planning item comments — CRUD with soft delete + author name joined in
+-- so the list endpoint stays a single round-trip per item.
+-- Listing keeps deleted comments visible (the UI renders them as
+-- "ถูกลบแล้ว") so the thread's position doesn't shift on delete.
+
+-- name: ListPlanningItemComments :many
+SELECT
+    c.id,
+    c.item_id,
+    c.author_id,
+    u.full_name AS author_name,
+    c.body,
+    c.created_at,
+    c.updated_at,
+    c.deleted_at
+FROM planning_item_comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.item_id = $1
+ORDER BY c.created_at ASC;
+
+-- name: GetPlanningItemComment :one
+SELECT id, item_id, author_id, body, created_at, updated_at, deleted_at
+FROM planning_item_comments
+WHERE id = $1;
+
+-- GetBoardIDByPlanningComment resolves comment → item → session → board
+-- in one round-trip. Used by edit/delete handlers to re-check membership
+-- before touching the row.
+-- name: GetBoardIDByPlanningComment :one
+SELECT ps.board_id
+FROM planning_item_comments c
+JOIN planning_items pi ON pi.id = c.item_id
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE c.id = $1;
+
+-- name: CreatePlanningItemComment :one
+INSERT INTO planning_item_comments (item_id, author_id, body)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- UpdatePlanningItemComment edits body. updated_at refreshes so the UI can
+-- show an "(edited X ago)" hint. deleted_at is unchanged — the soft-delete
+-- path has its own query.
+-- name: UpdatePlanningItemComment :one
+UPDATE planning_item_comments
+SET body       = $2,
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING *;
+
+-- name: SoftDeletePlanningItemComment :exec
+UPDATE planning_item_comments
+SET deleted_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL;

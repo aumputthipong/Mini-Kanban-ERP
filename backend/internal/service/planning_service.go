@@ -52,6 +52,10 @@ var (
 	ErrPlanningNoTodoColumn = errors.New("board has no TODO column")
 	// ErrPlanningNotFound is returned when a session/item lookup hits zero rows.
 	ErrPlanningNotFound = errors.New("planning resource not found")
+	// ErrPlanningCommentDeleted is returned when an edit / delete targets
+	// a comment that has already been soft-deleted. Surface as 409 so the
+	// optimistic UI can revert.
+	ErrPlanningCommentDeleted = errors.New("planning comment already deleted")
 )
 
 func (s *PlanningService) ListSessionsByBoard(ctx context.Context, boardID string) ([]db.ListPlanningSessionsByBoardRow, error) {
@@ -209,6 +213,55 @@ func (s *PlanningService) GetCardSource(ctx context.Context, cardID string, pend
 		ItemStatus:       row.ItemStatus,
 		PendingQuestions: pending,
 	}, nil
+}
+
+// ─── Item comments ────────────────────────────────────────────────────────
+
+// ListItemComments returns the full thread including soft-deleted comments.
+// The UI renders deleted rows as "ถูกลบแล้ว" so the thread's position
+// doesn't shift on delete.
+func (s *PlanningService) ListItemComments(ctx context.Context, itemID string) ([]db.ListPlanningItemCommentsRow, error) {
+	return s.queries.ListPlanningItemComments(ctx, itemID)
+}
+
+func (s *PlanningService) GetComment(ctx context.Context, commentID string) (db.PlanningItemComment, error) {
+	return s.queries.GetPlanningItemComment(ctx, commentID)
+}
+
+// GetCommentBoardID resolves comment → item → session → board in one round-
+// trip so the handler can re-check membership without hydrating the full
+// comment first.
+func (s *PlanningService) GetCommentBoardID(ctx context.Context, commentID string) (string, error) {
+	return s.queries.GetBoardIDByPlanningComment(ctx, commentID)
+}
+
+func (s *PlanningService) CreateComment(ctx context.Context, itemID, authorID, body string) (db.PlanningItemComment, error) {
+	return s.queries.CreatePlanningItemComment(ctx, db.CreatePlanningItemCommentParams{
+		ItemID:   itemID,
+		AuthorID: authorID,
+		Body:     body,
+	})
+}
+
+// EditComment refuses to touch already-soft-deleted rows (the UPDATE WHERE
+// deleted_at IS NULL returns zero rows in that case). Pre-deletion edits
+// fall through to a clean 200.
+func (s *PlanningService) EditComment(ctx context.Context, commentID, body string) (db.PlanningItemComment, error) {
+	row, err := s.queries.UpdatePlanningItemComment(ctx, db.UpdatePlanningItemCommentParams{
+		ID:   commentID,
+		Body: body,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.PlanningItemComment{}, ErrPlanningCommentDeleted
+		}
+		return db.PlanningItemComment{}, fmt.Errorf("edit comment: %w", err)
+	}
+	return row, nil
+}
+
+func (s *PlanningService) DeleteComment(ctx context.Context, commentID string) error {
+	return s.queries.SoftDeletePlanningItemComment(ctx, commentID)
 }
 
 // PromoteItem turns a planning item into a Kanban card in the same board's
