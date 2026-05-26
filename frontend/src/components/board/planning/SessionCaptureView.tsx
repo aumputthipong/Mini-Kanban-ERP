@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Download, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -10,6 +10,11 @@ import { CaptureInput } from "./CaptureInput";
 import { ExportDialog } from "./ExportDialog";
 import { ItemRow } from "./ItemRow";
 import { SessionSidebar } from "./SessionSidebar";
+import {
+  applySessionFilter,
+  SessionFilterChips,
+  type SessionFilter,
+} from "./SessionFilterChips";
 import { formatRelativeFromNow } from "./planningFormat";
 
 interface Props {
@@ -48,6 +53,11 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
   const [draft, setDraft] = useState("");
   const [focusIndex, setFocusIndex] = useState<number>(-1);
   const [showExport, setShowExport] = useState(false);
+  // Filter is local state, synced to a `?filter=` query param so a copy-
+  // paste of the URL preserves the view. Initial value reads from the
+  // URL directly (avoids useSearchParams, which would force a Suspense
+  // boundary at the page level in Next 16).
+  const [filter, setFilter] = useState<SessionFilter>(() => readFilterFromURL());
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Deep-link target from #item-<id> — when the card detail modal's "ที่มา"
@@ -67,6 +77,14 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, [items]);
+  const visibleItems = useMemo(() => applySessionFilter(items, filter), [items, filter]);
+  const filterCounts = useMemo(() => computeFilterCounts(items), [items]);
+
+  const handleFilterChange = (next: SessionFilter) => {
+    setFilter(next);
+    setFocusIndex(-1);
+    writeFilterToURL(next);
+  };
 
   if (!detail) {
     return <CaptureSkeleton />;
@@ -120,36 +138,48 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
             {savedAt && <>บันทึกอัตโนมัติแล้ว · {formatRelativeFromNow(savedAt)}</>}
           </p>
 
-          <div className="mt-4 flex flex-col gap-1">
-            {items.length === 0 && (
-              <p className="rounded border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center text-sm text-slate-400">
-                ลองเริ่มที่ช่องด้านล่าง · พิมพ์แล้วกด Enter
-              </p>
-            )}
-            {items.map((it, i) => (
-              <ItemRow
-                key={it.id}
-                index={i}
-                item={it}
-                focused={focusIndex === i}
-                onFocus={() => setFocusIndex(i)}
-                onChangeType={(t) => changeType(it, t)}
-                onChangeTitle={(title) =>
-                  patchItem(it.id, { title }, { title })
-                }
-                onToggleStatus={(s) => toggleStatus(it, s)}
-                onDelete={() => removeItem(it)}
-                onUp={() => setFocusIndex(Math.max(0, i - 1))}
-                onDown={() => {
-                  if (i + 1 >= items.length) {
-                    setFocusIndex(-1);
-                    inputRef.current?.focus();
-                  } else {
-                    setFocusIndex(i + 1);
+          <div className="mt-4">
+            <SessionFilterChips
+              active={filter}
+              counts={filterCounts}
+              onChange={handleFilterChange}
+            />
+            <div className="flex flex-col gap-1">
+              {items.length === 0 && (
+                <p className="rounded border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center text-sm text-slate-400">
+                  ลองเริ่มที่ช่องด้านล่าง · พิมพ์แล้วกด Enter
+                </p>
+              )}
+              {items.length > 0 && visibleItems.length === 0 && (
+                <p className="rounded border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center text-sm text-slate-400">
+                  ไม่มีรายการในตัวกรองนี้
+                </p>
+              )}
+              {visibleItems.map((it, i) => (
+                <ItemRow
+                  key={it.id}
+                  index={i}
+                  item={it}
+                  focused={focusIndex === i}
+                  onFocus={() => setFocusIndex(i)}
+                  onChangeType={(t) => changeType(it, t)}
+                  onChangeTitle={(title) =>
+                    patchItem(it.id, { title }, { title })
                   }
-                }}
-              />
-            ))}
+                  onToggleStatus={(s) => toggleStatus(it, s)}
+                  onDelete={() => removeItem(it)}
+                  onUp={() => setFocusIndex(Math.max(0, i - 1))}
+                  onDown={() => {
+                    if (i + 1 >= visibleItems.length) {
+                      setFocusIndex(-1);
+                      inputRef.current?.focus();
+                    } else {
+                      setFocusIndex(i + 1);
+                    }
+                  }}
+                />
+              ))}
+            </div>
           </div>
 
           <CaptureInput
@@ -177,6 +207,51 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
       )}
     </div>
   );
+}
+
+// URL helpers — read once on mount, write via history.replaceState so the
+// filter survives reload + copy-paste without triggering a Next router
+// re-render (the filter is a pure client-side concern).
+const VALID_FILTERS: SessionFilter[] = ["all", "req", "dec", "q", "dropped"];
+
+function readFilterFromURL(): SessionFilter {
+  if (typeof window === "undefined") return "all";
+  const value = new URLSearchParams(window.location.search).get("filter");
+  return (VALID_FILTERS as string[]).includes(value ?? "") ? (value as SessionFilter) : "all";
+}
+
+function writeFilterToURL(next: SessionFilter): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (next === "all") {
+    url.searchParams.delete("filter");
+  } else {
+    url.searchParams.set("filter", next);
+  }
+  window.history.replaceState(null, "", url.toString());
+}
+
+function computeFilterCounts(
+  items: { type: PlanningItemType; status: string }[],
+): Record<SessionFilter, number> {
+  const counts: Record<SessionFilter, number> = {
+    all: 0,
+    req: 0,
+    dec: 0,
+    q: 0,
+    dropped: 0,
+  };
+  for (const it of items) {
+    if (it.status === "dropped") {
+      counts.dropped += 1;
+      continue;
+    }
+    counts.all += 1;
+    if (it.type === "REQ") counts.req += 1;
+    else if (it.type === "DEC") counts.dec += 1;
+    else if (it.type === "Q") counts.q += 1;
+  }
+  return counts;
 }
 
 function CaptureSkeleton() {

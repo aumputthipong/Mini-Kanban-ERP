@@ -364,11 +364,19 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	if apiErr != nil {
 		return apiErr
 	}
-	boardID, err := h.planning.GetItemBoardID(r.Context(), itemID)
+	// Load the current item so we can both resolve the board for the
+	// membership gate AND capture the pre-update type (needed when the
+	// request is a retype — promoted items must stay frozen, and the
+	// activity payload carries previous_type for the chip-history tooltip).
+	current, err := h.planning.GetItem(r.Context(), itemID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return httputil.NewAPIError(http.StatusNotFound, "Not found", nil)
 		}
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load item", err)
+	}
+	boardID, err := h.planning.GetSessionBoardID(r.Context(), current.SessionID)
+	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to resolve board", err)
 	}
 	if _, apiErr := h.requireMembership(r, boardID, userID); apiErr != nil {
@@ -383,6 +391,14 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	// enum value), so this branch only guards title.
 	if req.Title != nil && *req.Title == "" {
 		return httputil.NewAPIError(http.StatusBadRequest, "title cannot be empty", nil)
+	}
+	// Promoted items are frozen for retype: once an idea lives on the
+	// Kanban board, changing it from REQ → Q (or any other type) on the
+	// planning side leaves the card disconnected from the user's intent
+	// without renaming the card. Surface as 400 with a Thai message so the
+	// optimistic UI can revert and toast.
+	if req.Type != nil && *req.Type != current.Type && current.Status == "promoted" {
+		return httputil.NewAPIError(http.StatusBadRequest, "ส่งเข้า Board แล้ว เปลี่ยนประเภทไม่ได้", nil)
 	}
 	item, err := h.planning.UpdateItem(r.Context(), itemID, req.Type, req.Title, req.Description, req.Status, req.Position)
 	if err != nil {
@@ -408,10 +424,18 @@ func (h *PlanningHandler) UpdateItem(w http.ResponseWriter, r *http.Request) err
 	if req.Position != nil {
 		fields = append(fields, "position")
 	}
+	payload := service.PlanningItemUpdatedPayload{
+		Type:   item.Type,
+		Title:  item.Title,
+		Fields: fields,
+	}
+	if req.Type != nil && *req.Type != current.Type {
+		payload.PreviousType = current.Type
+	}
 	h.recordActivity(r, boardID, userID,
 		service.EventPlanningItemUpdated, service.EntityPlanningItem,
 		strPtr(item.ID),
-		service.PlanningItemUpdatedPayload{Type: item.Type, Title: item.Title, Fields: fields},
+		payload,
 	)
 	httputil.RespondJSON(w, http.StatusOK, itemToResponse(item))
 	return nil

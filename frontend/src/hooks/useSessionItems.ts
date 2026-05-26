@@ -153,9 +153,31 @@ export function useSessionItems(
 
   const changeType = useCallback(
     (item: PlanningItem, t: PlanningItemType) => {
-      patchItem(item.id, { type: t }, { type: t });
+      if (item.type === t) return;
+      // Type change is the one PATCH the backend can reject with a typed
+      // error (promoted items are frozen — backend returns 400 with a Thai
+      // message). Roll our own revert path here so the row visually snaps
+      // back instead of leaving the chip on the new type that never landed.
+      const previous = item.type;
+      setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, type: t } : it)));
+      setSavedAt(new Date().toISOString());
+      planningApi
+        .updateItem(item.id, { type: t })
+        .then(() => {
+          showToast({ message: `เปลี่ยนเป็น ${t} แล้ว`, duration: 2500 });
+        })
+        .catch((err: unknown) => {
+          setItems((prev) =>
+            prev.map((it) => (it.id === item.id ? { ...it, type: previous } : it)),
+          );
+          const message =
+            err instanceof Error && err.message
+              ? err.message
+              : "เปลี่ยนประเภทไม่ได้";
+          showToast({ message, duration: 4000 });
+        });
     },
-    [patchItem],
+    [showToast],
   );
 
   const removeItem = useCallback(
