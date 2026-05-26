@@ -10,6 +10,7 @@ import { useBoardActions } from "@/hooks/useBoardActions";
 import { CardFormFields } from "./CardFormFields";
 import { CardModalHeader } from "./CardModalHeader";
 import { CardDescriptionField } from "./CardDescriptionField";
+import { CardSourceSection } from "./CardSourceSection";
 import { CardSubtaskSection } from "./CardSubtaskSection";
 import { CardModalFooter } from "./CardModalFooter";
 
@@ -98,6 +99,7 @@ export function CardDetailModal({
 
           <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
             <div className="flex-1 min-w-0 px-6 py-5 flex flex-col gap-6 overflow-y-auto border-r border-slate-100">
+              <CardSourceSection cardId={card.id} boardId={boardId} />
               <CardDescriptionField
                 value={form.description}
                 onChange={handleChange("description")}

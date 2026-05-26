@@ -169,6 +169,7 @@ func setupRoutes(d routerDeps) http.Handler {
 			r.Post("/", httputil.MakeHandler(d.boardHandler.CreateCard))
 			r.Patch("/{cardID}", httputil.MakeHandler(d.boardHandler.UpdateCard))
 			r.Get("/{cardID}", httputil.MakeHandler(d.boardHandler.GetCard))
+			r.Get("/{cardID}/source", httputil.MakeHandler(d.planningHandler.GetCardSource))
 			r.Route("/{cardID}/subtasks", func(r chi.Router) {
 				r.Post("/", httputil.MakeHandler(d.subtaskHandler.CreateSubtask))
 				r.Get("/", httputil.MakeHandler(d.subtaskHandler.GetSubtasks))

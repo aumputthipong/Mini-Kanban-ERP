@@ -1123,6 +1123,56 @@ func (q *Queries) GetPlanningSession(ctx context.Context, id string) (PlanningSe
 	return i, err
 }
 
+const getPlanningSourceByCard = `-- name: GetPlanningSourceByCard :one
+SELECT
+    pi.id          AS item_id,
+    pi.type        AS item_type,
+    pi.title       AS item_title,
+    pi.status      AS item_status,
+    ps.id          AS session_id,
+    ps.title       AS session_title,
+    ps.label       AS session_label,
+    ps.meeting_at  AS session_meeting_at,
+    ps.board_id    AS session_board_id
+FROM planning_items pi
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE pi.promoted_to_card_id = $1
+`
+
+type GetPlanningSourceByCardRow struct {
+	ItemID           string
+	ItemType         string
+	ItemTitle        string
+	ItemStatus       string
+	SessionID        string
+	SessionTitle     string
+	SessionLabel     *string
+	SessionMeetingAt *time.Time
+	SessionBoardID   string
+}
+
+// GetPlanningSourceByCard returns the planning item + session that a card
+// was promoted from, or zero rows if the card was never promoted (or the
+// source item/session was deleted). Used by the card detail modal's
+// "ที่มา" (source) section. The partial index idx_planning_items_promoted_card
+// keeps this lookup cheap even when the cards table grows.
+func (q *Queries) GetPlanningSourceByCard(ctx context.Context, promotedToCardID *string) (GetPlanningSourceByCardRow, error) {
+	row := q.db.QueryRow(ctx, getPlanningSourceByCard, promotedToCardID)
+	var i GetPlanningSourceByCardRow
+	err := row.Scan(
+		&i.ItemID,
+		&i.ItemType,
+		&i.ItemTitle,
+		&i.ItemStatus,
+		&i.SessionID,
+		&i.SessionTitle,
+		&i.SessionLabel,
+		&i.SessionMeetingAt,
+		&i.SessionBoardID,
+	)
+	return i, err
+}
+
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
 SELECT id, user_id, token_hash, expires_at, revoked_at, replaced_by, created_at
 FROM refresh_tokens
@@ -1587,6 +1637,50 @@ func (q *Queries) ListActivitiesByBoardBefore(ctx context.Context, arg ListActiv
 			&i.CreatedAt,
 			&i.ActorName,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingQuestionsBySession = `-- name: ListPendingQuestionsBySession :many
+SELECT id, title
+FROM planning_items
+WHERE session_id = $1
+  AND type = 'Q'
+  AND status NOT IN ('dropped', 'promoted')
+ORDER BY position ASC
+LIMIT $2
+`
+
+type ListPendingQuestionsBySessionParams struct {
+	SessionID string
+	Limit     int32
+}
+
+type ListPendingQuestionsBySessionRow struct {
+	ID    string
+	Title string
+}
+
+// ListPendingQuestionsBySession returns up to N open questions from a
+// planning session — type='Q' and status NOT IN (dropped, promoted). Used
+// alongside GetPlanningSourceByCard to surface "you still have N open
+// questions from this meeting" on the card detail.
+func (q *Queries) ListPendingQuestionsBySession(ctx context.Context, arg ListPendingQuestionsBySessionParams) ([]ListPendingQuestionsBySessionRow, error) {
+	rows, err := q.db.Query(ctx, listPendingQuestionsBySession, arg.SessionID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingQuestionsBySessionRow
+	for rows.Next() {
+		var i ListPendingQuestionsBySessionRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

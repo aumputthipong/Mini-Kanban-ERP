@@ -532,3 +532,68 @@ func (h *PlanningHandler) PromoteItem(w http.ResponseWriter, r *http.Request) er
 	})
 	return nil
 }
+
+// ─── Card source (reverse lookup) ──────────────────────────────────────────
+
+// GetCardSource powers the card detail modal's "ที่มา" section. It mounts
+// under /api/cards/{cardID}/source — the same shape as /subtasks — and
+// returns 200 with body `null` for cards that weren't promoted from
+// planning, so the frontend can render the section conditionally without
+// a 404 fork. Board membership is re-checked here because the parent
+// /api/cards route group has no membership middleware; treating a non-
+// member as 404 keeps the anti-enumeration behavior consistent.
+func (h *PlanningHandler) GetCardSource(w http.ResponseWriter, r *http.Request) error {
+	cardID := chi.URLParam(r, "cardID")
+	if _, err := uuid.Parse(cardID); err != nil {
+		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID", err)
+	}
+	userID, apiErr := userIDFrom(r)
+	if apiErr != nil {
+		return apiErr
+	}
+	boardID, err := h.boards.GetBoardIDByCard(r.Context(), cardID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return httputil.NewAPIError(http.StatusNotFound, "Not found", nil)
+		}
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to resolve board", err)
+	}
+	if _, apiErr := h.requireMembership(r, boardID, userID); apiErr != nil {
+		return apiErr
+	}
+
+	source, err := h.planning.GetCardSource(r.Context(), cardID, 3)
+	if err != nil {
+		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch card source", err)
+	}
+	if source == nil {
+		// Write JSON null explicitly. RespondJSON skips encoding for nil
+		// payloads (emits an empty body), which leaves the client guessing
+		// whether the absence means "no source" or "request truncated".
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("null"))
+		return nil
+	}
+
+	resp := dto.CardSourceResponse{
+		Session: dto.CardSourceSession{
+			ID:        source.SessionID,
+			Title:     source.SessionTitle,
+			Label:     source.SessionLabel,
+			MeetingAt: ptrTimeToString(source.SessionMeetingAt),
+		},
+		Item: dto.CardSourceItem{
+			ID:     source.ItemID,
+			Type:   source.ItemType,
+			Title:  source.ItemTitle,
+			Status: source.ItemStatus,
+		},
+		PendingQuestions: make([]dto.CardSourceQuestion, len(source.PendingQuestions)),
+	}
+	for i, q := range source.PendingQuestions {
+		resp.PendingQuestions[i] = dto.CardSourceQuestion{ID: q.ID, Title: q.Title}
+	}
+	httputil.RespondJSON(w, http.StatusOK, resp)
+	return nil
+}

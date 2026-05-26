@@ -129,6 +129,7 @@ export function ItemRow({
 
   return (
     <div
+      id={`item-${item.id}`}
       onClick={onFocus}
       className={`group flex items-center gap-2 rounded px-2 py-1 ${
         focused ? "bg-indigo-50" : "hover:bg-slate-50"

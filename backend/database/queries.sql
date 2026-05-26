@@ -549,3 +549,36 @@ SELECT * FROM planning_items WHERE id = $1;
 -- producing duplicates. Always pair with a transaction.
 -- name: LockPlanningItemForUpdate :one
 SELECT * FROM planning_items WHERE id = $1 FOR UPDATE;
+
+-- GetPlanningSourceByCard returns the planning item + session that a card
+-- was promoted from, or zero rows if the card was never promoted (or the
+-- source item/session was deleted). Used by the card detail modal's
+-- "ที่มา" (source) section. The partial index idx_planning_items_promoted_card
+-- keeps this lookup cheap even when the cards table grows.
+-- name: GetPlanningSourceByCard :one
+SELECT
+    pi.id          AS item_id,
+    pi.type        AS item_type,
+    pi.title       AS item_title,
+    pi.status      AS item_status,
+    ps.id          AS session_id,
+    ps.title       AS session_title,
+    ps.label       AS session_label,
+    ps.meeting_at  AS session_meeting_at,
+    ps.board_id    AS session_board_id
+FROM planning_items pi
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE pi.promoted_to_card_id = $1;
+
+-- ListPendingQuestionsBySession returns up to N open questions from a
+-- planning session — type='Q' and status NOT IN (dropped, promoted). Used
+-- alongside GetPlanningSourceByCard to surface "you still have N open
+-- questions from this meeting" on the card detail.
+-- name: ListPendingQuestionsBySession :many
+SELECT id, title
+FROM planning_items
+WHERE session_id = $1
+  AND type = 'Q'
+  AND status NOT IN ('dropped', 'promoted')
+ORDER BY position ASC
+LIMIT $2;
