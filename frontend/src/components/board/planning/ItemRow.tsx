@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Ban, CheckSquare, ChevronDown, ChevronRight, Eye, EyeOff, FileText, ListChecks, MessageSquare, Square, Trash2 } from "lucide-react";
+import { FileText, ListChecks, MessageSquare } from "lucide-react";
 import { useBoardStore } from "@/store/useBoardStore";
 import type {
   PlanningItem,
@@ -14,15 +14,11 @@ import type {
   PlanningItemType,
 } from "@/types/planning";
 import { CommentThread } from "./CommentThread";
+import { ItemActionButtons } from "./ItemActionButtons";
+import { ItemClaimAffordance } from "./ItemClaimAffordance";
 import { ItemDetailsPanel, countNonEmptyLines } from "./ItemDetailsPanel";
+import { ItemTypePopover } from "./ItemTypePopover";
 import { usePlanningComments } from "@/hooks/usePlanningComments";
-import {
-  TYPE_CHIP,
-  TYPE_CHIP_ACTIVE,
-  TYPE_CYCLE,
-  TYPE_LONG,
-  TYPE_TOOLTIP,
-} from "./planningTypeMeta";
 
 interface ItemRowProps {
   index: number;
@@ -64,7 +60,6 @@ export function ItemRow({
   onDown,
 }: ItemRowProps) {
   const [editing, setEditing] = useState(false);
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const currentUserId = useBoardStore((s) => s.currentUserId);
@@ -77,13 +72,11 @@ export function ItemRow({
   const claimedByUserId = item.claimed_by_user_id ?? null;
   const isClaimedByMe =
     !!currentUserId && claimedByUserId === currentUserId;
-  const isClaimedByOther = !!claimedByUserId && !isClaimedByMe;
   const claimerName =
     claimedByUserId
       ? boardMembers.find((m) => m.user_id === claimedByUserId)?.full_name ||
         "ผู้ใช้คนอื่น"
       : "";
-  const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(item.title);
   // Tracks the last item.title we synced from so we can detect prop changes
   // during render without a useEffect+setState (which trips React 19's
@@ -102,20 +95,6 @@ export function ItemRow({
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
-  // Close the type menu when the user clicks anywhere outside it. Listening
-  // on mousedown (not click) so the menu closes before the outside element
-  // gets its own click handler — avoids accidentally toggling row focus or
-  // entering edit mode on the very click that dismissed the menu.
-  useEffect(() => {
-    if (!typeMenuOpen) return;
-    const onMouseDown = (e: MouseEvent) => {
-      if (!typeMenuRef.current?.contains(e.target as Node)) {
-        setTypeMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [typeMenuOpen]);
 
   const commit = () => {
     setEditing(false);
@@ -171,54 +150,7 @@ export function ItemRow({
       <span className="w-6 shrink-0 text-right text-[10px] text-slate-300">
         {String(index + 1).padStart(2, "0")}
       </span>
-      <div ref={typeMenuRef} className="relative shrink-0">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (promoted) return;
-            setTypeMenuOpen((open) => !open);
-          }}
-          className={`rounded border px-1.5 py-0 text-[10px] font-bold uppercase ${TYPE_CHIP[item.type]} ${
-            promoted ? "cursor-not-allowed opacity-60" : "hover:brightness-95"
-          }`}
-          disabled={promoted}
-          title={
-            promoted
-              ? "ส่งเข้า Board แล้ว เปลี่ยนประเภทไม่ได้"
-              : `${TYPE_TOOLTIP[item.type]} · คลิกเพื่อเปลี่ยน`
-          }
-        >
-          {item.type}
-        </button>
-        {typeMenuOpen && (
-          <div
-            className="absolute left-0 top-full z-10 mt-1 flex gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {TYPE_CYCLE.map((t) => {
-              const active = t === item.type;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTypeMenuOpen(false);
-                    if (t !== item.type) onChangeType(t);
-                  }}
-                  className={`whitespace-nowrap rounded border px-2 py-0.5 text-[10px] font-bold uppercase transition-colors ${
-                    active ? TYPE_CHIP_ACTIVE[t] : TYPE_CHIP[t]
-                  }`}
-                  title={TYPE_LONG[t]}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <ItemTypePopover type={item.type} disabled={promoted} onChange={onChangeType} />
       {editing ? (
         <input
           ref={inputRef}
@@ -273,63 +205,15 @@ export function ItemRow({
           <FileText size={10} /> มี note
         </span>
       )}
-      {/* Claim affordance — free items get a subtle "ฉันจะดูข้อนี้" button;
-          claimed items get an initials avatar with hover tooltip
-          ("<name> กำลังดู · X ที่แล้ว"). Click on the own-claim avatar
-          releases. Other people's claims are display-only — managers can
-          still force-release via the row menu (not exposed here yet). */}
       {!promoted && (
-        claimedByUserId === null ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClaim();
-            }}
-            title="claim ข้อนี้ไว้ดูก่อน"
-            aria-label="ฉันจะดูข้อนี้"
-            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 opacity-60 transition-opacity hover:bg-slate-100 hover:opacity-100"
-          >
-            <Eye size={10} /> ฉันจะดู
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isClaimedByMe) onRelease();
-            }}
-            disabled={!isClaimedByMe}
-            title={
-              isClaimedByMe
-                ? `กำลังดูอยู่${item.claimed_at ? " · " + new Date(item.claimed_at).toLocaleTimeString("th-TH") : ""} · คลิกเพื่อเลิกดู`
-                : `${claimerName} กำลังดูอยู่`
-            }
-            aria-label={isClaimedByMe ? "เลิกดู" : claimerName + " กำลังดู"}
-            className={`inline-flex shrink-0 items-center gap-1 rounded-full pr-1 text-[10px] font-semibold transition-colors ${
-              isClaimedByMe
-                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                : "bg-slate-100 text-slate-600 cursor-not-allowed"
-            }`}
-          >
-            <span
-              className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
-                isClaimedByMe
-                  ? "bg-emerald-200 text-emerald-800"
-                  : "bg-slate-300 text-slate-700"
-              }`}
-            >
-              {(claimerName || "?").slice(0, 1).toUpperCase()}
-            </span>
-            {isClaimedByMe ? (
-              <span className="inline-flex items-center gap-0.5">
-                <EyeOff size={9} /> เลิกดู
-              </span>
-            ) : (
-              <span className="pr-1">ดูอยู่</span>
-            )}
-          </button>
-        )
+        <ItemClaimAffordance
+          claimedByUserId={claimedByUserId}
+          isClaimedByMe={isClaimedByMe}
+          claimerName={claimerName}
+          claimedAt={item.claimed_at ?? null}
+          onClaim={onClaim}
+          onRelease={onRelease}
+        />
       )}
       {/* Comment count badge — click toggles the thread expansion. The
           count comes from the hook's local list (includes optimistic
@@ -358,73 +242,17 @@ export function ItemRow({
           ? comments.comments.filter((c) => !c.deleted_at).length
           : ""}
       </button>
-      {/* Action buttons — always visible at opacity-60 so users see them
-          without needing to hover the row first. Lifts to full opacity on
-          hover for affordance. Icon-only saves horizontal space; titles
-          carry the verbal cue. */}
-      <div className="flex shrink-0 items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus("selected");
-          }}
-          disabled={promoted || dropped}
-          title={selected ? "ยกเลิกการเลือก" : "เลือกเพื่อส่งเข้า Board"}
-          aria-label={selected ? "ยกเลิกการเลือก" : "เลือก"}
-          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-            selected
-              ? "text-indigo-600 hover:bg-indigo-50"
-              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-          }`}
-        >
-          {selected ? <CheckSquare size={14} /> : <Square size={14} />}
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus("dropped");
-          }}
-          disabled={promoted}
-          title={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
-          aria-label={dropped ? "เอากลับมา" : "พักไว้ก่อน"}
-          className={`rounded p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-            dropped
-              ? "text-amber-600 hover:bg-amber-50"
-              : "text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-          }`}
-        >
-          <Ban size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          title="ลบรายการนี้"
-          aria-label="ลบ"
-          className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        >
-          <Trash2 size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
-          title={expanded ? "ซ่อนรายละเอียด" : "เปิดรายละเอียด"}
-          aria-label="รายละเอียด"
-          aria-expanded={expanded}
-          className={`rounded p-1 transition-colors hover:bg-slate-200 ${
-            hasDetails ? "text-indigo-600" : "text-slate-400 hover:text-slate-700"
-          }`}
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-      </div>
+      <ItemActionButtons
+        selected={selected}
+        dropped={dropped}
+        promoted={promoted}
+        expanded={expanded}
+        hasDetails={hasDetails}
+        onToggleSelected={() => onToggleStatus("selected")}
+        onToggleDropped={() => onToggleStatus("dropped")}
+        onDelete={onDelete}
+        onToggleExpanded={() => setExpanded((v) => !v)}
+      />
     </div>
     {expanded && (
       <ItemDetailsPanel
