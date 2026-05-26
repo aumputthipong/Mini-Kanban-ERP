@@ -556,7 +556,7 @@ func (q *Queries) GetAllBoards(ctx context.Context) ([]GetAllBoardsRow, error) {
 }
 
 const getAllUsers = `-- name: GetAllUsers :many
-SELECT id, email, full_name FROM users ORDER BY full_name ASC
+SELECT id, email, full_name FROM users ORDER BY full_name ASC LIMIT 500
 `
 
 type GetAllUsersRow struct {
@@ -565,6 +565,8 @@ type GetAllUsersRow struct {
 	FullName string
 }
 
+// Capped at 500 rows. The assignee-picker dropdown calls this; beyond ~500
+// users it needs a search endpoint, not a full dump. Bump only with a UX plan.
 func (q *Queries) GetAllUsers(ctx context.Context) ([]GetAllUsersRow, error) {
 	rows, err := q.db.Query(ctx, getAllUsers)
 	if err != nil {

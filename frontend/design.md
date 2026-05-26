@@ -66,6 +66,11 @@ size:
   avatar-sm: 18px
   status-icon: 14px
   popover-max: 320px
+breakpoints:
+  md: 768px
+  lg: 1024px
+  xl: 1280px
+  min-supported: 768px
 components:
   board:
     backgroundColor: "{colors.background}"
@@ -159,6 +164,31 @@ Two corner radii cover the whole product. Buttons and chips use `sm` for a crisp
 - **chip-filter:** Calendar filter row. Outline default (`secondary` border, `on-surface` text); active state = `surface-tint` background + `primary` text. `rounded.full`, `label-sm` typography.
 - **popover-card:** Hover preview / day-detail popover. `surface-elevated` with shadow-md, `rounded.md`, `lg` padding, `popover-max` (320px) wide. Contains **at most one** `button-primary` ("Open card"); secondary actions are text-only links in `secondary` slate.
 - **today-cell:** Today's date cell. `surface-tint` background wash + a `primary` `rounded.full` disc around the date number.
+
+## Responsive
+
+Turtask รองรับ **viewport ≥ 768px** (tablet ขึ้นไป). ต่ำกว่านี้แสดงข้อความขอให้ใช้บนหน้าจอใหญ่กว่า — ไม่ใช่ design goal. Breakpoints align กับ Tailwind defaults: `md` 768px, `lg` 1024px, `xl` 1280px.
+
+**Tier rules — ใช้ tier ที่*ใกล้เคียงที่สุด*แล้ว customize เฉพาะจุด:**
+
+- **md (768–1023, tablet):** Workspace sidebar **collapsed by default** (`w-13`, icon-only) — toggle ปรากฏแต่ไม่ขยายค้าง. Board page padding `px-4`. Calendar density ลด (เอา hours label ออกจาก pill). Charts grid 1-column. Stat strips 1-column ถ้า card มี progress bar; ถ้า icon + count ล้วน ๆ 3-column ได้.
+- **lg (1024–1279, laptop):** Sidebar expand ได้, user toggle ตามใจ. Board padding `px-6`. Charts grid 2-column. Stat strips 3-column.
+- **xl (≥1280, desktop):** Padding `px-8`. Charts ถ้า ≥3 widget → 3-column. ที่เหลือคงเดิม.
+
+**Component-scoped rules:**
+
+- **Kanban board** (`tasks/page.tsx`): **คง horizontal scroll ทุก viewport** — column width fixed, ผู้ใช้ scroll/swipe ดู. ไม่ stack เป็น single-column บน tablet.
+- **Calendar month grid:** คง 7 column ทุก viewport (สัปดาห์คือสัปดาห์). ที่ md ลด `pill` density ภายใน cell + ซ่อน duration text. Filter row → horizontal scroll ถ้าล้น.
+- **Planning session view:** SessionSidebar collapsible (มี toggle), default collapsed ที่ md, expanded ที่ ≥lg. ที่ <lg และ sidebar expand → overlay (ไม่ push capture area).
+- **BoardHeader tabs:** ที่ md ใช้ `overflow-x-auto` ให้ tabs scroll ได้แทนการ wrap. Label คงไว้ — ห้ามเหลือแต่ icon (loss of clarity).
+- **Modals:** ใช้ `max-w-[90vw]` หรือต่ำกว่า — ห้าม fixed width เกิน 768px.
+
+**Don'ts:**
+
+- ❌ ห้ามใช้ `min-w-[XXXpx]` กับ container ที่อยู่ใน sidebar shell — sidebar กิน 56–224px อยู่แล้ว
+- ❌ ห้ามตั้งสมมติฐานว่า viewport กว้าง ≥1280px (laptop หลายตัวคือ 1280×800 หลัง sidebar เหลือ <1056)
+- ❌ ห้ามใช้ Tailwind `sm:` (640px) เพื่อเปลี่ยน layout — project นี้ skip `sm` tier (ไม่ support mobile). `sm:` ใช้ได้แต่เพื่อ fine-tune ภายใน tier `md` เท่านั้น
+- ❌ ห้ามซ่อน feature ที่ critical (เช่น "Settings" tab, "Promote" button) ด้วย `hidden md:flex` — feature ทุกอย่างต้องเข้าถึงได้ทุก viewport ที่ support
 
 ## Do's and Don'ts
 

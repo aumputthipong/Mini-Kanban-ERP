@@ -46,6 +46,12 @@ A real-time team task & project management web app. Multi-board Kanban with role
 - **WebSocket hub** — per-board rooms; broadcasts card moves, edits, activities
 - **Frontend store** — single Zustand store; WS messages mutate it directly
 
+> ⚠ **Single-instance only.** The WS hub keeps room state in-memory and
+> rate limits use an in-memory bucket per instance. Running multiple backend
+> replicas without a shared layer (e.g. Redis pub/sub for WS + a distributed
+> rate limiter) will silently drop broadcasts to clients connected to a
+> different instance. Scale vertically until that layer is introduced.
+
 Deeper docs:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layered design, permission matrix, optimistic UI pattern, what's intentionally not here

@@ -129,6 +129,7 @@ func run(ctx context.Context, cfg config) error {
 		return fmt.Errorf("database init failed: %w", err)
 	}
 	defer pool.Close()
+	observability.RegisterDBPool(pool)
 	slog.Info("connected to postgres",
 		"max_conns", dbPoolMaxConns,
 		"min_conns", dbPoolMinConns,
@@ -207,6 +208,11 @@ func run(ctx context.Context, cfg config) error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("graceful shutdown failed: %w", err)
 	}
+	// HTTP listener is drained; now close any active WS connections so their
+	// pumps can exit cleanly before we return and the pool is closed.
+	hub.Shutdown()
+	// Drain any queued audit writes before pool.Close() pulls the rug out.
+	activityService.Stop()
 	slog.Info("server stopped cleanly")
 	return nil
 }

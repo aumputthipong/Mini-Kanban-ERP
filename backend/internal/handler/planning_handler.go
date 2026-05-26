@@ -9,7 +9,6 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
@@ -34,34 +33,31 @@ func NewPlanningHandler(p service.PlanningServicer, b service.BoardServicer, a s
 	return &PlanningHandler{planning: p, boards: b, activity: a}
 }
 
-// recordActivity is best-effort — matches the WS handlers' pattern where
-// activity is logged after the mutation succeeds. If the audit insert
-// fails we log and move on; the user-facing mutation already committed.
-// See AGENTS.md note about activity being recorded before broadcast for
-// the WS path; this REST path has no broadcast, so the audit row is the
-// only secondary write.
+// recordActivity is best-effort. REST path has no broadcast — the audit row
+// is the only secondary write, so we fire-and-forget via RecordAsync. The
+// WS path still uses sync Record because its broadcast embeds the row's ID
+// and created_at; see AGENTS.md.
 func (h *PlanningHandler) recordActivity(
 	r *http.Request,
 	boardID, actorID, eventType, entityType string,
 	entityID *string,
 	payload any,
 ) {
+	_ = r // request ctx is intentionally not threaded through — async write uses background ctx
 	if h.activity == nil {
 		return
 	}
 	if _, err := uuid.Parse(actorID); err != nil {
 		return
 	}
-	if _, err := h.activity.Record(r.Context(), service.RecordParams{
+	h.activity.RecordAsync(service.RecordParams{
 		BoardID:    boardID,
 		ActorID:    actorID,
 		EventType:  eventType,
 		EntityType: entityType,
 		EntityID:   entityID,
 		Payload:    payload,
-	}); err != nil {
-		log.Printf("Failed to record activity [%s]: %v", eventType, err)
-	}
+	})
 }
 
 // strPtr is a literal-to-pointer helper for passing entity IDs into
