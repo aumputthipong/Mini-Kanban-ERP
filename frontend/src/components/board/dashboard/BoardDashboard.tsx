@@ -11,6 +11,7 @@ import {
 } from "@/components/board/card-modal/CardDetailModal";
 import type { Card } from "@/types/board";
 import { BarChart3, Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 export function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
@@ -44,16 +45,16 @@ function computeCanEdit(
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-10 animate-pulse">
-      <div className="h-10 bg-slate-100 rounded-xl w-64" />
+    <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-10">
+      <Skeleton className="h-10 w-64 rounded-xl" />
       <div className="grid grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white p-5 rounded-xl border border-slate-200 h-20" />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-xl border border-slate-200 h-52" />
+          <Skeleton key={i} className="h-52 rounded-xl" />
         ))}
       </div>
     </div>
@@ -107,6 +108,7 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
     <>
       {selectedCard && (
         <CardDetailModal
+          key={selectedCard.id}
           card={selectedCard}
           boardId={boardId}
           isOpen={true}

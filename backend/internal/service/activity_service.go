@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
@@ -19,17 +20,100 @@ const (
 	EventColumnRenamed    = "column.renamed"
 	EventMemberAdded      = "member.added"
 
-	EntityCard   = "card"
-	EntityColumn = "column"
-	EntityMember = "member"
+	// Planning section. Sessions hold meeting notes; items are the REQ/DEC/Q
+	// rows inside a session. PromoteItem turns an item into a Kanban card —
+	// we log only the planning side (planning.item_promoted) to avoid
+	// duplicating the card-created noise on the audit feed.
+	EventPlanningSessionCreated = "planning.session_created"
+	EventPlanningSessionUpdated = "planning.session_updated"
+	EventPlanningSessionDeleted = "planning.session_deleted"
+	EventPlanningItemCreated    = "planning.item_created"
+	EventPlanningItemUpdated    = "planning.item_updated"
+	EventPlanningItemDeleted    = "planning.item_deleted"
+	EventPlanningItemPromoted   = "planning.item_promoted"
+
+	EntityCard            = "card"
+	EntityColumn          = "column"
+	EntityMember          = "member"
+	EntityPlanningSession = "planning_session"
+	EntityPlanningItem    = "planning_item"
 )
 
 type ActivityService struct {
 	queries *db.Queries
+	jobs    chan RecordParams
+	stop    chan struct{}
 }
 
+const (
+	activityQueueSize  = 512
+	activityWriteTimeout = 5 * time.Second
+)
+
 func NewActivityService(queries *db.Queries) *ActivityService {
-	return &ActivityService{queries: queries}
+	s := &ActivityService{
+		queries: queries,
+		jobs:    make(chan RecordParams, activityQueueSize),
+		stop:    make(chan struct{}),
+	}
+	go s.worker()
+	return s
+}
+
+// worker drains queued RecordAsync jobs. Each job runs with a fresh background
+// context so a slow audit insert doesn't get cancelled when the HTTP request
+// that scheduled it returns. On Stop we drain whatever's still in the buffer
+// then return; new sends after Stop are dropped (see RecordAsync).
+func (s *ActivityService) worker() {
+	for {
+		select {
+		case <-s.stop:
+			for {
+				select {
+				case p := <-s.jobs:
+					s.writeOne(p)
+				default:
+					return
+				}
+			}
+		case p := <-s.jobs:
+			s.writeOne(p)
+		}
+	}
+}
+
+func (s *ActivityService) writeOne(p RecordParams) {
+	ctx, cancel := context.WithTimeout(context.Background(), activityWriteTimeout)
+	defer cancel()
+	if _, err := s.Record(ctx, p); err != nil {
+		slog.Warn("async activity record failed", "event_type", p.EventType, "err", err)
+	}
+}
+
+// Stop signals the worker to drain and exit. Idempotent. Call once at
+// graceful shutdown after the HTTP listener has drained.
+func (s *ActivityService) Stop() {
+	select {
+	case <-s.stop:
+	default:
+		close(s.stop)
+	}
+}
+
+// RecordAsync enqueues an audit insert and returns immediately. Use it from
+// REST mutation handlers where the response shouldn't be held up by the audit
+// row's round-trip. If the queue is full the job is dropped with a warning —
+// audit is best-effort by design (see AGENTS.md).
+//
+// Do NOT use this from the WebSocket path: the broadcast payload uses the
+// returned activity's ID and created_at, so that path needs Record's sync
+// return.
+func (s *ActivityService) RecordAsync(p RecordParams) {
+	select {
+	case s.jobs <- p:
+	default:
+		slog.Warn("activity queue full, dropping record", "event_type", p.EventType)
+	}
 }
 
 type RecordParams struct {
@@ -151,4 +235,44 @@ type ColumnDeletedPayload struct {
 type ColumnRenamedPayload struct {
 	OldTitle string `json:"old_title"`
 	NewTitle string `json:"new_title"`
+}
+
+// Planning payloads. Item-level events carry both title and type so the
+// feed can render "REQ: Add 2FA" without re-fetching the row. The Updated
+// payloads include a `fields` slice (same shape as CardUpdatedPayload) so
+// one event covers any partial PATCH — drop/undrop/select/rename/retype
+// all fold into "planning.item_updated" with fields=["status"] etc.
+type PlanningSessionCreatedPayload struct {
+	Title string `json:"title"`
+}
+
+type PlanningSessionUpdatedPayload struct {
+	Title  string   `json:"title"`
+	Fields []string `json:"fields"`
+}
+
+type PlanningSessionDeletedPayload struct {
+	Title string `json:"title"`
+}
+
+type PlanningItemCreatedPayload struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+type PlanningItemUpdatedPayload struct {
+	Type   string   `json:"type"`
+	Title  string   `json:"title"`
+	Fields []string `json:"fields"`
+}
+
+type PlanningItemDeletedPayload struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+type PlanningItemPromotedPayload struct {
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	ToCardID  string `json:"to_card_id"`
 }

@@ -46,6 +46,12 @@ A real-time team task & project management web app. Multi-board Kanban with role
 - **WebSocket hub** — per-board rooms; broadcasts card moves, edits, activities
 - **Frontend store** — single Zustand store; WS messages mutate it directly
 
+> ⚠ **Single-instance only.** The WS hub keeps room state in-memory and
+> rate limits use an in-memory bucket per instance. Running multiple backend
+> replicas without a shared layer (e.g. Redis pub/sub for WS + a distributed
+> rate limiter) will silently drop broadcasts to clients connected to a
+> different instance. Scale vertically until that layer is introduced.
+
 Deeper docs:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layered design, permission matrix, optimistic UI pattern, what's intentionally not here
@@ -163,27 +169,20 @@ Optional (Google OAuth login): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOG
 
 ## Common tasks
 
-| Task                                | Command                                                    |
-|-------------------------------------|------------------------------------------------------------|
-| Run backend tests                   | `cd backend && go test ./...`                              |
-| Run frontend tests                  | `cd frontend && npm test`                                  |
-| Type check frontend                 | `cd frontend && npx tsc --noEmit`                          |
-| Regenerate sqlc code                | `cd backend && sqlc generate`                              |
-| Add a migration                     | create `database/migrations/00000N_name.{up,down}.sql`     |
-| Regenerate OpenAPI spec             | `cd backend && go generate ./cmd/api` (needs `swag` CLI)   |
-| Build production images             | `docker compose -f docker-compose.prod.yml build`          |
-| Inspect health                      | `curl localhost:8080/healthz`                              |
-| Browse API docs                     | <http://localhost:8080/docs/index.html>                    |
+A top-level [`Makefile`](Makefile) wraps the most-used commands. `make` with no target lists them. Direct equivalents below if you'd rather not use `make`:
 
-## Deployment notes
+| Task                                | `make`                | Direct                                                  |
+|-------------------------------------|-----------------------|---------------------------------------------------------|
+| Verify everything CI runs           | `make verify`         | `go vet + go test + tsc + vitest`                       |
+| Run backend tests                   | `make test`           | `cd backend && go test ./...`                           |
+| Run frontend tests                  | `make test-fe`        | `cd frontend && npm test`                               |
+| Run frontend E2E (Playwright)       | `make test-e2e`       | `cd frontend && npx playwright install chromium && npm run test:e2e` |
+| Frontend type check                 | `make typecheck`      | `cd frontend && npx tsc --noEmit`                       |
+| Regenerate sqlc                     | `make sqlc`           | `cd backend && sqlc generate`                           |
+| New migration stub                  | `make migrate-new name=add_x` | (manual file creation under `database/migrations/`) |
+| Regenerate OpenAPI spec             | `make swag`           | `cd backend && go generate ./cmd/api`                   |
+| Build production images             | `make build`          | `docker compose -f docker-compose.prod.yml build`       |
+| Inspect health                      | —                     | `curl localhost:8080/healthz`                           |
+| Browse API docs                     | —                     | <http://localhost:8080/docs/index.html>                 |
 
-- Container images are multi-stage: backend ends on `distroless/static:nonroot`, frontend on `node:20-alpine` with `output: "standalone"`.
-- Migrations run on every backend startup (idempotent — uses `golang-migrate`). Set `SKIP_MIGRATIONS=true` to disable.
-- Connection pool defaults: `MaxConns=25`, `MinConns=5`, `MaxConnIdleTime=5m`. Tune via `DB_URL` query params if needed.
-- Graceful shutdown: 30 s drain on `SIGTERM` / `SIGINT`.
 
-See [docs/DEPLOY.md](docs/DEPLOY.md) for the full pre-flight checklist, deploy paths, smoke tests, rollback procedure, and common breakages.
-
-## License
-
-Personal project — no license assigned yet.

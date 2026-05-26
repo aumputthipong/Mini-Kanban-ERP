@@ -16,6 +16,7 @@ import (
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/logging"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/migrate"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/observability"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -128,6 +129,7 @@ func run(ctx context.Context, cfg config) error {
 		return fmt.Errorf("database init failed: %w", err)
 	}
 	defer pool.Close()
+	observability.RegisterDBPool(pool)
 	slog.Info("connected to postgres",
 		"max_conns", dbPoolMaxConns,
 		"min_conns", dbPoolMinConns,
@@ -137,19 +139,22 @@ func run(ctx context.Context, cfg config) error {
 	queries := db.New(pool)
 
 	activityService := service.NewActivityService(queries)
+	boardCmdService := service.NewBoardCommandService(queries)
 
-	hub := websocket.NewHub(queries, activityService)
+	hub := websocket.NewHub(boardCmdService, activityService, cfg.FrontendURL)
 	go hub.Run()
 
 	boardService := service.NewBoardService(pool, queries)
 	authService := service.NewAuthService(queries)
 	subtaskService := service.NewSubtaskService(pool)
 	tagService := service.NewTagService(pool, queries)
+	planningService := service.NewPlanningService(pool, queries)
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
 	boardHandler := handler.NewBoardHandler(boardService)
 	tagHandler := handler.NewTagHandler(tagService)
 	activityHandler := handler.NewActivityHandler(activityService)
+	planningHandler := handler.NewPlanningHandler(planningService, boardService, activityService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
 	oauthHandler := handler.NewOAuthHandler(
 		cfg.GoogleClientID,
@@ -169,6 +174,7 @@ func run(ctx context.Context, cfg config) error {
 		subtaskHandler:  subtaskHandler,
 		tagHandler:      tagHandler,
 		activityHandler: activityHandler,
+		planningHandler: planningHandler,
 		hub:             hub,
 		pool:            pool,
 		version:         version,
@@ -202,6 +208,11 @@ func run(ctx context.Context, cfg config) error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("graceful shutdown failed: %w", err)
 	}
+	// HTTP listener is drained; now close any active WS connections so their
+	// pumps can exit cleanly before we return and the pool is closed.
+	hub.Shutdown()
+	// Drain any queued audit writes before pool.Close() pulls the rug out.
+	activityService.Stop()
 	slog.Info("server stopped cleanly")
 	return nil
 }
@@ -214,6 +225,9 @@ func main() {
 	}
 
 	cfg := loadConfig()
+
+	observability.InitSentry(version)
+	defer observability.FlushSentry(2 * time.Second)
 
 	if err := run(context.Background(), cfg); err != nil {
 		slog.Error("run failed", "err", err)

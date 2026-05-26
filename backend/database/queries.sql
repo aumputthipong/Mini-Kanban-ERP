@@ -262,7 +262,9 @@ DO UPDATE SET
 RETURNING *;
 
 -- name: GetAllUsers :many
-SELECT id, email, full_name FROM users ORDER BY full_name ASC;
+-- Capped at 500 rows. The assignee-picker dropdown calls this; beyond ~500
+-- users it needs a search endpoint, not a full dump. Bump only with a UX plan.
+SELECT id, email, full_name FROM users ORDER BY full_name ASC LIMIT 500;
 
 
 
@@ -420,3 +422,130 @@ LEFT JOIN users u ON a.actor_id = u.id
 WHERE a.board_id = $1 AND a.created_at < $2
 ORDER BY a.created_at DESC
 LIMIT $3;
+
+
+-- name: InsertRefreshToken :one
+INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id;
+
+-- name: GetRefreshTokenByHash :one
+SELECT id, user_id, token_hash, expires_at, revoked_at, replaced_by, created_at
+FROM refresh_tokens
+WHERE token_hash = $1
+LIMIT 1;
+
+-- name: RevokeRefreshToken :exec
+-- Single-token revoke. replaced_by is set on rotation to track lineage so
+-- replay of an already-rotated token can be detected and the whole family
+-- revoked.
+UPDATE refresh_tokens
+SET revoked_at = now(), replaced_by = $2
+WHERE id = $1 AND revoked_at IS NULL;
+
+-- name: RevokeAllRefreshTokensForUser :exec
+-- Called on replay detection (a revoked token presented again) and on logout-
+-- all-sessions. Idempotent: already-revoked rows are skipped.
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL;
+
+
+-- =============================================================
+-- Planning sessions & items
+-- =============================================================
+
+-- name: ListPlanningSessionsByBoard :many
+SELECT
+    ps.id, ps.board_id, ps.title, ps.label, ps.meeting_at,
+    ps.created_by, ps.created_at, ps.updated_at,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'REQ' AND pi.status NOT IN ('dropped','promoted')) AS req_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'DEC' AND pi.status NOT IN ('dropped','promoted')) AS dec_count,
+    COUNT(pi.id) FILTER (WHERE pi.type = 'Q'   AND pi.status NOT IN ('dropped','promoted')) AS q_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'promoted') AS promoted_count,
+    COUNT(pi.id) FILTER (WHERE pi.status = 'dropped') AS dropped_count
+FROM planning_sessions ps
+LEFT JOIN planning_items pi ON pi.session_id = ps.id
+WHERE ps.board_id = $1
+GROUP BY ps.id
+ORDER BY COALESCE(ps.meeting_at, ps.created_at) DESC;
+
+-- name: CreatePlanningSession :one
+INSERT INTO planning_sessions (board_id, title, label, meeting_at, created_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetPlanningSession :one
+SELECT * FROM planning_sessions WHERE id = $1;
+
+-- name: UpdatePlanningSession :one
+-- PATCH semantics for planning: nil/omitted JSON fields preserve the existing
+-- value (COALESCE-driven). An empty string is treated as a real value — for
+-- nullable text columns (label) it stores ''. Required columns (title) must
+-- be rejected at the handler layer because the validator's `omitempty`
+-- short-circuits min=1 on *string pointing to "".
+UPDATE planning_sessions
+SET title      = COALESCE(sqlc.narg(title)::varchar, title),
+    label      = COALESCE(sqlc.narg(label)::text, label),
+    meeting_at = COALESCE(sqlc.narg(meeting_at)::timestamptz, meeting_at),
+    updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: DeletePlanningSession :exec
+DELETE FROM planning_sessions WHERE id = $1;
+
+-- name: ListPlanningItemsBySession :many
+SELECT * FROM planning_items
+WHERE session_id = $1
+ORDER BY position ASC;
+
+-- name: GetMaxPlanningItemPosition :one
+SELECT COALESCE(MAX(position), 0)::float8 FROM planning_items WHERE session_id = $1;
+
+-- name: CreatePlanningItem :one
+INSERT INTO planning_items (session_id, type, title, description, position)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: UpdatePlanningItem :one
+-- See UpdatePlanningSession's comment block on PATCH semantics. description
+-- is the only nullable column here; required ones (type/title/status) go
+-- through the handler-level "" check.
+UPDATE planning_items
+SET type        = COALESCE(sqlc.narg(type)::varchar, type),
+    title       = COALESCE(sqlc.narg(title)::text, title),
+    description = COALESCE(sqlc.narg(description)::text, description),
+    status      = COALESCE(sqlc.narg(status)::varchar, status),
+    position    = COALESCE(sqlc.narg(position)::float8, position)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: SetPlanningItemPromoted :exec
+UPDATE planning_items
+SET status = 'promoted',
+    promoted_to_card_id = $2
+WHERE id = $1;
+
+-- name: DeletePlanningItem :exec
+DELETE FROM planning_items WHERE id = $1;
+
+-- name: GetBoardIDByPlanningSession :one
+SELECT board_id FROM planning_sessions WHERE id = $1;
+
+-- name: GetBoardIDByPlanningItem :one
+SELECT ps.board_id
+FROM planning_items pi
+JOIN planning_sessions ps ON ps.id = pi.session_id
+WHERE pi.id = $1;
+
+-- name: GetPlanningItem :one
+SELECT * FROM planning_items WHERE id = $1;
+
+-- LockPlanningItemForUpdate takes a row-level write lock on the planning
+-- item so concurrent PromoteItem callers serialize. Without this, two
+-- transactions running at READ COMMITTED can both read status='live',
+-- both pass the "already promoted?" check, and both create a card —
+-- producing duplicates. Always pair with a transaction.
+-- name: LockPlanningItemForUpdate :one
+SELECT * FROM planning_items WHERE id = $1 FOR UPDATE;

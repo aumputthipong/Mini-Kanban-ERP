@@ -81,6 +81,41 @@ type Column struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type PlanningItem struct {
+	ID               string
+	SessionID        string
+	Type             string
+	Title            string
+	Description      *string
+	Status           string
+	PromotedToCardID *string
+	Position         float64
+	CreatedAt        time.Time
+}
+
+type PlanningSession struct {
+	ID        string
+	BoardID   string
+	Title     string
+	Label     *string
+	MeetingAt *time.Time
+	CreatedBy *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type RefreshToken struct {
+	ID         string
+	UserID     string
+	TokenHash  string
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	ReplacedBy *string
+	UserAgent  *string
+	Ip         *string
+	CreatedAt  time.Time
+}
+
 type Tag struct {
 	ID        string
 	BoardID   string

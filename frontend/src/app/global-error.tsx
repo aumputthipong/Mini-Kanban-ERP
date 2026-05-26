@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 
 // global-error replaces the root layout when the layout itself crashes,
 // so it must render its own <html> and <body>.
@@ -12,7 +14,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[global-error]", error);
+    logger.error("[global-error]", error);
+    captureException(error, { boundary: "global", digest: error.digest });
   }, [error]);
 
   return (

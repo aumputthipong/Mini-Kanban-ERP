@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Settings,
   User,
+  FileText,
 } from "lucide-react";
 
 interface BoardHeaderProps {
@@ -25,19 +26,19 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
 
   return (
     <header className="bg-white border-b border-slate-200 w-full z-10 relative">
-      <div className="flex items-center justify-between px-6 pt-4">
-        {/* ฝั่งซ้าย: โลโก้ + Tabs */}
-        <div className="flex items-center">
-          <div className="flex items-center gap-2 pr-6 border-r border-slate-200">
+      <div className="flex items-center justify-between gap-3 px-4 md:px-6 pt-4">
+        {/* ฝั่งซ้าย: โลโก้ + Tabs — tabs scroll-x at narrow widths */}
+        <div className="flex items-center min-w-0 flex-1">
+          <div className="flex items-center gap-2 pr-4 md:pr-6 border-r border-slate-200 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
               <LayoutGrid size={16} />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight truncate">
               {title}
             </h1>
           </div>
 
-          <nav className="flex items-center gap-1 pl-6">
+          <nav className="flex items-center gap-1 pl-4 md:pl-6 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Link
               href={`${basePath}/overview`}
               className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -48,6 +49,18 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
             >
               <LayoutTemplate size={16} />
               Overview
+            </Link>
+
+            <Link
+              href={`${basePath}/planning`}
+              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                pathname.includes("/planning")
+                  ? "border-indigo-600 text-indigo-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+              }`}
+            >
+              <FileText size={16} />
+              Planning
             </Link>
 
             <Link
@@ -88,7 +101,7 @@ export function BoardHeader({ title = "Project Board" }: BoardHeaderProps) {
         </div>
 
         {/* ฝั่งขวา: Settings (ย้ายมาจาก Sidebar) */}
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           <Link
             href={`${basePath}/settings`}
             className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${

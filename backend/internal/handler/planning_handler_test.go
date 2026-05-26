@@ -1,0 +1,319 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service/mock"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// validBoardID / validUserID defined in board_handler_test.go (same package).
+const (
+	validPlanningItemID    = "11111111-2222-3333-4444-555555555555"
+	validPlanningSessionID = "22222222-3333-4444-5555-666666666666"
+	validPromotedCardID    = "66666666-7777-8888-9999-aaaaaaaaaaaa"
+)
+
+// newPromoteTestRig wires the three collaborators a PromoteItem test needs.
+// Each test then overrides the specific Fn fields it cares about; methods
+// nothing touches stay nil and would panic if invoked, which is the point —
+// missing stubs surface loudly rather than silently returning zero values.
+func newPromoteTestRig() (*mock.MockPlanningService, *mock.MockBoardService, *mock.MockActivityRecorder, *PlanningHandler) {
+	plan := &mock.MockPlanningService{}
+	boards := &mock.MockBoardService{
+		GetBoardMemberRoleFn: func(ctx context.Context, boardID, userID string) (string, error) {
+			return "owner", nil
+		},
+	}
+	act := &mock.MockActivityRecorder{}
+	h := NewPlanningHandler(plan, boards, act)
+	return plan, boards, act, h
+}
+
+func newPromoteRequest(t *testing.T, itemID, userID string) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/planning/items/"+itemID+"/promote", strings.NewReader("{}"))
+	req = chiCtx(req, "itemID", itemID)
+	return withUserID(req, userID)
+}
+
+// ────────────────────────────────────────────────
+// PromoteItem — happy path + edge cases
+// ────────────────────────────────────────────────
+
+func TestPromoteItem_HappyPath_CreatesCardAndRecordsActivity(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
+		return db.PlanningItem{
+				ID:     validPlanningItemID,
+				Type:   "REQ",
+				Title:  "Add Google login",
+				Status: "promoted",
+			},
+			db.CreateCardRow{ID: validPromotedCardID},
+			nil
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.PromoteItem)(w, newPromoteRequest(t, validPlanningItemID, validUserID))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&body))
+	assert.Equal(t, validPromotedCardID, body["card_id"])
+
+	// Activity assertion — single planning.item_promoted row, payload
+	// carries the new card_id so the feed can deep-link.
+	require.Len(t, act.Calls, 1)
+	call := act.Calls[0]
+	assert.Equal(t, service.EventPlanningItemPromoted, call.EventType)
+	assert.Equal(t, service.EntityPlanningItem, call.EntityType)
+	require.NotNil(t, call.EntityID)
+	assert.Equal(t, validPlanningItemID, *call.EntityID)
+	payload, ok := call.Payload.(service.PlanningItemPromotedPayload)
+	require.True(t, ok, "payload should be PlanningItemPromotedPayload")
+	assert.Equal(t, "REQ", payload.Type)
+	assert.Equal(t, "Add Google login", payload.Title)
+	assert.Equal(t, validPromotedCardID, payload.ToCardID)
+}
+
+func TestPromoteItem_AlreadyPromoted_Returns409(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
+		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningItemAlreadyPromoted
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.PromoteItem)(w, newPromoteRequest(t, validPlanningItemID, validUserID))
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	// No activity row should be written on failure — we don't want the
+	// audit feed showing a "promoted" event when the second attempt was
+	// rejected.
+	assert.Empty(t, act.Calls)
+}
+
+func TestPromoteItem_DroppedItem_Returns422(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
+		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningItemDropped
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.PromoteItem)(w, newPromoteRequest(t, validPlanningItemID, validUserID))
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "dropped")
+	assert.Empty(t, act.Calls)
+}
+
+func TestPromoteItem_NoTodoColumn_Returns422(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	plan.PromoteItemFn = func(ctx context.Context, itemID, userID string) (db.PlanningItem, db.CreateCardRow, error) {
+		return db.PlanningItem{}, db.CreateCardRow{}, service.ErrPlanningNoTodoColumn
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.PromoteItem)(w, newPromoteRequest(t, validPlanningItemID, validUserID))
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "TODO")
+	assert.Empty(t, act.Calls)
+}
+
+func TestPromoteItem_NotMember_Returns404(t *testing.T) {
+	plan, boards, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	// Membership lookup returns pgx.ErrNoRows when the user isn't a member;
+	// the handler must surface this as 404 (anti-enumeration), not 403.
+	boards.GetBoardMemberRoleFn = func(ctx context.Context, boardID, userID string) (string, error) {
+		return "", pgx.ErrNoRows
+	}
+
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.PromoteItem)(w, newPromoteRequest(t, validPlanningItemID, validUserID))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Empty(t, act.Calls)
+}
+
+// ────────────────────────────────────────────────
+// PATCH empty-string convention — UpdateSession + UpdateItem
+//
+// Per planning_dto.go's PATCH semantics block:
+//   omit / null     → no change  (service receives nil pointer)
+//   "" required     → 400        (title)
+//   "" nullable     → service receives &"" (SQL stores ""; equivalent to NULL for app)
+//   value           → update
+// ────────────────────────────────────────────────
+
+func TestUpdateSession_TitleEmpty_Returns400(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetSessionBoardIDFn = func(ctx context.Context, sessionID string) (string, error) {
+		return validBoardID, nil
+	}
+
+	body := strings.NewReader(`{"title": ""}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/sessions/"+validPlanningSessionID, body)
+	req = chiCtx(req, "sessionID", validPlanningSessionID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateSession)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "title")
+	assert.Empty(t, act.Calls, "no activity row should be recorded on 400")
+}
+
+func TestUpdateSession_PartialPatch_OmittedFieldsArriveAsNil(t *testing.T) {
+	plan, _, _, h := newPromoteTestRig()
+	plan.GetSessionBoardIDFn = func(ctx context.Context, sessionID string) (string, error) {
+		return validBoardID, nil
+	}
+	var capturedTitle, capturedLabel, capturedMeetingAt *string
+	plan.UpdateSessionFn = func(ctx context.Context, sessionID string, title, label, meetingAt *string) (db.PlanningSession, error) {
+		capturedTitle = title
+		capturedLabel = label
+		capturedMeetingAt = meetingAt
+		return db.PlanningSession{ID: sessionID, Title: "Existing"}, nil
+	}
+
+	// Only label is patched; title and meeting_at are omitted from JSON.
+	body := strings.NewReader(`{"label": "with @client"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/sessions/"+validPlanningSessionID, body)
+	req = chiCtx(req, "sessionID", validPlanningSessionID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateSession)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Nil(t, capturedTitle, "omitted title should arrive as nil so SQL's COALESCE preserves it")
+	require.NotNil(t, capturedLabel)
+	assert.Equal(t, "with @client", *capturedLabel)
+	assert.Nil(t, capturedMeetingAt, "omitted meeting_at should arrive as nil")
+}
+
+func TestUpdateSession_EmptyLabel_PassedThroughToService(t *testing.T) {
+	// Nullable column convention: "" is a real value (stored as ""), NOT
+	// "no change". Handler must pass &"" through, not collapse to nil.
+	plan, _, _, h := newPromoteTestRig()
+	plan.GetSessionBoardIDFn = func(ctx context.Context, sessionID string) (string, error) {
+		return validBoardID, nil
+	}
+	var capturedLabel *string
+	plan.UpdateSessionFn = func(ctx context.Context, sessionID string, title, label, meetingAt *string) (db.PlanningSession, error) {
+		capturedLabel = label
+		return db.PlanningSession{ID: sessionID}, nil
+	}
+
+	body := strings.NewReader(`{"label": ""}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/sessions/"+validPlanningSessionID, body)
+	req = chiCtx(req, "sessionID", validPlanningSessionID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateSession)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, capturedLabel, "empty-string label should arrive as &\"\", not nil")
+	assert.Equal(t, "", *capturedLabel)
+}
+
+func TestUpdateItem_TitleEmpty_Returns400(t *testing.T) {
+	plan, _, act, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+
+	body := strings.NewReader(`{"title": ""}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "title")
+	assert.Empty(t, act.Calls)
+}
+
+func TestUpdateItem_EmptyDescription_PassedThroughToService(t *testing.T) {
+	plan, _, _, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	var capturedDescription *string
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+		capturedDescription = description
+		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Test"}, nil
+	}
+
+	body := strings.NewReader(`{"description": ""}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, capturedDescription, "empty-string description should arrive as &\"\", not nil")
+	assert.Equal(t, "", *capturedDescription)
+}
+
+func TestUpdateItem_OnlyStatusSent_OtherFieldsNilAtService(t *testing.T) {
+	// Drop / undrop flow sends `{"status":"dropped"}` only. Service must
+	// see type/title/description/position as nil so SQL's COALESCE keeps
+	// them. Regressions here would silently wipe titles on drop.
+	plan, _, _, h := newPromoteTestRig()
+	plan.GetItemBoardIDFn = func(ctx context.Context, itemID string) (string, error) {
+		return validBoardID, nil
+	}
+	var capturedType, capturedTitle, capturedDescription, capturedStatus *string
+	var capturedPosition *float64
+	plan.UpdateItemFn = func(ctx context.Context, itemID string, itemType, title *string, description *string, status *string, position *float64) (db.PlanningItem, error) {
+		capturedType = itemType
+		capturedTitle = title
+		capturedDescription = description
+		capturedStatus = status
+		capturedPosition = position
+		return db.PlanningItem{ID: itemID, Type: "REQ", Title: "Test"}, nil
+	}
+
+	body := strings.NewReader(`{"status": "dropped"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/planning/items/"+validPlanningItemID, body)
+	req = chiCtx(req, "itemID", validPlanningItemID)
+	req = withUserID(req, validUserID)
+	w := httptest.NewRecorder()
+	httputil.MakeHandler(h.UpdateItem)(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Nil(t, capturedType)
+	assert.Nil(t, capturedTitle)
+	assert.Nil(t, capturedDescription)
+	require.NotNil(t, capturedStatus)
+	assert.Equal(t, "dropped", *capturedStatus)
+	assert.Nil(t, capturedPosition)
+}

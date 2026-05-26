@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { useSidebarStore } from "@/store/useSidebarStore";
+import { useBelowLg } from "@/hooks/useBelowLg";
 
 interface Board {
   id: string;
@@ -23,7 +24,11 @@ interface SidebarProps {
 
 export function Sidebar({ boards }: SidebarProps) {
   const pathname = usePathname();
-  const { isCollapsed, toggle } = useSidebarStore();
+  const { isCollapsed: storeCollapsed, toggle } = useSidebarStore();
+  const belowLg = useBelowLg();
+  // <lg viewport is force-collapsed (design.md → Responsive → md tier).
+  // User toggle is only honored at ≥lg.
+  const isCollapsed = belowLg || storeCollapsed;
 
   const navItem = (
     href: string,
@@ -67,11 +72,11 @@ export function Sidebar({ boards }: SidebarProps) {
         </div>
       )}
       {isCollapsed && <div className="h-12 border-b border-slate-100 shrink-0" />}
-  {/* collapse toggle */}
+  {/* collapse toggle — hidden at <lg where sidebar is force-collapsed */}
         <button
           onClick={toggle}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full text-slate-400 hover:bg-slate-50 hover:text-slate-700 ${
+          className={`hidden lg:flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full text-slate-400 hover:bg-slate-50 hover:text-slate-700 ${
             isCollapsed ? "justify-center" : ""
           }`}
         >
