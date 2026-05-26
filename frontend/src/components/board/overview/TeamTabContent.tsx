@@ -10,6 +10,8 @@ import {
   Trash2,
   Check,
   Undo2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import type { Activity } from "@/types/activity";
@@ -163,6 +165,51 @@ function describeActivity(
       return { action: "deleted column", target: title, dest: "" };
     case "column.renamed":
       return { action: "renamed column", target: typeof p.new_title === "string" ? p.new_title : "", dest: "" };
+    // Planning section — session lifecycle.
+    case "planning.session_created":
+      return { action: "created planning session", target: title, dest: "" };
+    case "planning.session_updated": {
+      const fields = Array.isArray(p.fields) ? p.fields : [];
+      const pretty = fields.map((f: string) => FIELD_LABELS[f] ?? f).join(", ");
+      return { action: "updated planning session", target: title, dest: pretty };
+    }
+    case "planning.session_deleted":
+      return { action: "deleted planning session", target: title, dest: "" };
+    // Planning items. Item payloads include `type` (REQ/DEC/Q) so the
+    // feed can render "captured REQ: Add Google login" rather than the
+    // generic "added item".
+    case "planning.item_created": {
+      const type = typeof p.type === "string" ? p.type : "";
+      return { action: type ? `captured ${type}` : "captured item", target: title, dest: "" };
+    }
+    case "planning.item_updated": {
+      const fields = Array.isArray(p.fields) ? p.fields : [];
+      const pretty = fields.map((f: string) => FIELD_LABELS[f] ?? f).join(", ");
+      return { action: "updated planning item", target: title, dest: pretty };
+    }
+    case "planning.item_deleted":
+      return { action: "deleted planning item", target: title, dest: "" };
+    case "planning.item_promoted":
+      return { action: "promoted to board", target: title, dest: "" };
+    // Comments and claims — the feed renders the body preview (or the
+    // affected item's title) as the target so a reader can tell which
+    // thread/item is moving without expanding the row.
+    case "planning.comment_created": {
+      const preview = typeof p.body_preview === "string" ? p.body_preview : "";
+      return { action: "commented", target: preview, dest: "" };
+    }
+    case "planning.comment_edited": {
+      const preview = typeof p.body_preview === "string" ? p.body_preview : "";
+      return { action: "edited comment", target: preview, dest: "" };
+    }
+    case "planning.comment_deleted":
+      return { action: "deleted comment", target: "", dest: "" };
+    case "planning.item_claimed":
+      return { action: "claimed", target: title, dest: "" };
+    case "planning.item_released":
+      return { action: "released", target: title, dest: "" };
+    case "planning.claim_auto_released_on_promote":
+      return { action: "released claim (auto on promote)", target: title, dest: "" };
     default:
       return { action: a.event_type, target: "", dest: "" };
   }
@@ -179,16 +226,40 @@ function eventBadge(eventType: string, payload: Record<string, unknown>): {
       ? { Icon: Check, bg: "bg-emerald-500" }
       : { Icon: Undo2, bg: "bg-slate-400" };
   }
-  if (eventType.startsWith("card.created") || eventType === "column.created") {
+  if (
+    eventType.startsWith("card.created") ||
+    eventType === "column.created" ||
+    eventType === "planning.session_created" ||
+    eventType === "planning.item_created" ||
+    eventType === "planning.comment_created"
+  ) {
     return { Icon: Plus, bg: "bg-blue-500" };
   }
-  if (eventType === "card.moved") {
+  if (eventType === "card.moved" || eventType === "planning.item_promoted") {
     return { Icon: ArrowRight, bg: "bg-amber-500" };
+  }
+  // Claim acquire / release share a distinct colour so the feed can be
+  // visually scanned for "who's looking at what" without reading every
+  // row's text.
+  if (eventType === "planning.item_claimed") {
+    return { Icon: Eye, bg: "bg-emerald-500" };
+  }
+  if (
+    eventType === "planning.item_released" ||
+    eventType === "planning.claim_auto_released_on_promote"
+  ) {
+    return { Icon: EyeOff, bg: "bg-slate-500" };
   }
   if (eventType.endsWith(".deleted")) {
     return { Icon: Trash2, bg: "bg-rose-500" };
   }
-  if (eventType.endsWith(".updated") || eventType.endsWith(".renamed")) {
+  if (
+    eventType.endsWith(".updated") ||
+    eventType.endsWith(".renamed") ||
+    eventType === "planning.session_updated" ||
+    eventType === "planning.item_updated" ||
+    eventType === "planning.comment_edited"
+  ) {
     return { Icon: Pencil, bg: "bg-violet-500" };
   }
   return { Icon: Pencil, bg: "bg-slate-400" };
