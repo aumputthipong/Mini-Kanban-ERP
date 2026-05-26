@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useBoardStore } from "@/store/useBoardStore";
 import Link from "next/link";
 import { ChevronLeft, Download, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -47,7 +48,10 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
     changeType,
     removeItem,
     promoteSelected,
+    claimItem,
+    releaseItem,
   } = useSessionItems(boardId, sessionId);
+  const currentUserId = useBoardStore((s) => s.currentUserId);
 
   const [newType, setNewType] = useState<PlanningItemType>("REQ");
   const [draft, setDraft] = useState("");
@@ -195,6 +199,10 @@ export function SessionCaptureView({ boardId, sessionId }: Props) {
                   }
                   onToggleStatus={(s) => toggleStatus(it, s)}
                   onDelete={() => removeItem(it)}
+                  onClaim={() => {
+                    if (currentUserId) claimItem(it, currentUserId);
+                  }}
+                  onRelease={() => releaseItem(it)}
                   onUp={() => setFocusIndex(Math.max(0, i - 1))}
                   onDown={() => {
                     if (i + 1 >= visibleItems.length) {

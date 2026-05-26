@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Ban, CheckSquare, ChevronDown, ChevronRight, FileText, ListChecks, MessageSquare, Square, Trash2 } from "lucide-react";
+import { Ban, CheckSquare, ChevronDown, ChevronRight, Eye, EyeOff, FileText, ListChecks, MessageSquare, Square, Trash2 } from "lucide-react";
 import { useBoardStore } from "@/store/useBoardStore";
 import type {
   PlanningItem,
@@ -35,6 +35,8 @@ interface ItemRowProps {
   onDelete: () => void;
   onChangeAcceptanceCriteria: (value: string) => void;
   onChangeImplementationNote: (value: string) => void;
+  onClaim: () => void;
+  onRelease: () => void;
   onUp: () => void;
   onDown: () => void;
 }
@@ -56,6 +58,8 @@ export function ItemRow({
   onDelete,
   onChangeAcceptanceCriteria,
   onChangeImplementationNote,
+  onClaim,
+  onRelease,
   onUp,
   onDown,
 }: ItemRowProps) {
@@ -64,10 +68,21 @@ export function ItemRow({
   const [expanded, setExpanded] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
   const currentUserId = useBoardStore((s) => s.currentUserId);
+  const boardMembers = useBoardStore((s) => s.boardMembers);
   // Lazy comment thread — the hook never fetches until `load()` is called,
   // which happens the first time the user clicks the comment badge. Each
   // row owns its own hook instance so the threads don't interleave.
   const comments = usePlanningComments(item.id, currentUserId || null);
+
+  const claimedByUserId = item.claimed_by_user_id ?? null;
+  const isClaimedByMe =
+    !!currentUserId && claimedByUserId === currentUserId;
+  const isClaimedByOther = !!claimedByUserId && !isClaimedByMe;
+  const claimerName =
+    claimedByUserId
+      ? boardMembers.find((m) => m.user_id === claimedByUserId)?.full_name ||
+        "ผู้ใช้คนอื่น"
+      : "";
   const typeMenuRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(item.title);
   // Tracks the last item.title we synced from so we can detect prop changes
@@ -257,6 +272,64 @@ export function ItemRow({
         >
           <FileText size={10} /> มี note
         </span>
+      )}
+      {/* Claim affordance — free items get a subtle "ฉันจะดูข้อนี้" button;
+          claimed items get an initials avatar with hover tooltip
+          ("<name> กำลังดู · X ที่แล้ว"). Click on the own-claim avatar
+          releases. Other people's claims are display-only — managers can
+          still force-release via the row menu (not exposed here yet). */}
+      {!promoted && (
+        claimedByUserId === null ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim();
+            }}
+            title="claim ข้อนี้ไว้ดูก่อน"
+            aria-label="ฉันจะดูข้อนี้"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 opacity-60 transition-opacity hover:bg-slate-100 hover:opacity-100"
+          >
+            <Eye size={10} /> ฉันจะดู
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isClaimedByMe) onRelease();
+            }}
+            disabled={!isClaimedByMe}
+            title={
+              isClaimedByMe
+                ? `กำลังดูอยู่${item.claimed_at ? " · " + new Date(item.claimed_at).toLocaleTimeString("th-TH") : ""} · คลิกเพื่อเลิกดู`
+                : `${claimerName} กำลังดูอยู่`
+            }
+            aria-label={isClaimedByMe ? "เลิกดู" : claimerName + " กำลังดู"}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full pr-1 text-[10px] font-semibold transition-colors ${
+              isClaimedByMe
+                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                : "bg-slate-100 text-slate-600 cursor-not-allowed"
+            }`}
+          >
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
+                isClaimedByMe
+                  ? "bg-emerald-200 text-emerald-800"
+                  : "bg-slate-300 text-slate-700"
+              }`}
+            >
+              {(claimerName || "?").slice(0, 1).toUpperCase()}
+            </span>
+            {isClaimedByMe ? (
+              <span className="inline-flex items-center gap-0.5">
+                <EyeOff size={9} /> เลิกดู
+              </span>
+            ) : (
+              <span className="pr-1">ดูอยู่</span>
+            )}
+          </button>
+        )
       )}
       {/* Comment count badge — click toggles the thread expansion. The
           count comes from the hook's local list (includes optimistic
