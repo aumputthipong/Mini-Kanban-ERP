@@ -102,7 +102,7 @@ func TestPromoteItem_DroppedItem_Returns422Sentinel(t *testing.T) {
 	f := newFixture(t)
 
 	dropped := "dropped"
-	_, err := f.svc.UpdateItem(ctx, f.itemID, nil, nil, nil, &dropped, nil)
+	_, err := f.svc.UpdateItem(ctx, f.itemID, nil, nil, nil, &dropped, nil, nil, nil)
 	require.NoError(t, err)
 
 	_, _, err = f.svc.PromoteItem(ctx, f.itemID, f.userID)
