@@ -13,10 +13,20 @@ JOIN columns col ON col.id = c.column_id
 WHERE c.id = $1;
 
 -- name: GetMyTasks :many
--- Cards assigned to the user, not yet done, on boards that aren't trashed.
+-- Cards in the user's "work inbox": assigned to them, plus (when
+-- include_unassigned=true) unassigned cards on boards they're a member of.
+-- Done cards and trashed boards are excluded.
+--
 -- Returns a derived `status`: cards in the first TODO column of their board
--- are "todo"; cards in any later TODO column are "in_progress". DONE-category
--- cards don't appear here because is_done is filtered out.
+-- are "todo"; cards in any later TODO column are "in_progress".
+--
+-- `work_group` buckets the card relative to `today` (passed in by the service
+-- in the user's timezone — Asia/Bangkok hardcoded in S.1). Buckets:
+--   overdue   — due_date < today
+--   today     — due_date = today
+--   this_week — due_date within the next 6 days after today
+--   later     — due_date further out
+--   no_date   — due_date IS NULL
 WITH first_todo AS (
     SELECT board_id, MIN(position) AS first_pos
     FROM columns
@@ -37,14 +47,30 @@ SELECT
         WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
         WHEN col.category = 'TODO' THEN 'in_progress'
         ELSE 'todo'
-    END::text AS status
+    END::text AS status,
+    CASE
+        WHEN c.due_date IS NULL                                        THEN 'no_date'
+        WHEN c.due_date <  sqlc.arg(today)::date                       THEN 'overdue'
+        WHEN c.due_date =  sqlc.arg(today)::date                       THEN 'today'
+        WHEN c.due_date <= (sqlc.arg(today)::date + INTERVAL '6 days') THEN 'this_week'
+        ELSE 'later'
+    END::text AS work_group
 FROM cards c
 JOIN columns col ON col.id = c.column_id
 JOIN boards  b   ON b.id  = col.board_id
 LEFT JOIN first_todo ft ON ft.board_id = col.board_id
-WHERE c.assignee_id = $1
-  AND c.is_done = FALSE
+WHERE c.is_done = FALSE
   AND b.deleted_at IS NULL
+  AND (
+        c.assignee_id = sqlc.arg(user_id)::uuid
+     OR (
+            sqlc.arg(include_unassigned)::boolean = TRUE
+        AND c.assignee_id IS NULL
+        AND col.board_id IN (
+                SELECT board_id FROM board_members WHERE user_id = sqlc.arg(user_id)::uuid
+            )
+        )
+      )
 ORDER BY
     CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
     c.due_date ASC,

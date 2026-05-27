@@ -32,8 +32,8 @@ type BoardServicer interface {
 	GetBoardIDByColumn(ctx context.Context, columnID string) (string, error)
 	GetBoardIDByCard(ctx context.Context, cardID string) (string, error)
 
-	// My Tasks
-	GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error)
+	// My Work (cross-board personal inbox)
+	GetMyWork(ctx context.Context, opts MyWorkOptions) (MyWorkResult, error)
 	CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error)
 
 	// Member

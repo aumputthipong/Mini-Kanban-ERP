@@ -31,6 +31,9 @@ type CardResponse struct {
 	ImplementationNote  *string       `json:"implementation_note"`
 }
 
+// MyTaskResponse is one row in the My Work list. `group` is computed
+// server-side relative to the user's "today" (Asia/Bangkok in S.1) and is one
+// of: overdue, today, this_week, later, no_date.
 type MyTaskResponse struct {
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
@@ -41,6 +44,25 @@ type MyTaskResponse struct {
 	DueDate        *string  `json:"due_date"`
 	EstimatedHours *float64 `json:"estimated_hours"`
 	Status         string   `json:"status"`
+	Group          string   `json:"group"`
+}
+
+// MyWorkCounts is the count per group across the *unfiltered* result set, so
+// the frontend can render the filter-chip counter without a second request.
+type MyWorkCounts struct {
+	Overdue  int `json:"overdue"`
+	Today    int `json:"today"`
+	ThisWeek int `json:"this_week"`
+	Later    int `json:"later"`
+	NoDate   int `json:"no_date"`
+	Total    int `json:"total"`
+}
+
+// MyWorkResponse is the envelope returned by GET /api/my-tasks. `cards` is
+// already filtered by the requested filter; `counts` reflects the full inbox.
+type MyWorkResponse struct {
+	Cards  []MyTaskResponse `json:"cards"`
+	Counts MyWorkCounts     `json:"counts"`
 }
 
 type CreateCardRequest struct {
