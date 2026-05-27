@@ -169,11 +169,15 @@ ORDER BY created_at DESC;
 -- name: GetActiveBoardsWithStats :many
 -- Sort order is "most recently opened by this user". Falls back to
 -- b.updated_at for legacy memberships that pre-date the tracking column,
--- then created_at if both are missing.
+-- then created_at if both are missing. last_accessed_at is exposed in the
+-- response so the card UI can show "Opened X ago" — without it, the card
+-- would still display the board's edit timestamp and the sort would feel
+-- broken even when correct.
 SELECT
     b.id,
     b.title,
     b.updated_at,
+    me.last_accessed_at,
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
     COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
 FROM boards b

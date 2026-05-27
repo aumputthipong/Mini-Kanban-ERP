@@ -519,6 +519,7 @@ SELECT
     b.id,
     b.title,
     b.updated_at,
+    me.last_accessed_at,
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
     COALESCE(COUNT(DISTINCT c.id) FILTER (WHERE c.is_done = TRUE), 0)::int  AS done_cards
 FROM boards b
@@ -531,16 +532,20 @@ ORDER BY COALESCE(me.last_accessed_at, b.updated_at, b.created_at) DESC
 `
 
 type GetActiveBoardsWithStatsRow struct {
-	ID         string
-	Title      string
-	UpdatedAt  pgtype.Timestamptz
-	TotalCards int32
-	DoneCards  int32
+	ID             string
+	Title          string
+	UpdatedAt      pgtype.Timestamptz
+	LastAccessedAt *time.Time
+	TotalCards     int32
+	DoneCards      int32
 }
 
 // Sort order is "most recently opened by this user". Falls back to
 // b.updated_at for legacy memberships that pre-date the tracking column,
-// then created_at if both are missing.
+// then created_at if both are missing. last_accessed_at is exposed in the
+// response so the card UI can show "Opened X ago" — without it, the card
+// would still display the board's edit timestamp and the sort would feel
+// broken even when correct.
 func (q *Queries) GetActiveBoardsWithStats(ctx context.Context, userID string) ([]GetActiveBoardsWithStatsRow, error) {
 	rows, err := q.db.Query(ctx, getActiveBoardsWithStats, userID)
 	if err != nil {
@@ -554,6 +559,7 @@ func (q *Queries) GetActiveBoardsWithStats(ctx context.Context, userID string) (
 			&i.ID,
 			&i.Title,
 			&i.UpdatedAt,
+			&i.LastAccessedAt,
 			&i.TotalCards,
 			&i.DoneCards,
 		); err != nil {
