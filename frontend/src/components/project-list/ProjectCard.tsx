@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { CalendarDays } from "lucide-react";
 import type { Board } from "@/types/board";
 
 function getInitials(fullName: string): string {
@@ -53,14 +54,18 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
   if (viewMode === "list") {
     return (
       <Link href={`/board/${board.id}/tasks`}>
-        <div className="bg-white px-5 py-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200 flex items-center gap-4 group">
+        <div className="relative bg-white px-5 py-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200 flex items-center gap-4 group overflow-hidden">
+          {isActive && (
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-700" />
+          )}
           {/* title + updated */}
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors truncate">
               {board.title}
             </h2>
             {updatedLabel && (
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" />
                 Updated {updatedLabel}
               </p>
             )}
@@ -124,7 +129,10 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
   // grid view
   return (
     <Link href={`/board/${board.id}/tasks`}>
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group h-48">
+      <div className="relative bg-white p-5 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group h-48 overflow-hidden">
+        {isActive && (
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-700" />
+        )}
         {/* header */}
         <div className="flex justify-between items-start gap-2">
           <h2 className="text-base font-bold text-slate-700 group-hover:text-blue-600 transition-colors line-clamp-1">
@@ -142,14 +150,17 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
         </div>
 
         {updatedLabel && (
-          <p className="text-xs text-slate-400 mt-1">Updated {updatedLabel}</p>
+          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+            <CalendarDays className="h-3 w-3" />
+            Updated {updatedLabel}
+          </p>
         )}
 
         {/* progress */}
         <div className="mt-3">
-          <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-medium">
-            <span>Progress</span>
-            <span>{progress}%</span>
+          <div className="flex justify-between text-[11px] mb-1.5 font-semibold">
+            <span className="text-slate-500 tracking-wider">PROGRESS</span>
+            <span className="text-slate-700">{progress}%</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-1.5">
             <div
