@@ -66,12 +66,13 @@ type CardData struct {
 }
 
 type BoardSummaryData struct {
-	ID         string
-	Title      string
-	UpdatedAt  time.Time
-	TotalCards int
-	DoneCards  int
-	Members    []dto.MemberSummary
+	ID             string
+	Title          string
+	UpdatedAt      time.Time
+	LastAccessedAt *time.Time
+	TotalCards     int
+	DoneCards      int
+	Members        []dto.MemberSummary
 }
 
 func NewBoardService(pool *pgxpool.Pool, queries *db.Queries) *BoardService {
@@ -166,12 +167,13 @@ func (s *BoardService) GetAllBoards(ctx context.Context, userID string) ([]Board
 			members = []dto.MemberSummary{}
 		}
 		result = append(result, BoardSummaryData{
-			ID:         b.ID,
-			Title:      b.Title,
-			UpdatedAt:  b.UpdatedAt.Time,
-			TotalCards: int(b.TotalCards),
-			DoneCards:  int(b.DoneCards),
-			Members:    members,
+			ID:             b.ID,
+			Title:          b.Title,
+			UpdatedAt:      b.UpdatedAt.Time,
+			LastAccessedAt: b.LastAccessedAt,
+			TotalCards:     int(b.TotalCards),
+			DoneCards:      int(b.DoneCards),
+			Members:        members,
 		})
 	}
 	return result, nil

@@ -42,13 +42,18 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
       ? Math.round((board.done_cards / board.total_cards) * 100)
       : 0;
 
-  const isActive = now - new Date(board.updated_at).getTime() < SEVEN_DAYS_MS;
+  // "Recency" follows what the user actually did with the board: opening it
+  // is the signal. Fall back to the board's edit timestamp only when the
+  // membership pre-dates last_accessed_at tracking.
+  const recencyTimestamp = board.last_accessed_at ?? board.updated_at;
+  const isActive = now - new Date(recencyTimestamp).getTime() < SEVEN_DAYS_MS;
 
   const visibleMembers = board.members.slice(0, 3);
   const extraCount = board.members.length - visibleMembers.length;
 
-  const updatedLabel = board.updated_at
-    ? formatDistanceToNow(new Date(board.updated_at), { addSuffix: true })
+  const recencyVerb = board.last_accessed_at ? "Opened" : "Updated";
+  const recencyLabel = recencyTimestamp
+    ? formatDistanceToNow(new Date(recencyTimestamp), { addSuffix: true })
     : null;
 
   if (viewMode === "list") {
@@ -63,10 +68,10 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
             <h2 className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors truncate">
               {board.title}
             </h2>
-            {updatedLabel && (
+            {recencyLabel && (
               <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                 <CalendarDays className="h-3 w-3" />
-                Updated {updatedLabel}
+                {recencyVerb} {recencyLabel}
               </p>
             )}
           </div>
@@ -149,10 +154,10 @@ export function ProjectCard({ board, viewMode, now }: ProjectCardProps) {
           </span>
         </div>
 
-        {updatedLabel && (
+        {recencyLabel && (
           <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
             <CalendarDays className="h-3 w-3" />
-            Updated {updatedLabel}
+            {recencyVerb} {recencyLabel}
           </p>
         )}
 

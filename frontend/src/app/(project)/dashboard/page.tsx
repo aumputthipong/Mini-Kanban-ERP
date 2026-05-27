@@ -9,7 +9,9 @@ export default async function DashboardPage() {
   const boards = await apiFetch<Board[]>("/boards", { cache: "no-store" });
   const now = Date.now();
   const activeCount = boards.filter(
-    (b) => now - new Date(b.updated_at).getTime() < SEVEN_DAYS_MS,
+    (b) =>
+      now - new Date(b.last_accessed_at ?? b.updated_at).getTime() <
+      SEVEN_DAYS_MS,
   ).length;
   const inactiveCount = boards.length - activeCount;
 

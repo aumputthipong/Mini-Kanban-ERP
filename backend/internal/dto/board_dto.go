@@ -21,12 +21,13 @@ type MemberSummary struct {
 }
 
 type BoardSummaryResponse struct {
-	ID         string          `json:"id"`
-	Title      string          `json:"title"`
-	UpdatedAt  time.Time       `json:"updated_at"`
-	TotalCards int             `json:"total_cards"`
-	DoneCards  int             `json:"done_cards"`
-	Members    []MemberSummary `json:"members"`
+	ID             string          `json:"id"`
+	Title          string          `json:"title"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	LastAccessedAt *time.Time      `json:"last_accessed_at,omitempty"`
+	TotalCards     int             `json:"total_cards"`
+	DoneCards      int             `json:"done_cards"`
+	Members        []MemberSummary `json:"members"`
 }
 
 type UserResponse struct {
