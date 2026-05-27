@@ -33,17 +33,6 @@ export function BoardSettingsForm({ boardId, board }: BoardSettingsFormProps) {
           readOnly={!canManage}
         />
 
-        <EditableField
-          title="Budget"
-          description="Total budget allocated for this project. Used for cost tracking."
-          initialValue={board?.budget ?? 0}
-          type="number"
-          fieldKey="budget"
-          prefix="$"
-          onSave={updateField}
-          readOnly={!canManage}
-        />
-
       {canDelete && (
         <DangerZone onDelete={deleteBoard} isDeleting={isDeleting} />
       )}
