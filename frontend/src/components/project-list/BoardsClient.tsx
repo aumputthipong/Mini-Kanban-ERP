@@ -5,22 +5,38 @@ import { LayoutGrid, List, Search } from "lucide-react";
 import type { Board } from "@/types/board";
 import { ProjectCard } from "./ProjectCard";
 
-type SortOption = "recent" | "name_asc" | "name_desc" | "most_tasks";
+type SortOption =
+  | "recent"
+  | "newest"
+  | "oldest"
+  | "name_asc"
+  | "name_desc"
+  | "most_tasks";
 
 const SORT_LABELS: Record<SortOption, string> = {
   recent: "Recently Opened",
+  newest: "Newest",
+  oldest: "Oldest",
   name_asc: "Name A→Z",
   name_desc: "Name Z→A",
   most_tasks: "Most Tasks",
 };
 
 function sortBoards(boards: Board[], sortBy: SortOption): Board[] {
-  // "recent" preserves backend order (per-user last_accessed_at, fallback to
-  // updated_at). Re-sorting on the client by updated_at would clobber the
-  // per-user signal we just paid for.
+  // "recent" preserves backend order (per-user last_accessed_at, fallback
+  // to created_at). Re-sorting on the client by updated_at would clobber
+  // the per-user signal and let other members' edits shuffle the list.
   if (sortBy === "recent") return boards;
   return [...boards].sort((a, b) => {
     switch (sortBy) {
+      case "newest":
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      case "oldest":
+        return (
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       case "name_asc":
         return a.title.localeCompare(b.title);
       case "name_desc":

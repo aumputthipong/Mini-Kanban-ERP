@@ -48,6 +48,7 @@ func (h *BoardHandler) GetAllBoards(w http.ResponseWriter, r *http.Request) erro
 		result = append(result, dto.BoardSummaryResponse{
 			ID:             b.ID,
 			Title:          b.Title,
+			CreatedAt:      b.CreatedAt,
 			UpdatedAt:      b.UpdatedAt,
 			LastAccessedAt: b.LastAccessedAt,
 			TotalCards:     b.TotalCards,
