@@ -23,6 +23,7 @@ type MemberSummary struct {
 type BoardSummaryResponse struct {
 	ID             string          `json:"id"`
 	Title          string          `json:"title"`
+	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	LastAccessedAt *time.Time      `json:"last_accessed_at,omitempty"`
 	TotalCards     int             `json:"total_cards"`

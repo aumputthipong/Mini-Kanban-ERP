@@ -167,15 +167,16 @@ WHERE deleted_at IS NULL
 ORDER BY created_at DESC;
 
 -- name: GetActiveBoardsWithStats :many
--- Sort order is "most recently opened by this user". Falls back to
--- b.updated_at for legacy memberships that pre-date the tracking column,
--- then created_at if both are missing. last_accessed_at is exposed in the
--- response so the card UI can show "Opened X ago" — without it, the card
--- would still display the board's edit timestamp and the sort would feel
--- broken even when correct.
+-- Sort order is "most recently opened by this user". Boards the user has
+-- never opened fall back to created_at (a write-once timestamp) instead
+-- of updated_at — otherwise another member editing a never-opened board
+-- would shuffle this user's list, which is the exact UX the per-user
+-- tracking is supposed to prevent. created_at is exposed for the
+-- "Newest" / "Oldest" client-side sort options.
 SELECT
     b.id,
     b.title,
+    b.created_at,
     b.updated_at,
     me.last_accessed_at,
     COALESCE(COUNT(DISTINCT c.id), 0)::int                                  AS total_cards,
@@ -185,8 +186,8 @@ JOIN board_members me ON me.board_id = b.id AND me.user_id = $1
 LEFT JOIN columns col ON col.board_id = b.id
 LEFT JOIN cards   c   ON c.column_id  = col.id
 WHERE b.deleted_at IS NULL
-GROUP BY b.id, b.title, b.updated_at, me.last_accessed_at
-ORDER BY COALESCE(me.last_accessed_at, b.updated_at, b.created_at) DESC;
+GROUP BY b.id, b.title, b.created_at, b.updated_at, me.last_accessed_at
+ORDER BY COALESCE(me.last_accessed_at, b.created_at) DESC;
 
 -- name: GetMembersForActiveBoards :many
 SELECT

@@ -45,10 +45,11 @@ export interface Board {
   id: string;
   title: string;
   budget?: number;
+  created_at: string;
   updated_at: string;
   /** When the current user last opened this board's kanban view. Null for
    * memberships that pre-date the tracking column — UI falls back to
-   * updated_at in that case. */
+   * created_at in that case to stay stable against other members' edits. */
   last_accessed_at?: string | null;
   total_cards: number;
   done_cards: number;

@@ -68,6 +68,7 @@ type CardData struct {
 type BoardSummaryData struct {
 	ID             string
 	Title          string
+	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	LastAccessedAt *time.Time
 	TotalCards     int
@@ -169,6 +170,7 @@ func (s *BoardService) GetAllBoards(ctx context.Context, userID string) ([]Board
 		result = append(result, BoardSummaryData{
 			ID:             b.ID,
 			Title:          b.Title,
+			CreatedAt:      b.CreatedAt.Time,
 			UpdatedAt:      b.UpdatedAt.Time,
 			LastAccessedAt: b.LastAccessedAt,
 			TotalCards:     int(b.TotalCards),

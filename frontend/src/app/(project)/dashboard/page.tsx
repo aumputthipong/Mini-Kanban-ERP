@@ -7,6 +7,9 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default async function DashboardPage() {
   const boards = await apiFetch<Board[]>("/boards", { cache: "no-store" });
+  // Server component, runs once per request — Date.now() is fine here. The
+  // react-hooks/purity rule is targeted at client component render bodies.
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const activeCount = boards.filter(
     (b) =>
