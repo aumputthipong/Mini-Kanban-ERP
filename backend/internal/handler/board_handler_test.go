@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -118,6 +119,81 @@ func TestGetBoardData_InvalidBoardID(t *testing.T) {
 	httputil.MakeHandler(h.GetBoardData)(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGetBoardData_TouchesMembershipAccess(t *testing.T) {
+	touched := make(chan struct{ boardID, userID string }, 1)
+	svc := &mock.MockBoardService{
+		GetBoardWithCardsFn: func(ctx context.Context, boardID string) ([]service.ColumnData, error) {
+			return []service.ColumnData{}, nil
+		},
+		TouchBoardMemberAccessFn: func(ctx context.Context, boardID, userID string) error {
+			touched <- struct{ boardID, userID string }{boardID, userID}
+			return nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil), validUserID)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetBoardData)(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	select {
+	case got := <-touched:
+		assert.Equal(t, validBoardID, got.boardID)
+		assert.Equal(t, validUserID, got.userID)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected TouchBoardMemberAccess to be invoked")
+	}
+}
+
+func TestGetBoardData_TouchFailureDoesNotAffectResponse(t *testing.T) {
+	called := make(chan struct{}, 1)
+	svc := &mock.MockBoardService{
+		GetBoardWithCardsFn: func(ctx context.Context, boardID string) ([]service.ColumnData, error) {
+			return []service.ColumnData{}, nil
+		},
+		TouchBoardMemberAccessFn: func(ctx context.Context, boardID, userID string) error {
+			called <- struct{}{}
+			return errors.New("transient db error")
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil), validUserID)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetBoardData)(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	select {
+	case <-called:
+	case <-time.After(2 * time.Second):
+		t.Fatal("touch should have been attempted")
+	}
+}
+
+func TestGetBoardData_NoUserContext_SkipsTouch(t *testing.T) {
+	svc := &mock.MockBoardService{
+		GetBoardWithCardsFn: func(ctx context.Context, boardID string) ([]service.ColumnData, error) {
+			return []service.ColumnData{}, nil
+		},
+		TouchBoardMemberAccessFn: func(ctx context.Context, boardID, userID string) error {
+			t.Fatal("touch must not be called without userID in context")
+			return nil
+		},
+	}
+	h := NewBoardHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil)
+	req = chiCtx(req, "boardID", validBoardID)
+	w := httptest.NewRecorder()
+
+	httputil.MakeHandler(h.GetBoardData)(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	// Give any erroneous goroutine a chance to fire before the test ends.
+	time.Sleep(50 * time.Millisecond)
 }
 
 func TestGetBoardData_ServiceError(t *testing.T) {

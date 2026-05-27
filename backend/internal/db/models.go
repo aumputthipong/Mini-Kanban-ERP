@@ -31,11 +31,12 @@ type Board struct {
 }
 
 type BoardMember struct {
-	ID       string
-	BoardID  string
-	UserID   string
-	Role     string
-	JoinedAt pgtype.Timestamptz
+	ID             string
+	BoardID        string
+	UserID         string
+	Role           string
+	JoinedAt       pgtype.Timestamptz
+	LastAccessedAt *time.Time
 }
 
 type Card struct {

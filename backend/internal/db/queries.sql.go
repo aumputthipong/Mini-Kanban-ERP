@@ -15,7 +15,7 @@ import (
 const addBoardMember = `-- name: AddBoardMember :one
 INSERT INTO board_members (board_id, user_id, role)
 VALUES ($1, $2, $3)
-RETURNING id, board_id, user_id, role, joined_at
+RETURNING id, board_id, user_id, role, joined_at, last_accessed_at
 `
 
 type AddBoardMemberParams struct {
@@ -33,6 +33,7 @@ func (q *Queries) AddBoardMember(ctx context.Context, arg AddBoardMemberParams) 
 		&i.UserID,
 		&i.Role,
 		&i.JoinedAt,
+		&i.LastAccessedAt,
 	)
 	return i, err
 }
@@ -525,8 +526,8 @@ JOIN board_members me ON me.board_id = b.id AND me.user_id = $1
 LEFT JOIN columns col ON col.board_id = b.id
 LEFT JOIN cards   c   ON c.column_id  = col.id
 WHERE b.deleted_at IS NULL
-GROUP BY b.id, b.title, b.updated_at
-ORDER BY b.updated_at DESC
+GROUP BY b.id, b.title, b.updated_at, me.last_accessed_at
+ORDER BY COALESCE(me.last_accessed_at, b.updated_at, b.created_at) DESC
 `
 
 type GetActiveBoardsWithStatsRow struct {
@@ -537,6 +538,9 @@ type GetActiveBoardsWithStatsRow struct {
 	DoneCards  int32
 }
 
+// Sort order is "most recently opened by this user". Falls back to
+// b.updated_at for legacy memberships that pre-date the tracking column,
+// then created_at if both are missing.
 func (q *Queries) GetActiveBoardsWithStats(ctx context.Context, userID string) ([]GetActiveBoardsWithStatsRow, error) {
 	rows, err := q.db.Query(ctx, getActiveBoardsWithStats, userID)
 	if err != nil {
@@ -2163,6 +2167,28 @@ func (q *Queries) SoftDeletePlanningItemComment(ctx context.Context, id string) 
 	return err
 }
 
+const touchBoardMemberIfStale = `-- name: TouchBoardMemberIfStale :exec
+UPDATE board_members
+SET last_accessed_at = now()
+WHERE board_id = $1
+  AND user_id  = $2
+  AND (last_accessed_at IS NULL OR last_accessed_at < now() - INTERVAL '5 minutes')
+`
+
+type TouchBoardMemberIfStaleParams struct {
+	BoardID string
+	UserID  string
+}
+
+// Update the membership's last_accessed_at, but skip writes that happened
+// within the throttle window (5 min). Called from a goroutine after the
+// user opens a board — the throttle keeps the write rate sane when a user
+// refreshes or bounces between sub-pages.
+func (q *Queries) TouchBoardMemberIfStale(ctx context.Context, arg TouchBoardMemberIfStaleParams) error {
+	_, err := q.db.Exec(ctx, touchBoardMemberIfStale, arg.BoardID, arg.UserID)
+	return err
+}
+
 const updateBoard = `-- name: UpdateBoard :one
 UPDATE boards 
 SET title = $2, 
@@ -2196,7 +2222,7 @@ const updateBoardMemberRole = `-- name: UpdateBoardMemberRole :one
 UPDATE board_members
 SET role = $3
 WHERE board_id = $1 AND user_id = $2
-RETURNING id, board_id, user_id, role, joined_at
+RETURNING id, board_id, user_id, role, joined_at, last_accessed_at
 `
 
 type UpdateBoardMemberRoleParams struct {
@@ -2214,6 +2240,7 @@ func (q *Queries) UpdateBoardMemberRole(ctx context.Context, arg UpdateBoardMemb
 		&i.UserID,
 		&i.Role,
 		&i.JoinedAt,
+		&i.LastAccessedAt,
 	)
 	return i, err
 }

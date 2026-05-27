@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
@@ -75,6 +78,24 @@ func (h *BoardHandler) GetBoardData(w http.ResponseWriter, r *http.Request) erro
 	columns, err := h.boardService.GetBoardWithCards(r.Context(), boardID)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to fetch board data", err)
+	}
+
+	// Bump "recently opened" sort for this user. Detached from r.Context()
+	// because the request finishes before the write — using r.Context() would
+	// race the cancel. SQL-level throttle (5 min) keeps the write rate sane.
+	if userID, ok := r.Context().Value(middleware.UserIDKey).(string); ok && userID != "" {
+		go func(boardID, userID string) {
+			defer func() {
+				if rec := recover(); rec != nil {
+					slog.Warn("touch board access panic", "err", rec)
+				}
+			}()
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if err := h.boardService.TouchBoardMemberAccess(ctx, boardID, userID); err != nil {
+				slog.Warn("touch board access failed", "board_id", boardID, "user_id", userID, "err", err)
+			}
+		}(boardID, userID)
 	}
 
 	httputil.RespondJSON(w, http.StatusOK, mapper.ToColumnResponses(columns))
