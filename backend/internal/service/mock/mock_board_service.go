@@ -26,7 +26,8 @@ type MockBoardService struct {
 	GetTrashedBoardsFn   func(ctx context.Context, userID string) ([]db.GetTrashedBoardsForOwnerRow, error)
 	HardDeleteBoardFn    func(ctx context.Context, id string) error
 	RestoreBoardFn       func(ctx context.Context, id string) error
-	GetBoardMemberRoleFn func(ctx context.Context, boardID, userID string) (string, error)
+	GetBoardMemberRoleFn      func(ctx context.Context, boardID, userID string) (string, error)
+	TouchBoardMemberAccessFn  func(ctx context.Context, boardID, userID string) error
 	GetBoardIDByColumnFn func(ctx context.Context, columnID string) (string, error)
 	GetBoardIDByCardFn   func(ctx context.Context, cardID string) (string, error)
 	GetMyTasksFn         func(ctx context.Context, userID string) ([]service.MyTaskData, error)
@@ -70,6 +71,13 @@ func (m *MockBoardService) GetTrashedBoards(ctx context.Context, userID string) 
 
 func (m *MockBoardService) GetBoardMemberRole(ctx context.Context, boardID, userID string) (string, error) {
 	return m.GetBoardMemberRoleFn(ctx, boardID, userID)
+}
+
+func (m *MockBoardService) TouchBoardMemberAccess(ctx context.Context, boardID, userID string) error {
+	if m.TouchBoardMemberAccessFn == nil {
+		return nil
+	}
+	return m.TouchBoardMemberAccessFn(ctx, boardID, userID)
 }
 
 func (m *MockBoardService) GetBoardIDByColumn(ctx context.Context, columnID string) (string, error) {

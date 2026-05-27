@@ -71,6 +71,7 @@ CREATE TABLE board_members (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'manager', 'member')),
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMPTZ,
     UNIQUE (board_id, user_id)
 );
 CREATE INDEX idx_board_members_board_id ON board_members(board_id);

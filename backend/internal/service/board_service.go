@@ -196,6 +196,16 @@ func (s *BoardService) GetBoardMemberRole(ctx context.Context, boardID, userID s
 	})
 }
 
+// TouchBoardMemberAccess bumps the membership's last_accessed_at when the
+// previous touch is older than the 5-minute throttle window (enforced in
+// SQL). Safe to call from a goroutine: best-effort, no business semantics.
+func (s *BoardService) TouchBoardMemberAccess(ctx context.Context, boardID, userID string) error {
+	return s.queries.TouchBoardMemberIfStale(ctx, db.TouchBoardMemberIfStaleParams{
+		BoardID: boardID,
+		UserID:  userID,
+	})
+}
+
 func (s *BoardService) GetBoardIDByColumn(ctx context.Context, columnID string) (string, error) {
 	return s.queries.GetBoardIDByColumn(ctx, columnID)
 }
