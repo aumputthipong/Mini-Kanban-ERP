@@ -31,7 +31,7 @@ type MockBoardService struct {
 	GetBoardIDByColumnFn func(ctx context.Context, columnID string) (string, error)
 	GetBoardIDByCardFn   func(ctx context.Context, cardID string) (string, error)
 	GetMyWorkFn          func(ctx context.Context, opts service.MyWorkOptions) (service.MyWorkResult, error)
-	CompleteMyTaskFn     func(ctx context.Context, cardID, userID string) (bool, error)
+	CompleteMyTaskFn     func(ctx context.Context, cardID, userID string) (service.CompleteMyTaskResult, error)
 
 	GetBoardMembersFn  func(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)
 	AddBoardMemberFn   func(ctx context.Context, boardID, userID, role string) error
@@ -92,7 +92,7 @@ func (m *MockBoardService) GetMyWork(ctx context.Context, opts service.MyWorkOpt
 	return m.GetMyWorkFn(ctx, opts)
 }
 
-func (m *MockBoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error) {
+func (m *MockBoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (service.CompleteMyTaskResult, error) {
 	return m.CompleteMyTaskFn(ctx, cardID, userID)
 }
 

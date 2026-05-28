@@ -20,3 +20,31 @@ export function fetchMyWork(opts: FetchMyWorkOptions = {}): Promise<MyWorkRespon
 export function completeMyTask(cardId: string): Promise<void> {
   return apiClient(`/my-tasks/${cardId}/complete`, { method: "POST" });
 }
+
+/**
+ * Snooze a card by setting its due_date to a new value. Uses the existing
+ * PATCH /api/cards/:id endpoint — the assignee can edit their own card by
+ * the inline permission gate already in place on that handler.
+ *
+ * @param cardId  card to update
+ * @param dueDate ISO date string (YYYY-MM-DD) for the new due date
+ */
+export function snoozeCardDueDate(cardId: string, dueDate: string): Promise<unknown> {
+  return apiClient(`/cards/${cardId}`, {
+    method: "PATCH",
+    data: { due_date: dueDate },
+  });
+}
+
+/**
+ * Compute a YYYY-MM-DD string for "today + offset days" in the user's local
+ * tz. Used by the snooze quick options ("tomorrow" = +1, "next week" = +7).
+ */
+export function relativeDueDate(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}

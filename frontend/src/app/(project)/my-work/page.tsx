@@ -1,13 +1,13 @@
 "use client";
 
-import { Inbox } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Inbox, Search } from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FilterChipBar } from "@/components/my-work/FilterChipBar";
 import { WorkGroupSection } from "@/components/my-work/WorkGroupSection";
 import { MyWorkEmptyState } from "@/components/my-work/MyWorkEmptyState";
 import { MyWorkSkeleton } from "@/components/my-work/MyWorkSkeleton";
-import { completeMyTask, fetchMyWork } from "@/lib/myWorkApi";
+import { completeMyTask, fetchMyWork, snoozeCardDueDate } from "@/lib/myWorkApi";
 import {
   isMyWorkFilter,
   type MyWorkCard,
@@ -33,21 +33,53 @@ const GROUP_ORDER_BY_FILTER: Record<MyWorkFilter, MyWorkGroup[]> = {
   no_date: ["no_date"],
 };
 
+// useSearchParams() in a client component forces Next.js 16 to bail out of
+// static prerender unless we wrap the consumer in <Suspense>. The outer
+// export is a thin boundary; the real page logic lives in MyWorkPageInner
+// so the prerender pass can stop at the fallback.
 export default function MyWorkPage() {
+  return (
+    <Suspense fallback={<MyWorkFallback />}>
+      <MyWorkPageInner />
+    </Suspense>
+  );
+}
+
+function MyWorkFallback() {
+  return (
+    <div className="h-full overflow-y-auto">
+      <main className="p-6 md:p-8 max-w-5xl mx-auto">
+        <MyWorkSkeleton />
+      </main>
+    </div>
+  );
+}
+
+function MyWorkPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const filterParam = searchParams.get("filter");
   const filter: MyWorkFilter = isMyWorkFilter(filterParam) ? filterParam : "all";
+  const query = (searchParams.get("q") ?? "").trim();
 
   const [data, setData] = useState<MyWorkResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // setState-during-render pattern (per AGENTS.md): when the filter URL
+  // param changes, clear the cached payload so isLoading flips back to true
+  // before the effect fires. Doing this synchronously inside useEffect would
+  // trip react-hooks/set-state-in-effect.
+  const [lastFilter, setLastFilter] = useState(filter);
+  if (lastFilter !== filter) {
+    setLastFilter(filter);
+    setData(null);
+  }
+  const isLoading = data === null && error === null;
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    setIsLoading(true);
     fetchMyWork({ filter, signal: controller.signal })
       .then((res) => {
         if (!cancelled) setData(res);
@@ -55,9 +87,6 @@ export default function MyWorkPage() {
       .catch((err: unknown) => {
         if (cancelled || controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "โหลดงานไม่สำเร็จ");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -70,6 +99,18 @@ export default function MyWorkPage() {
       const params = new URLSearchParams(searchParams);
       if (next === "all") params.delete("filter");
       else params.set("filter", next);
+      const qs = params.toString();
+      router.replace(qs ? `/my-work?${qs}` : "/my-work");
+    },
+    [router, searchParams],
+  );
+
+  const setQuery = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams);
+      const trimmed = next.trim();
+      if (trimmed === "") params.delete("q");
+      else params.set("q", trimmed);
       const qs = params.toString();
       router.replace(qs ? `/my-work?${qs}` : "/my-work");
     },
@@ -94,7 +135,39 @@ export default function MyWorkPage() {
     [data],
   );
 
-  const cardsByGroup = useMemo(() => groupCards(data?.cards ?? []), [data?.cards]);
+  const handleSnooze = useCallback(
+    async (cardId: string, dueDate: string) => {
+      if (!data) return;
+      const prev = data;
+      // Optimistic: drop the card from the current filtered view; on next
+      // refetch it'll reappear in its new bucket. Refetch immediately so the
+      // group sections + counters reflect the move without forcing the user
+      // to navigate away.
+      setData({ ...prev, cards: prev.cards.filter((c) => c.id !== cardId) });
+      try {
+        await snoozeCardDueDate(cardId, dueDate);
+        const refreshed = await fetchMyWork({ filter });
+        setData(refreshed);
+      } catch (err) {
+        setData(prev);
+        setError(err instanceof Error ? err.message : "เลื่อนวันไม่สำเร็จ");
+      }
+    },
+    [data, filter],
+  );
+
+  const filteredCards = useMemo(() => {
+    const cards = data?.cards ?? [];
+    if (!query) return cards;
+    const needle = query.toLowerCase();
+    return cards.filter(
+      (c) =>
+        c.title.toLowerCase().includes(needle) ||
+        c.board_name.toLowerCase().includes(needle),
+    );
+  }, [data?.cards, query]);
+
+  const cardsByGroup = useMemo(() => groupCards(filteredCards), [filteredCards]);
   const counts = data?.counts ?? EMPTY_COUNTS;
   const orderedGroups = GROUP_ORDER_BY_FILTER[filter];
 
@@ -113,8 +186,9 @@ export default function MyWorkPage() {
           </div>
         </header>
 
-        <div className="mb-5">
+        <div className="mb-5 flex items-center justify-between gap-3 flex-wrap">
           <FilterChipBar active={filter} counts={counts} onChange={setFilter} />
+          <SearchInput value={query} onChange={setQuery} />
         </div>
 
         {error && (
@@ -125,8 +199,17 @@ export default function MyWorkPage() {
 
         {isLoading ? (
           <MyWorkSkeleton />
-        ) : data?.cards.length === 0 ? (
-          <MyWorkEmptyState filter={filter} />
+        ) : filteredCards.length === 0 ? (
+          query ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-white">
+              <p className="text-sm font-semibold text-slate-700">
+                {`ไม่พบงานที่ตรงกับ "${query}"`}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">ลองคำค้นอื่น หรือล้างกล่องค้นหา</p>
+            </div>
+          ) : (
+            <MyWorkEmptyState filter={filter} />
+          )
         ) : (
           orderedGroups.map((g) => (
             <WorkGroupSection
@@ -134,11 +217,44 @@ export default function MyWorkPage() {
               group={g}
               cards={cardsByGroup[g]}
               onComplete={handleComplete}
+              onSnooze={handleSnooze}
             />
           ))
         )}
       </main>
     </div>
+  );
+}
+
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  // Keep local input synced with URL changes from filter chip clicks.
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+  // Debounce URL writes so each keystroke doesn't push a history entry.
+  useEffect(() => {
+    if (local === value) return;
+    const handle = window.setTimeout(() => onChange(local), 250);
+    return () => window.clearTimeout(handle);
+  }, [local, value, onChange]);
+  return (
+    <label className="relative flex items-center text-xs">
+      <Search size={12} className="absolute left-2 text-slate-400" />
+      <input
+        type="search"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        placeholder="ค้นหางาน..."
+        className="pl-7 pr-3 py-1.5 border border-slate-200 rounded-md bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 w-56"
+      />
+    </label>
   );
 }
 
