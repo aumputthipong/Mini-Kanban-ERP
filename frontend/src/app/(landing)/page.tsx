@@ -4,6 +4,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Calendar, Clock } from "lucide-react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { apiClient } from "@/lib/apiClient";
+import { LANDING_PATH, type UserSettings } from "@/types/userSettings";
 
 export const metadata: Metadata = {
   title: "Turtask — Less standup. More shipping.",
@@ -162,7 +166,28 @@ const STEPS = [
   },
 ] as const;
 
-export default function LandingPage() {
+// Authenticated visitors don't need the marketing page — bounce them straight
+// to their preferred workspace surface. We probe /me/settings server-side; a
+// 401 (or any failure) means the cookie is missing/expired, so we render the
+// landing page as the unauthenticated fallback.
+async function resolveAuthedRedirect(): Promise<string | null> {
+  const store = await cookies();
+  if (!store.get("auth_token")) return null;
+  try {
+    const settings = await apiClient<UserSettings>("/me/settings", {
+      cache: "no-store",
+      headers: { Cookie: store.toString() },
+    });
+    return LANDING_PATH[settings.default_landing] ?? "/today";
+  } catch {
+    return null;
+  }
+}
+
+export default async function LandingPage() {
+  const dest = await resolveAuthedRedirect();
+  if (dest) redirect(dest);
+
   return (
     <div className="bg-white text-slate-900 font-sans">
       {/* HERO */}
