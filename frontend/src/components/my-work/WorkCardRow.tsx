@@ -5,10 +5,12 @@ import { Calendar, ChevronRight, Clock } from "lucide-react";
 import { PriorityBadge } from "@/components/board/task-board/PriorityBadge";
 import { formatRelativeDueDate, formatThaiDate } from "@/utils/date_helper";
 import type { MyWorkCard, MyWorkGroup } from "@/types/myWork";
+import { SnoozeMenu } from "./SnoozeMenu";
 
 interface WorkCardRowProps {
   card: MyWorkCard;
   onComplete: (cardId: string) => void;
+  onSnooze: (cardId: string, dueDate: string) => void;
 }
 
 function dueTone(group: MyWorkGroup): string {
@@ -24,7 +26,7 @@ function dueTone(group: MyWorkGroup): string {
   }
 }
 
-export function WorkCardRow({ card, onComplete }: WorkCardRowProps) {
+export function WorkCardRow({ card, onComplete, onSnooze }: WorkCardRowProps) {
   const handleComplete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -100,6 +102,8 @@ export function WorkCardRow({ card, onComplete }: WorkCardRowProps) {
             <span>{card.estimated_hours}h</span>
           </div>
         )}
+
+        <SnoozeMenu onSnooze={(dueDate) => onSnooze(card.id, dueDate)} />
 
         <ChevronRight
           size={14}

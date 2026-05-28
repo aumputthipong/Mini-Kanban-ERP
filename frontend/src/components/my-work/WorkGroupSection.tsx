@@ -8,6 +8,7 @@ interface WorkGroupSectionProps {
   group: MyWorkGroup;
   cards: MyWorkCard[];
   onComplete: (cardId: string) => void;
+  onSnooze: (cardId: string, dueDate: string) => void;
 }
 
 const GROUP_META: Record<
@@ -51,7 +52,7 @@ const GROUP_META: Record<
   },
 };
 
-export function WorkGroupSection({ group, cards, onComplete }: WorkGroupSectionProps) {
+export function WorkGroupSection({ group, cards, onComplete, onSnooze }: WorkGroupSectionProps) {
   if (cards.length === 0) return null;
   const meta = GROUP_META[group];
 
@@ -82,7 +83,12 @@ export function WorkGroupSection({ group, cards, onComplete }: WorkGroupSectionP
 
       <div className="border border-slate-200 rounded-lg bg-white overflow-hidden">
         {cards.map((card) => (
-          <WorkCardRow key={card.id} card={card} onComplete={onComplete} />
+          <WorkCardRow
+            key={card.id}
+            card={card}
+            onComplete={onComplete}
+            onSnooze={onSnooze}
+          />
         ))}
       </div>
     </section>

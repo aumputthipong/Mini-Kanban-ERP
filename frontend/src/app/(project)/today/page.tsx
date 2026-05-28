@@ -8,7 +8,7 @@ import { TodayStatCards } from "@/components/today/TodayStatCards";
 import { WorkGroupSection } from "@/components/my-work/WorkGroupSection";
 import { MyWorkSkeleton } from "@/components/my-work/MyWorkSkeleton";
 import { apiClient } from "@/lib/apiClient";
-import { completeMyTask, fetchMyWork } from "@/lib/myWorkApi";
+import { completeMyTask, fetchMyWork, snoozeCardDueDate } from "@/lib/myWorkApi";
 import type { MyWorkResponse } from "@/types/myWork";
 
 interface MeResponse {
@@ -59,6 +59,26 @@ export default function TodayPage() {
       } catch (err) {
         setData(prev);
         setError(err instanceof Error ? err.message : "ทำเครื่องหมายเสร็จไม่สำเร็จ");
+      }
+    },
+    [data],
+  );
+
+  const handleSnooze = useCallback(
+    async (cardId: string, dueDate: string) => {
+      if (!data) return;
+      const prev = data;
+      // Drop the card immediately — anything snoozed off "today" disappears
+      // from this focused view. Refetch repopulates if the new date lands
+      // back inside the Today bucket (e.g. picking literally today).
+      setData({ ...prev, cards: prev.cards.filter((c) => c.id !== cardId) });
+      try {
+        await snoozeCardDueDate(cardId, dueDate);
+        const refreshed = await fetchMyWork({ filter: "all" });
+        setData(refreshed);
+      } catch (err) {
+        setData(prev);
+        setError(err instanceof Error ? err.message : "เลื่อนวันไม่สำเร็จ");
       }
     },
     [data],
@@ -117,11 +137,13 @@ export default function TodayPage() {
               group="overdue"
               cards={overdueCards}
               onComplete={handleComplete}
+              onSnooze={handleSnooze}
             />
             <WorkGroupSection
               group="today"
               cards={todayCards}
               onComplete={handleComplete}
+              onSnooze={handleSnooze}
             />
             {overdueCards.length === 0 && todayCards.length === 0 && (
               <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-white">
