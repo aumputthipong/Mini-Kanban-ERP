@@ -2,21 +2,31 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/middleware"
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
 	"github.com/google/uuid"
 )
 
-// GetMyTasks lists every active card assigned to the caller across all boards
-// they are a member of. Used by the cross-board /my-tasks page.
+// GetMyTasks returns the caller's cross-board work inbox: cards assigned to
+// them plus (optionally) unassigned cards on boards they're a member of.
+// Cards are pre-grouped by due-date bucket and counts cover the unfiltered
+// inbox so the UI can render filter chips with totals.
 //
-// @Summary  My tasks (cross-board)
+// Query params:
+//   filter            — all (default) | overdue | today | this_week | no_date
+//   include_unassigned — bool. Solo users without an assignee toggle this on.
+//
+// @Summary  My work (cross-board)
 // @Tags     my-tasks
 // @Produce  json
+// @Param    filter             query string false "all|overdue|today|this_week|no_date"
+// @Param    include_unassigned query bool   false "include unassigned cards on my boards"
 // @Security CookieAuth
-// @Success  200 {array}  dto.MyTaskResponse
+// @Success  200 {object} dto.MyWorkResponse
 // @Failure  401 {object} httputil.ErrorResponse
 // @Router   /api/my-tasks [get]
 func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error {
@@ -25,19 +35,27 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 		return httputil.NewAPIError(http.StatusUnauthorized, "Unauthorized", nil)
 	}
 
-	tasks, err := h.boardService.GetMyTasks(r.Context(), userID)
+	filter := service.MyWorkFilter(r.URL.Query().Get("filter"))
+	include := r.URL.Query().Get("include_unassigned") == "true"
+
+	result, err := h.boardService.GetMyWork(r.Context(), service.MyWorkOptions{
+		UserID:            userID,
+		IncludeUnassigned: include,
+		Filter:            filter,
+		Today:             service.MyWorkToday(time.Now()),
+	})
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load my tasks", err)
 	}
 
-	out := make([]dto.MyTaskResponse, 0, len(tasks))
-	for _, t := range tasks {
+	cards := make([]dto.MyTaskResponse, 0, len(result.Cards))
+	for _, t := range result.Cards {
 		var due *string
 		if t.DueDate != nil {
 			s := t.DueDate.Format("2006-01-02")
 			due = &s
 		}
-		out = append(out, dto.MyTaskResponse{
+		cards = append(cards, dto.MyTaskResponse{
 			ID:             t.ID,
 			Title:          t.Title,
 			BoardID:        t.BoardID,
@@ -47,10 +65,21 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 			DueDate:        due,
 			EstimatedHours: t.EstimatedHours,
 			Status:         t.Status,
+			Group:          t.Group,
 		})
 	}
 
-	httputil.RespondJSON(w, http.StatusOK, out)
+	httputil.RespondJSON(w, http.StatusOK, dto.MyWorkResponse{
+		Cards: cards,
+		Counts: dto.MyWorkCounts{
+			Overdue:  result.Counts.Overdue,
+			Today:    result.Counts.Today,
+			ThisWeek: result.Counts.ThisWeek,
+			Later:    result.Counts.Later,
+			NoDate:   result.Counts.NoDate,
+			Total:    result.Counts.Total,
+		},
+	})
 	return nil
 }
 

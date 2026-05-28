@@ -6,7 +6,8 @@ import {
   LayoutDashboard,
   Plus,
   Trash2,
-  CheckSquare,
+  Inbox,
+  Sun,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -92,8 +93,9 @@ export function Sidebar({ boards }: SidebarProps) {
       {/* nav */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-4">
         <div className="space-y-0.5">
+          {navItem("/today", <Sun size={16} />, "Today", true)}
+          {navItem("/my-work", <Inbox size={16} />, "My Work", true)}
           {navItem("/dashboard", <LayoutDashboard size={16} />, "All Boards", true)}
-          {navItem("/my-tasks", <CheckSquare size={16} />, "My Tasks", true)}
         </div>
 
         {/* projects section */}

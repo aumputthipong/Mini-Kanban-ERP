@@ -1126,19 +1126,41 @@ SELECT
         WHEN col.category = 'TODO' AND col.position = ft.first_pos THEN 'todo'
         WHEN col.category = 'TODO' THEN 'in_progress'
         ELSE 'todo'
-    END::text AS status
+    END::text AS status,
+    CASE
+        WHEN c.due_date IS NULL                                        THEN 'no_date'
+        WHEN c.due_date <  $1::date                       THEN 'overdue'
+        WHEN c.due_date =  $1::date                       THEN 'today'
+        WHEN c.due_date <= ($1::date + INTERVAL '6 days') THEN 'this_week'
+        ELSE 'later'
+    END::text AS work_group
 FROM cards c
 JOIN columns col ON col.id = c.column_id
 JOIN boards  b   ON b.id  = col.board_id
 LEFT JOIN first_todo ft ON ft.board_id = col.board_id
-WHERE c.assignee_id = $1
-  AND c.is_done = FALSE
+WHERE c.is_done = FALSE
   AND b.deleted_at IS NULL
+  AND (
+        c.assignee_id = $2::uuid
+     OR (
+            $3::boolean = TRUE
+        AND c.assignee_id IS NULL
+        AND col.board_id IN (
+                SELECT board_id FROM board_members WHERE user_id = $2::uuid
+            )
+        )
+      )
 ORDER BY
     CASE WHEN c.due_date IS NULL THEN 1 ELSE 0 END,
     c.due_date ASC,
     c.created_at DESC
 `
+
+type GetMyTasksParams struct {
+	Today             time.Time
+	UserID            string
+	IncludeUnassigned bool
+}
 
 type GetMyTasksRow struct {
 	ID             string
@@ -1151,14 +1173,26 @@ type GetMyTasksRow struct {
 	BoardName      string
 	ColumnName     string
 	Status         string
+	WorkGroup      string
 }
 
-// Cards assigned to the user, not yet done, on boards that aren't trashed.
+// Cards in the user's "work inbox": assigned to them, plus (when
+// include_unassigned=true) unassigned cards on boards they're a member of.
+// Done cards and trashed boards are excluded.
+//
 // Returns a derived `status`: cards in the first TODO column of their board
-// are "todo"; cards in any later TODO column are "in_progress". DONE-category
-// cards don't appear here because is_done is filtered out.
-func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTasksRow, error) {
-	rows, err := q.db.Query(ctx, getMyTasks, assigneeID)
+// are "todo"; cards in any later TODO column are "in_progress".
+//
+// `work_group` buckets the card relative to `today` (passed in by the service
+// in the user's timezone — Asia/Bangkok hardcoded in S.1). Buckets:
+//
+//	overdue   — due_date < today
+//	today     — due_date = today
+//	this_week — due_date within the next 6 days after today
+//	later     — due_date further out
+//	no_date   — due_date IS NULL
+func (q *Queries) GetMyTasks(ctx context.Context, arg GetMyTasksParams) ([]GetMyTasksRow, error) {
+	rows, err := q.db.Query(ctx, getMyTasks, arg.Today, arg.UserID, arg.IncludeUnassigned)
 	if err != nil {
 		return nil, err
 	}
@@ -1177,6 +1211,7 @@ func (q *Queries) GetMyTasks(ctx context.Context, assigneeID *string) ([]GetMyTa
 			&i.BoardName,
 			&i.ColumnName,
 			&i.Status,
+			&i.WorkGroup,
 		); err != nil {
 			return nil, err
 		}

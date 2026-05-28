@@ -218,9 +218,10 @@ func (s *BoardService) GetBoardIDByCard(ctx context.Context, cardID string) (str
 	return s.queries.GetBoardIDByCard(ctx, cardID)
 }
 
-// MyTaskData mirrors the row shape returned to the frontend's My Tasks page.
-// Status is derived in SQL: "todo" for the first TODO column, "in_progress"
-// otherwise.
+// MyTaskData mirrors the row shape returned to the frontend's My Work page.
+// `Status` is derived in SQL: "todo" for the first TODO column, "in_progress"
+// otherwise. `Group` is the date bucket (overdue/today/this_week/later/no_date)
+// also computed in SQL against the caller's "today".
 type MyTaskData struct {
 	ID             string
 	Title          string
@@ -232,16 +233,99 @@ type MyTaskData struct {
 	EstimatedHours *float64
 	IsDone         bool
 	Status         string
+	Group          string
 }
 
-func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskData, error) {
-	rows, err := s.queries.GetMyTasks(ctx, &userID)
+// MyWorkFilter narrows what GetMyWork returns. Counts always reflect the
+// unfiltered inbox so the frontend can render filter-chip counters.
+type MyWorkFilter string
+
+const (
+	MyWorkFilterAll      MyWorkFilter = "all"
+	MyWorkFilterOverdue  MyWorkFilter = "overdue"
+	MyWorkFilterToday    MyWorkFilter = "today"
+	MyWorkFilterThisWeek MyWorkFilter = "this_week"
+	MyWorkFilterNoDate   MyWorkFilter = "no_date"
+)
+
+// MyWorkCounts mirrors dto.MyWorkCounts but lives in service so the layer
+// stays decoupled from the wire shape.
+type MyWorkCounts struct {
+	Overdue  int
+	Today    int
+	ThisWeek int
+	Later    int
+	NoDate   int
+	Total    int
+}
+
+type MyWorkOptions struct {
+	UserID            string
+	IncludeUnassigned bool
+	Filter            MyWorkFilter
+	// Today is the caller-local date. The handler injects this in the user's
+	// timezone (Asia/Bangkok hardcoded in S.1) so the SQL CASE-bucket aligns
+	// with what the user reads as "วันนี้".
+	Today time.Time
+}
+
+type MyWorkResult struct {
+	Cards  []MyTaskData
+	Counts MyWorkCounts
+}
+
+// asiaBangkok is the fallback timezone used until user-level timezone
+// preference lands (S.2). Loaded once at startup.
+var asiaBangkok = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Bangkok")
 	if err != nil {
-		return nil, fmt.Errorf("get my tasks: %w", err)
+		return time.FixedZone("ICT", 7*60*60)
 	}
-	out := make([]MyTaskData, 0, len(rows))
+	return loc
+}()
+
+// MyWorkToday returns "today" in the default workspace timezone, truncated to
+// midnight, ready to pass to GetMyWork as the bucket pivot.
+func MyWorkToday(now time.Time) time.Time {
+	t := now.In(asiaBangkok)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, asiaBangkok)
+}
+
+// GetMyWork lists the caller's inbox across boards. The query returns all
+// matching cards in one shot; counts are computed in Go (one pass) and the
+// filter is applied after counting so the chip totals always reflect the full
+// inbox.
+func (s *BoardService) GetMyWork(ctx context.Context, opts MyWorkOptions) (MyWorkResult, error) {
+	rows, err := s.queries.GetMyTasks(ctx, db.GetMyTasksParams{
+		Today:             opts.Today,
+		UserID:            opts.UserID,
+		IncludeUnassigned: opts.IncludeUnassigned,
+	})
+	if err != nil {
+		return MyWorkResult{}, fmt.Errorf("get my tasks: %w", err)
+	}
+
+	cards := make([]MyTaskData, 0, len(rows))
+	var counts MyWorkCounts
 	for _, r := range rows {
-		out = append(out, MyTaskData{
+		switch r.WorkGroup {
+		case "overdue":
+			counts.Overdue++
+		case "today":
+			counts.Today++
+		case "this_week":
+			counts.ThisWeek++
+		case "later":
+			counts.Later++
+		case "no_date":
+			counts.NoDate++
+		}
+		counts.Total++
+
+		if !matchesFilter(opts.Filter, r.WorkGroup) {
+			continue
+		}
+		cards = append(cards, MyTaskData{
 			ID:             r.ID,
 			Title:          r.Title,
 			BoardID:        r.BoardID,
@@ -252,9 +336,27 @@ func (s *BoardService) GetMyTasks(ctx context.Context, userID string) ([]MyTaskD
 			EstimatedHours: util.PgNumericToFloat64Ptr(r.EstimatedHours),
 			IsDone:         r.IsDone,
 			Status:         r.Status,
+			Group:          r.WorkGroup,
 		})
 	}
-	return out, nil
+	return MyWorkResult{Cards: cards, Counts: counts}, nil
+}
+
+func matchesFilter(f MyWorkFilter, group string) bool {
+	switch f {
+	case "", MyWorkFilterAll:
+		return true
+	case MyWorkFilterOverdue:
+		return group == "overdue"
+	case MyWorkFilterToday:
+		return group == "today"
+	case MyWorkFilterThisWeek:
+		return group == "this_week"
+	case MyWorkFilterNoDate:
+		return group == "no_date"
+	default:
+		return true
+	}
 }
 
 // CompleteMyTask marks a card done + moves it to the board's first DONE column.
