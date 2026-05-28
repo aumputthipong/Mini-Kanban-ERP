@@ -1,7 +1,7 @@
 "use client";
 
 import { Inbox, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FilterChipBar } from "@/components/my-work/FilterChipBar";
 import { WorkGroupSection } from "@/components/my-work/WorkGroupSection";
@@ -33,7 +33,29 @@ const GROUP_ORDER_BY_FILTER: Record<MyWorkFilter, MyWorkGroup[]> = {
   no_date: ["no_date"],
 };
 
+// useSearchParams() in a client component forces Next.js 16 to bail out of
+// static prerender unless we wrap the consumer in <Suspense>. The outer
+// export is a thin boundary; the real page logic lives in MyWorkPageInner
+// so the prerender pass can stop at the fallback.
 export default function MyWorkPage() {
+  return (
+    <Suspense fallback={<MyWorkFallback />}>
+      <MyWorkPageInner />
+    </Suspense>
+  );
+}
+
+function MyWorkFallback() {
+  return (
+    <div className="h-full overflow-y-auto">
+      <main className="p-6 md:p-8 max-w-5xl mx-auto">
+        <MyWorkSkeleton />
+      </main>
+    </div>
+  );
+}
+
+function MyWorkPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
