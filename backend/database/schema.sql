@@ -179,3 +179,12 @@ CREATE TABLE refresh_tokens (
 
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+
+CREATE TABLE user_settings (
+    user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    default_landing  VARCHAR(20) NOT NULL DEFAULT 'today'
+        CHECK (default_landing IN ('today', 'my_work', 'all_boards')),
+    show_all_cards   BOOLEAN     NOT NULL DEFAULT FALSE,
+    timezone         VARCHAR(50) NOT NULL DEFAULT 'Asia/Bangkok',
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);

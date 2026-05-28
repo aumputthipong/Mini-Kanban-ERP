@@ -31,7 +31,7 @@ func TestGetMyTasks_ReturnsCardsAndCounts(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/my-tasks?filter=all", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -47,7 +47,7 @@ func TestGetMyTasks_ReturnsCardsAndCounts(t *testing.T) {
 	assert.Equal(t, 1, got.Counts.Today)
 }
 
-func TestGetMyTasks_PropagatesFilterAndIncludeUnassigned(t *testing.T) {
+func TestGetMyTasks_FilterFromQuery_IncludeFromSettings(t *testing.T) {
 	var captured service.MyWorkOptions
 	svc := &mock.MockBoardService{
 		GetMyWorkFn: func(ctx context.Context, opts service.MyWorkOptions) (service.MyWorkResult, error) {
@@ -55,20 +55,31 @@ func TestGetMyTasks_PropagatesFilterAndIncludeUnassigned(t *testing.T) {
 			return service.MyWorkResult{}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	settings := &mock.MockUserSettingsService{
+		GetFn: func(ctx context.Context, userID string) (service.UserSettingsData, error) {
+			return service.UserSettingsData{
+				UserID:         userID,
+				DefaultLanding: "today",
+				ShowAllCards:   true,
+				Timezone:       "Asia/Bangkok",
+			}, nil
+		},
+	}
+	h := NewBoardHandler(svc, settings)
 	req := withUserID(
-		httptest.NewRequest(http.MethodGet, "/my-tasks?filter=today&include_unassigned=true", nil),
+		httptest.NewRequest(http.MethodGet, "/my-tasks?filter=today&include_unassigned=false", nil),
 		validUserID,
 	)
 	httputil.MakeHandler(h.GetMyTasks)(httptest.NewRecorder(), req)
 
 	assert.Equal(t, service.MyWorkFilter("today"), captured.Filter)
+	// include_unassigned in the URL is intentionally ignored; settings wins.
 	assert.True(t, captured.IncludeUnassigned)
 	assert.False(t, captured.Today.IsZero(), "service should receive a non-zero Today pivot")
 }
 
 func TestGetMyTasks_Unauthorized(t *testing.T) {
-	h := NewBoardHandler(&mock.MockBoardService{})
+	h := NewBoardHandler(&mock.MockBoardService{}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/my-tasks", nil) // no user ctx
 	w := httptest.NewRecorder()
 
@@ -83,7 +94,7 @@ func TestGetMyTasks_ServiceError(t *testing.T) {
 			return service.MyWorkResult{}, errors.New("db down")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/my-tasks", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -100,7 +111,7 @@ func TestCompleteMyTask_Success(t *testing.T) {
 			return true, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := chiCtx(
 		withUserID(httptest.NewRequest(http.MethodPost, "/my-tasks/"+validCardID+"/complete", nil), validUserID),
 		"cardID", validCardID,
@@ -117,7 +128,7 @@ func TestCompleteMyTask_NotAssignee_404(t *testing.T) {
 			return false, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := chiCtx(
 		withUserID(httptest.NewRequest(http.MethodPost, "/my-tasks/"+validCardID+"/complete", nil), validUserID),
 		"cardID", validCardID,

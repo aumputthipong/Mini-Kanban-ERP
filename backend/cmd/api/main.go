@@ -149,13 +149,15 @@ func run(ctx context.Context, cfg config) error {
 	subtaskService := service.NewSubtaskService(pool)
 	tagService := service.NewTagService(pool, queries)
 	planningService := service.NewPlanningService(pool, queries)
+	settingsService := service.NewUserSettingsService(queries)
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
-	boardHandler := handler.NewBoardHandler(boardService)
+	boardHandler := handler.NewBoardHandler(boardService, settingsService)
 	tagHandler := handler.NewTagHandler(tagService)
 	activityHandler := handler.NewActivityHandler(activityService)
 	planningHandler := handler.NewPlanningHandler(planningService, boardService, activityService)
 	authHandler := handler.NewAuthHandler(authService, cfg.Production)
+	settingsHandler := handler.NewUserSettingsHandler(settingsService)
 	oauthHandler := handler.NewOAuthHandler(
 		cfg.GoogleClientID,
 		cfg.GoogleClientSecret,
@@ -175,6 +177,7 @@ func run(ctx context.Context, cfg config) error {
 		tagHandler:      tagHandler,
 		activityHandler: activityHandler,
 		planningHandler: planningHandler,
+		settingsHandler: settingsHandler,
 		hub:             hub,
 		pool:            pool,
 		version:         version,

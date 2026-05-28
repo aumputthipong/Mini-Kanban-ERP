@@ -1630,6 +1630,28 @@ func (q *Queries) GetUserByProviderID(ctx context.Context, arg GetUserByProvider
 	return i, err
 }
 
+const getUserSettings = `-- name: GetUserSettings :one
+SELECT user_id, default_landing, show_all_cards, timezone, updated_at
+FROM user_settings
+WHERE user_id = $1
+`
+
+// Returns the caller's workspace preferences. Pair with UpsertUserSettings
+// in the service so first-read materializes a default row and the API
+// never has to branch on "missing".
+func (q *Queries) GetUserSettings(ctx context.Context, userID string) (UserSetting, error) {
+	row := q.db.QueryRow(ctx, getUserSettings, userID)
+	var i UserSetting
+	err := row.Scan(
+		&i.UserID,
+		&i.DefaultLanding,
+		&i.ShowAllCards,
+		&i.Timezone,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const hardDeleteBoard = `-- name: HardDeleteBoard :exec
 DELETE FROM boards 
 WHERE id = $1
@@ -2637,6 +2659,51 @@ func (q *Queries) UpsertOAuthUser(ctx context.Context, arg UpsertOAuthUserParams
 		&i.Provider,
 		&i.ProviderID,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertUserSettings = `-- name: UpsertUserSettings :one
+INSERT INTO user_settings (user_id, default_landing, show_all_cards, timezone, updated_at)
+VALUES (
+    $1,
+    COALESCE($2::varchar, 'today'),
+    COALESCE($3::boolean,  FALSE),
+    COALESCE($4::varchar,        'Asia/Bangkok'),
+    now()
+)
+ON CONFLICT (user_id) DO UPDATE SET
+    default_landing = COALESCE($2::varchar, user_settings.default_landing),
+    show_all_cards  = COALESCE($3::boolean,  user_settings.show_all_cards),
+    timezone        = COALESCE($4::varchar,        user_settings.timezone),
+    updated_at      = now()
+RETURNING user_id, default_landing, show_all_cards, timezone, updated_at
+`
+
+type UpsertUserSettingsParams struct {
+	UserID         string
+	DefaultLanding *string
+	ShowAllCards   *bool
+	Timezone       *string
+}
+
+// INSERT-or-UPDATE on the user_settings row. NULL params keep the existing
+// value (or the column default on first insert), so PATCH /api/me/settings
+// can omit fields it doesn't want to touch.
+func (q *Queries) UpsertUserSettings(ctx context.Context, arg UpsertUserSettingsParams) (UserSetting, error) {
+	row := q.db.QueryRow(ctx, upsertUserSettings,
+		arg.UserID,
+		arg.DefaultLanding,
+		arg.ShowAllCards,
+		arg.Timezone,
+	)
+	var i UserSetting
+	err := row.Scan(
+		&i.UserID,
+		&i.DefaultLanding,
+		&i.ShowAllCards,
+		&i.Timezone,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

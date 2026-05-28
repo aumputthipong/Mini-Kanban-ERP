@@ -36,13 +36,25 @@ func (h *BoardHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	filter := service.MyWorkFilter(r.URL.Query().Get("filter"))
-	include := r.URL.Query().Get("include_unassigned") == "true"
+
+	// Settings is the source of truth for include_unassigned + timezone.
+	// Query params for these are intentionally ignored (S.2 decision).
+	var include bool
+	var tz string
+	if h.settingsService != nil {
+		settings, err := h.settingsService.Get(r.Context(), userID)
+		if err != nil {
+			return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load settings", err)
+		}
+		include = settings.ShowAllCards
+		tz = settings.Timezone
+	}
 
 	result, err := h.boardService.GetMyWork(r.Context(), service.MyWorkOptions{
 		UserID:            userID,
 		IncludeUnassigned: include,
 		Filter:            filter,
-		Today:             service.MyWorkToday(time.Now()),
+		Today:             service.MyWorkToday(time.Now(), tz),
 	})
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to load my tasks", err)

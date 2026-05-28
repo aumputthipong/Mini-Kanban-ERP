@@ -735,3 +735,30 @@ UPDATE planning_items
 SET claimed_by_user_id = NULL,
     claimed_at         = NULL
 WHERE id = $1;
+
+-- name: GetUserSettings :one
+-- Returns the caller's workspace preferences. Pair with UpsertUserSettings
+-- in the service so first-read materializes a default row and the API
+-- never has to branch on "missing".
+SELECT user_id, default_landing, show_all_cards, timezone, updated_at
+FROM user_settings
+WHERE user_id = $1;
+
+-- name: UpsertUserSettings :one
+-- INSERT-or-UPDATE on the user_settings row. NULL params keep the existing
+-- value (or the column default on first insert), so PATCH /api/me/settings
+-- can omit fields it doesn't want to touch.
+INSERT INTO user_settings (user_id, default_landing, show_all_cards, timezone, updated_at)
+VALUES (
+    sqlc.arg(user_id),
+    COALESCE(sqlc.narg(default_landing)::varchar, 'today'),
+    COALESCE(sqlc.narg(show_all_cards)::boolean,  FALSE),
+    COALESCE(sqlc.narg(timezone)::varchar,        'Asia/Bangkok'),
+    now()
+)
+ON CONFLICT (user_id) DO UPDATE SET
+    default_landing = COALESCE(sqlc.narg(default_landing)::varchar, user_settings.default_landing),
+    show_all_cards  = COALESCE(sqlc.narg(show_all_cards)::boolean,  user_settings.show_all_cards),
+    timezone        = COALESCE(sqlc.narg(timezone)::varchar,        user_settings.timezone),
+    updated_at      = now()
+RETURNING user_id, default_landing, show_all_cards, timezone, updated_at;

@@ -108,6 +108,14 @@ type ActivityRecorder interface {
 	RecordAsync(p RecordParams)
 }
 
+// UserSettingsServicer is the contract for per-user workspace preferences.
+// Get auto-materializes a default row on first read so callers never branch
+// on a missing record.
+type UserSettingsServicer interface {
+	Get(ctx context.Context, userID string) (UserSettingsData, error)
+	Update(ctx context.Context, userID string, p UpdateUserSettingsParams) (UserSettingsData, error)
+}
+
 // AuthServicer is the contract for credential and OAuth-based authentication.
 // Token issuance lives in the token package, not here — service only resolves
 // the user identity.
