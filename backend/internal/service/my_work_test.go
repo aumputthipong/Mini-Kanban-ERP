@@ -33,7 +33,7 @@ func TestMatchesFilter(t *testing.T) {
 func TestMyWorkToday_TruncatedToBangkokMidnight(t *testing.T) {
 	// 2026-05-28 03:30 UTC → in Asia/Bangkok this is 2026-05-28 10:30 → midnight is same date.
 	in := time.Date(2026, 5, 28, 3, 30, 0, 0, time.UTC)
-	got := MyWorkToday(in)
+	got := MyWorkToday(in, "Asia/Bangkok")
 
 	if got.Location().String() != "Asia/Bangkok" {
 		t.Errorf("MyWorkToday location = %v, want Asia/Bangkok", got.Location())
@@ -49,7 +49,7 @@ func TestMyWorkToday_TruncatedToBangkokMidnight(t *testing.T) {
 func TestMyWorkToday_LateUTCRollsIntoNextBangkokDay(t *testing.T) {
 	// 2026-05-27 19:00 UTC → 2026-05-28 02:00 in Asia/Bangkok → "today" is the 28th.
 	in := time.Date(2026, 5, 27, 19, 0, 0, 0, time.UTC)
-	got := MyWorkToday(in)
+	got := MyWorkToday(in, "Asia/Bangkok")
 	if got.Day() != 28 {
 		t.Errorf("expected Bangkok-local day=28, got %v", got)
 	}

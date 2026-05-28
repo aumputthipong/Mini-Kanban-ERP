@@ -160,3 +160,11 @@ type User struct {
 	ProviderID   *string
 	CreatedAt    pgtype.Timestamptz
 }
+
+type UserSetting struct {
+	UserID         string
+	DefaultLanding string
+	ShowAllCards   bool
+	Timezone       string
+	UpdatedAt      time.Time
+}

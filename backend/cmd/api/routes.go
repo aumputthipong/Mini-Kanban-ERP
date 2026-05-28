@@ -30,6 +30,7 @@ type routerDeps struct {
 	tagHandler      *handler.TagHandler
 	activityHandler *handler.ActivityHandler
 	planningHandler *handler.PlanningHandler
+	settingsHandler *handler.UserSettingsHandler
 	hub             *websocket.Hub
 	pool            *pgxpool.Pool
 	version         string
@@ -101,6 +102,11 @@ func setupRoutes(d routerDeps) http.Handler {
 		r.Route("/api/my-tasks", func(r chi.Router) {
 			r.Get("/", httputil.MakeHandler(d.boardHandler.GetMyTasks))
 			r.Post("/{cardID}/complete", httputil.MakeHandler(d.boardHandler.CompleteMyTask))
+		})
+
+		r.Route("/api/me/settings", func(r chi.Router) {
+			r.Get("/", httputil.MakeHandler(d.settingsHandler.GetSettings))
+			r.Patch("/", httputil.MakeHandler(d.settingsHandler.UpdateSettings))
 		})
 
 		r.Route("/api/boards", func(r chi.Router) {

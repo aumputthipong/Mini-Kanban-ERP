@@ -15,12 +15,19 @@ import (
 )
 
 type BoardHandler struct {
-	boardService service.BoardServicer
+	boardService    service.BoardServicer
+	settingsService service.UserSettingsServicer
 }
 
-func NewBoardHandler(boardService service.BoardServicer) *BoardHandler {
+// NewBoardHandler wires the board handler. settingsService is required for
+// the /my-tasks (My Work) endpoint, which reads the caller's timezone and
+// "show all cards" preference; passing nil falls back to workspace defaults
+// (Asia/Bangkok + assigned-only) and is fine for tests that don't touch My
+// Work.
+func NewBoardHandler(boardService service.BoardServicer, settingsService service.UserSettingsServicer) *BoardHandler {
 	return &BoardHandler{
-		boardService: boardService,
+		boardService:    boardService,
+		settingsService: settingsService,
 	}
 }
 

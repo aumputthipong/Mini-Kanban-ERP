@@ -274,9 +274,9 @@ type MyWorkResult struct {
 	Counts MyWorkCounts
 }
 
-// asiaBangkok is the fallback timezone used until user-level timezone
-// preference lands (S.2). Loaded once at startup.
-var asiaBangkok = func() *time.Location {
+// defaultTZ is the workspace fallback when a user has no timezone set or the
+// configured one fails to load. Bangkok matches the default in user_settings.
+var defaultTZ = func() *time.Location {
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	if err != nil {
 		return time.FixedZone("ICT", 7*60*60)
@@ -284,11 +284,18 @@ var asiaBangkok = func() *time.Location {
 	return loc
 }()
 
-// MyWorkToday returns "today" in the default workspace timezone, truncated to
-// midnight, ready to pass to GetMyWork as the bucket pivot.
-func MyWorkToday(now time.Time) time.Time {
-	t := now.In(asiaBangkok)
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, asiaBangkok)
+// MyWorkToday returns "today" in the supplied IANA timezone, truncated to
+// midnight, ready to pass to GetMyWork as the bucket pivot. An empty or
+// unknown tz falls back to Asia/Bangkok.
+func MyWorkToday(now time.Time, tz string) time.Time {
+	loc := defaultTZ
+	if tz != "" {
+		if l, err := time.LoadLocation(tz); err == nil {
+			loc = l
+		}
+	}
+	t := now.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }
 
 // GetMyWork lists the caller's inbox across boards. The query returns all

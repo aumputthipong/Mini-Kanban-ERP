@@ -53,7 +53,7 @@ func TestGetAllBoards_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -73,7 +73,7 @@ func TestGetAllBoards_DBError(t *testing.T) {
 			return nil, errors.New("connection refused")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -94,7 +94,7 @@ func TestGetBoardData_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -111,7 +111,7 @@ func TestGetBoardData_Success(t *testing.T) {
 
 func TestGetBoardData_InvalidBoardID(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/not-a-uuid", nil)
 	req = chiCtx(req, "boardID", "not-a-uuid")
 	w := httptest.NewRecorder()
@@ -132,7 +132,7 @@ func TestGetBoardData_TouchesMembershipAccess(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil), validUserID)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -160,7 +160,7 @@ func TestGetBoardData_TouchFailureDoesNotAffectResponse(t *testing.T) {
 			return errors.New("transient db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil), validUserID)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -185,7 +185,7 @@ func TestGetBoardData_NoUserContext_SkipsTouch(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -202,7 +202,7 @@ func TestGetBoardData_ServiceError(t *testing.T) {
 			return nil, errors.New("db timeout")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID, nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -224,7 +224,7 @@ func TestCreateBoard_Success(t *testing.T) {
 			return validBoardID, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"My Board"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards", body)
 	req = withUserID(req, validUserID)
@@ -241,7 +241,7 @@ func TestCreateBoard_Success(t *testing.T) {
 
 func TestCreateBoard_Unauthorized(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"My Board"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards", body)
 	// ไม่ใส่ userID ใน context → unauthorized
@@ -254,7 +254,7 @@ func TestCreateBoard_Unauthorized(t *testing.T) {
 
 func TestCreateBoard_InvalidJSON(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{invalid json}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards", body)
 	req = withUserID(req, validUserID)
@@ -278,7 +278,7 @@ func TestMoveToTrash_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID, nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -295,7 +295,7 @@ func TestMoveToTrash_ServiceError(t *testing.T) {
 			return errors.New("board not found")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID, nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -315,7 +315,7 @@ func TestHardDelete_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID+"/hard", nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -337,7 +337,7 @@ func TestGetBoardMembers_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID+"/members", nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -358,7 +358,7 @@ func TestGetBoardMembers_DBError(t *testing.T) {
 			return nil, errors.New("query failed")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/boards/"+validBoardID+"/members", nil)
 	req = chiCtx(req, "boardID", validBoardID)
 	w := httptest.NewRecorder()
@@ -380,7 +380,7 @@ func TestGetAllUsers_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	w := httptest.NewRecorder()
 
@@ -405,7 +405,7 @@ func TestUpdateBoard_Success(t *testing.T) {
 			return db.Board{ID: validBoardID, Title: "New Title"}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"New Title"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -421,7 +421,7 @@ func TestUpdateBoard_Success(t *testing.T) {
 
 func TestUpdateBoard_InvalidBoardID(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"New Title"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/not-a-uuid", body)
 	req = chiCtx(req, "boardID", "not-a-uuid")
@@ -434,7 +434,7 @@ func TestUpdateBoard_InvalidBoardID(t *testing.T) {
 
 func TestUpdateBoard_InvalidJSON(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{bad json}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -451,7 +451,7 @@ func TestUpdateBoard_ServiceError(t *testing.T) {
 			return db.Board{}, errors.New("db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"New Title"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID, body)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -474,7 +474,7 @@ func TestGetTrash_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -493,7 +493,7 @@ func TestGetTrash_ServiceError(t *testing.T) {
 			return nil, errors.New("db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/trash", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -520,7 +520,7 @@ func TestCreateCard_Success(t *testing.T) {
 			return db.CreateCardRow{ID: validCardID, ColumnID: validColumnID, Title: "Test Card"}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
 	req := httptest.NewRequest(http.MethodPost, "/cards", body)
 	req = withUserID(req, validUserID)
@@ -536,7 +536,7 @@ func TestCreateCard_Success(t *testing.T) {
 
 func TestCreateCard_Unauthorized(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
 	req := httptest.NewRequest(http.MethodPost, "/cards", body)
 	// ไม่ใส่ userID ใน context
@@ -549,7 +549,7 @@ func TestCreateCard_Unauthorized(t *testing.T) {
 
 func TestCreateCard_InvalidColumnID(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"column_id":"not-a-uuid","title":"Test Card"}`)
 	req := httptest.NewRequest(http.MethodPost, "/cards", body)
 	req = withUserID(req, validUserID)
@@ -562,7 +562,7 @@ func TestCreateCard_InvalidColumnID(t *testing.T) {
 
 func TestCreateCard_InvalidJSON(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{bad json}`)
 	req := httptest.NewRequest(http.MethodPost, "/cards", body)
 	req = withUserID(req, validUserID)
@@ -585,7 +585,7 @@ func TestCreateCard_ServiceError(t *testing.T) {
 			return db.CreateCardRow{}, errors.New("db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"column_id":"` + validColumnID + `","title":"Test Card"}`)
 	req := httptest.NewRequest(http.MethodPost, "/cards", body)
 	req = withUserID(req, validUserID)
@@ -617,7 +617,7 @@ func TestUpdateCard_Success(t *testing.T) {
 			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "Updated"}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
@@ -634,7 +634,7 @@ func TestUpdateCard_Success(t *testing.T) {
 
 func TestUpdateCard_InvalidCardID(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/not-a-uuid", body)
 	req = chiCtx(req, "cardID", "not-a-uuid")
@@ -647,7 +647,7 @@ func TestUpdateCard_InvalidCardID(t *testing.T) {
 
 func TestUpdateCard_InvalidJSON(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{bad json}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
@@ -674,7 +674,7 @@ func TestUpdateCard_ServiceError(t *testing.T) {
 			return db.Card{}, errors.New("db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	body := strings.NewReader(`{"title":"Updated"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/cards/"+validCardID, body)
 	req = chiCtx(req, "cardID", validCardID)
@@ -697,7 +697,7 @@ func TestGetCard_Success(t *testing.T) {
 			return db.Card{ID: validCardID, ColumnID: validColumnID, Title: "My Card"}, nil
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
 	req = chiCtx(req, "cardID", validCardID)
 	w := httptest.NewRecorder()
@@ -716,7 +716,7 @@ func TestGetCard_NotFound(t *testing.T) {
 			return db.Card{}, sql.ErrNoRows
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
 	req = chiCtx(req, "cardID", validCardID)
 	w := httptest.NewRecorder()
@@ -728,7 +728,7 @@ func TestGetCard_NotFound(t *testing.T) {
 
 func TestGetCard_InvalidCardID(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/cards/not-a-uuid", nil)
 	req = chiCtx(req, "cardID", "not-a-uuid")
 	w := httptest.NewRecorder()
@@ -744,7 +744,7 @@ func TestGetCard_ServiceError(t *testing.T) {
 			return db.Card{}, errors.New("db error")
 		},
 	}
-	h := NewBoardHandler(svc)
+	h := NewBoardHandler(svc, nil)
 	req := httptest.NewRequest(http.MethodGet, "/cards/"+validCardID, nil)
 	req = chiCtx(req, "cardID", validCardID)
 	w := httptest.NewRecorder()
