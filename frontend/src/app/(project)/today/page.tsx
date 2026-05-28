@@ -18,13 +18,16 @@ interface MeResponse {
 export default function TodayPage() {
   const [data, setData] = useState<MyWorkResponse | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Loading is derived — flipping setIsLoading inside the effect trips
+  // react-hooks/set-state-in-effect under React 19. This page only fetches
+  // once (no deps), so isLoading is simply "haven't received data yet".
+  const isLoading = data === null && error === null;
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    setIsLoading(true);
     Promise.all([
       fetchMyWork({ filter: "all", signal: controller.signal }),
       apiClient<MeResponse>("/auth/me", { signal: controller.signal }).catch(
@@ -39,9 +42,6 @@ export default function TodayPage() {
       .catch((err: unknown) => {
         if (cancelled || controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;

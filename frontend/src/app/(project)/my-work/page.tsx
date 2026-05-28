@@ -42,13 +42,22 @@ export default function MyWorkPage() {
   const query = (searchParams.get("q") ?? "").trim();
 
   const [data, setData] = useState<MyWorkResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // setState-during-render pattern (per AGENTS.md): when the filter URL
+  // param changes, clear the cached payload so isLoading flips back to true
+  // before the effect fires. Doing this synchronously inside useEffect would
+  // trip react-hooks/set-state-in-effect.
+  const [lastFilter, setLastFilter] = useState(filter);
+  if (lastFilter !== filter) {
+    setLastFilter(filter);
+    setData(null);
+  }
+  const isLoading = data === null && error === null;
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    setIsLoading(true);
     fetchMyWork({ filter, signal: controller.signal })
       .then((res) => {
         if (!cancelled) setData(res);
@@ -56,9 +65,6 @@ export default function MyWorkPage() {
       .catch((err: unknown) => {
         if (cancelled || controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "โหลดงานไม่สำเร็จ");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -175,7 +181,7 @@ export default function MyWorkPage() {
           query ? (
             <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-white">
               <p className="text-sm font-semibold text-slate-700">
-                ไม่พบงานที่ตรงกับ "{query}"
+                {`ไม่พบงานที่ตรงกับ "${query}"`}
               </p>
               <p className="text-xs text-slate-400 mt-1">ลองคำค้นอื่น หรือล้างกล่องค้นหา</p>
             </div>
