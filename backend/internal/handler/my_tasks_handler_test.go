@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/aumputthipong/mini-erp-kanban/backend/internal/db"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/dto"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/httputil"
 	"github.com/aumputthipong/mini-erp-kanban/backend/internal/service"
@@ -31,7 +32,7 @@ func TestGetMyTasks_ReturnsCardsAndCounts(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/my-tasks?filter=all", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -65,7 +66,7 @@ func TestGetMyTasks_FilterFromQuery_IncludeFromSettings(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewBoardHandler(svc, settings)
+	h := NewBoardHandler(svc, settings, nil)
 	req := withUserID(
 		httptest.NewRequest(http.MethodGet, "/my-tasks?filter=today&include_unassigned=false", nil),
 		validUserID,
@@ -79,7 +80,7 @@ func TestGetMyTasks_FilterFromQuery_IncludeFromSettings(t *testing.T) {
 }
 
 func TestGetMyTasks_Unauthorized(t *testing.T) {
-	h := NewBoardHandler(&mock.MockBoardService{}, nil)
+	h := NewBoardHandler(&mock.MockBoardService{}, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/my-tasks", nil) // no user ctx
 	w := httptest.NewRecorder()
 
@@ -94,7 +95,7 @@ func TestGetMyTasks_ServiceError(t *testing.T) {
 			return service.MyWorkResult{}, errors.New("db down")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 	req := withUserID(httptest.NewRequest(http.MethodGet, "/my-tasks", nil), validUserID)
 	w := httptest.NewRecorder()
 
@@ -103,15 +104,23 @@ func TestGetMyTasks_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestCompleteMyTask_Success(t *testing.T) {
+func TestCompleteMyTask_Success_RecordsActivity(t *testing.T) {
 	svc := &mock.MockBoardService{
-		CompleteMyTaskFn: func(ctx context.Context, cardID, userID string) (bool, error) {
+		CompleteMyTaskFn: func(ctx context.Context, cardID, userID string) (service.CompleteMyTaskResult, error) {
 			assert.Equal(t, validCardID, cardID)
 			assert.Equal(t, validUserID, userID)
-			return true, nil
+			return service.CompleteMyTaskResult{
+				OK:        true,
+				BoardID:   validBoardID,
+				CardTitle: "Ship docs",
+			}, nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	var recorded service.RecordParams
+	recorder := &spyRecorder{
+		recordAsync: func(p service.RecordParams) { recorded = p },
+	}
+	h := NewBoardHandler(svc, nil, recorder)
 	req := chiCtx(
 		withUserID(httptest.NewRequest(http.MethodPost, "/my-tasks/"+validCardID+"/complete", nil), validUserID),
 		"cardID", validCardID,
@@ -120,15 +129,18 @@ func TestCompleteMyTask_Success(t *testing.T) {
 
 	httputil.MakeHandler(h.CompleteMyTask)(w, req)
 	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, service.EventCardDoneToggled, recorded.EventType)
+	assert.Equal(t, validBoardID, recorded.BoardID)
+	assert.Equal(t, validUserID, recorded.ActorID)
 }
 
 func TestCompleteMyTask_NotAssignee_404(t *testing.T) {
 	svc := &mock.MockBoardService{
-		CompleteMyTaskFn: func(ctx context.Context, cardID, userID string) (bool, error) {
-			return false, nil
+		CompleteMyTaskFn: func(ctx context.Context, cardID, userID string) (service.CompleteMyTaskResult, error) {
+			return service.CompleteMyTaskResult{OK: false}, nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 	req := chiCtx(
 		withUserID(httptest.NewRequest(http.MethodPost, "/my-tasks/"+validCardID+"/complete", nil), validUserID),
 		"cardID", validCardID,
@@ -137,4 +149,25 @@ func TestCompleteMyTask_NotAssignee_404(t *testing.T) {
 
 	httputil.MakeHandler(h.CompleteMyTask)(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// spyRecorder is a tiny ActivityRecorder used by my-tasks handler tests to
+// assert the audit row would have been written. It intentionally lives next
+// to the test rather than under internal/service/mock — only one test cares
+// about Record calls and the surface is two methods.
+type spyRecorder struct {
+	record      func(ctx context.Context, p service.RecordParams) error
+	recordAsync func(p service.RecordParams)
+}
+
+func (s *spyRecorder) Record(ctx context.Context, p service.RecordParams) (db.Activity, error) {
+	if s.record != nil {
+		return db.Activity{}, s.record(ctx, p)
+	}
+	return db.Activity{}, nil
+}
+func (s *spyRecorder) RecordAsync(p service.RecordParams) {
+	if s.recordAsync != nil {
+		s.recordAsync(p)
+	}
 }

@@ -119,13 +119,31 @@ func (h *BoardHandler) CompleteMyTask(w http.ResponseWriter, r *http.Request) er
 		return httputil.NewAPIError(http.StatusBadRequest, "Invalid card ID", err)
 	}
 
-	ok, err = h.boardService.CompleteMyTask(r.Context(), cardID, userID)
+	result, err := h.boardService.CompleteMyTask(r.Context(), cardID, userID)
 	if err != nil {
 		return httputil.NewAPIError(http.StatusInternalServerError, "Failed to complete task", err)
 	}
-	if !ok {
+	if !result.OK {
 		// Not the assignee, or card doesn't exist.
 		return httputil.NewAPIError(http.StatusNotFound, "Task not found", nil)
+	}
+
+	// Best-effort audit row so My Work completions show up on the board's
+	// activity feed alongside drag-to-done. Audit failures don't roll back
+	// the mutation — RecordAsync handles its own logging.
+	if h.activity != nil {
+		h.activity.RecordAsync(service.RecordParams{
+			BoardID:    result.BoardID,
+			ActorID:    userID,
+			EventType:  service.EventCardDoneToggled,
+			EntityType: service.EntityCard,
+			EntityID:   &cardID,
+			Payload: map[string]any{
+				"title":   result.CardTitle,
+				"is_done": true,
+				"via":     "my_work",
+			},
+		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)

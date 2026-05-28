@@ -33,7 +33,7 @@ func TestGetBoardMembers_InvalidBoardID_Returns400(t *testing.T) {
 			return nil, nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/boards/bad/members", nil)
 	req = chiCtx(req, "boardID", "not-a-uuid")
@@ -60,7 +60,7 @@ func TestAddBoardMember_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"user_id":"` + otherUserID + `","role":"member"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/members", body)
@@ -77,7 +77,7 @@ func TestAddBoardMember_Success(t *testing.T) {
 
 func TestAddBoardMember_InvalidBoardID_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"user_id":"` + otherUserID + `","role":"member"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards/bad/members", body)
@@ -100,7 +100,7 @@ func TestAddBoardMember_InvalidRole_Returns400(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"user_id":"` + otherUserID + `","role":"superadmin"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/members", body)
@@ -114,7 +114,7 @@ func TestAddBoardMember_InvalidRole_Returns400(t *testing.T) {
 
 func TestAddBoardMember_MissingUserID_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"member"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/members", body)
@@ -132,7 +132,7 @@ func TestAddBoardMember_ServiceError_Returns500(t *testing.T) {
 			return errors.New("constraint violation")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"user_id":"` + otherUserID + `","role":"member"}`)
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/members", body)
@@ -156,7 +156,7 @@ func TestRemoveBoardMember_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID+"/members/"+otherUserID, nil)
 	req = chiCtx(req, "boardID", validBoardID, "userID", otherUserID)
@@ -171,7 +171,7 @@ func TestRemoveBoardMember_Success(t *testing.T) {
 
 func TestRemoveBoardMember_InvalidBoardID_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/boards/bad/members/"+otherUserID, nil)
 	req = chiCtx(req, "boardID", "bad", "userID", otherUserID)
@@ -189,7 +189,7 @@ func TestRemoveBoardMember_InvalidUserID_Returns400(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID+"/members/bad", nil)
 	req = chiCtx(req, "boardID", validBoardID, "userID", "bad")
@@ -206,7 +206,7 @@ func TestRemoveBoardMember_ServiceError_Returns500(t *testing.T) {
 			return errors.New("db down")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/boards/"+validBoardID+"/members/"+otherUserID, nil)
 	req = chiCtx(req, "boardID", validBoardID, "userID", otherUserID)
@@ -229,7 +229,7 @@ func TestUpdateMemberRole_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"manager"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID+"/members/"+otherUserID, body)
@@ -254,7 +254,7 @@ func TestUpdateMemberRole_PromoteToOwner_Returns400(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"owner"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID+"/members/"+otherUserID, body)
@@ -269,7 +269,7 @@ func TestUpdateMemberRole_PromoteToOwner_Returns400(t *testing.T) {
 
 func TestUpdateMemberRole_InvalidRole_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"superadmin"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID+"/members/"+otherUserID, body)
@@ -283,7 +283,7 @@ func TestUpdateMemberRole_InvalidRole_Returns400(t *testing.T) {
 
 func TestUpdateMemberRole_InvalidUserID_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"member"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID+"/members/bad", body)
@@ -301,7 +301,7 @@ func TestUpdateMemberRole_ServiceError_Returns500(t *testing.T) {
 			return errors.New("db down")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	body := strings.NewReader(`{"role":"manager"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/boards/"+validBoardID+"/members/"+otherUserID, body)
@@ -325,7 +325,7 @@ func TestLeaveBoard_Member_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -345,7 +345,7 @@ func TestLeaveBoard_Manager_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -369,7 +369,7 @@ func TestLeaveBoard_Owner_Returns403(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -385,7 +385,7 @@ func TestLeaveBoard_Owner_Returns403(t *testing.T) {
 
 func TestLeaveBoard_MissingUserID_Returns401(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -407,7 +407,7 @@ func TestLeaveBoard_MissingRoleContext_Returns403(t *testing.T) {
 			return nil
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -422,7 +422,7 @@ func TestLeaveBoard_MissingRoleContext_Returns403(t *testing.T) {
 
 func TestLeaveBoard_InvalidBoardID_Returns400(t *testing.T) {
 	svc := &mock.MockBoardService{}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/bad/leave", nil)
 	req = chiCtx(req, "boardID", "bad")
@@ -441,7 +441,7 @@ func TestLeaveBoard_ServiceError_Returns500(t *testing.T) {
 			return errors.New("db down")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/boards/"+validBoardID+"/leave", nil)
 	req = chiCtx(req, "boardID", validBoardID)
@@ -464,7 +464,7 @@ func TestGetAllUsers_DBError_Returns500(t *testing.T) {
 			return nil, errors.New("query failed")
 		},
 	}
-	h := NewBoardHandler(svc, nil)
+	h := NewBoardHandler(svc, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
 	w := httptest.NewRecorder()

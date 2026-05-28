@@ -34,7 +34,7 @@ type BoardServicer interface {
 
 	// My Work (cross-board personal inbox)
 	GetMyWork(ctx context.Context, opts MyWorkOptions) (MyWorkResult, error)
-	CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error)
+	CompleteMyTask(ctx context.Context, cardID, userID string) (CompleteMyTaskResult, error)
 
 	// Member
 	GetBoardMembers(ctx context.Context, boardID string) ([]db.GetBoardMembersRow, error)

@@ -17,17 +17,23 @@ import (
 type BoardHandler struct {
 	boardService    service.BoardServicer
 	settingsService service.UserSettingsServicer
+	activity        service.ActivityRecorder
 }
 
 // NewBoardHandler wires the board handler. settingsService is required for
 // the /my-tasks (My Work) endpoint, which reads the caller's timezone and
-// "show all cards" preference; passing nil falls back to workspace defaults
-// (Asia/Bangkok + assigned-only) and is fine for tests that don't touch My
-// Work.
-func NewBoardHandler(boardService service.BoardServicer, settingsService service.UserSettingsServicer) *BoardHandler {
+// "show all cards" preference. activity is used by CompleteMyTask to log a
+// card.done_toggled event; passing nil keeps the mutation working but skips
+// the audit row, which is fine for unit tests that don't assert on the feed.
+func NewBoardHandler(
+	boardService service.BoardServicer,
+	settingsService service.UserSettingsServicer,
+	activity service.ActivityRecorder,
+) *BoardHandler {
 	return &BoardHandler{
 		boardService:    boardService,
 		settingsService: settingsService,
+		activity:        activity,
 	}
 }
 

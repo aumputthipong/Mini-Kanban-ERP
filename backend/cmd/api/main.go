@@ -152,7 +152,7 @@ func run(ctx context.Context, cfg config) error {
 	settingsService := service.NewUserSettingsService(queries)
 
 	subtaskHandler := handler.NewSubtaskHandler(subtaskService)
-	boardHandler := handler.NewBoardHandler(boardService, settingsService)
+	boardHandler := handler.NewBoardHandler(boardService, settingsService, activityService)
 	tagHandler := handler.NewTagHandler(tagService)
 	activityHandler := handler.NewActivityHandler(activityService)
 	planningHandler := handler.NewPlanningHandler(planningService, boardService, activityService)

@@ -366,19 +366,37 @@ func matchesFilter(f MyWorkFilter, group string) bool {
 	}
 }
 
+// CompleteMyTaskResult captures the side data the handler needs to write an
+// activity row (board scope, card title for the feed) without forcing a
+// second roundtrip.
+type CompleteMyTaskResult struct {
+	OK        bool
+	BoardID   string
+	CardTitle string
+}
+
 // CompleteMyTask marks a card done + moves it to the board's first DONE column.
-// Returns false if the caller is not the assignee (so handler can 404).
-func (s *BoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (bool, error) {
+// Returns OK=false if the caller is not the assignee (so handler can 404). The
+// returned BoardID + CardTitle let the REST handler record an activity row
+// after-the-fact without another DB hit.
+func (s *BoardService) CompleteMyTask(ctx context.Context, cardID, userID string) (CompleteMyTaskResult, error) {
 	boardID, err := s.queries.GetBoardIDByCard(ctx, cardID)
 	if err != nil {
-		return false, fmt.Errorf("resolve board: %w", err)
+		return CompleteMyTaskResult{}, fmt.Errorf("resolve board: %w", err)
 	}
 	doneCol, err := s.queries.GetColumnByBoardAndCategory(ctx, db.GetColumnByBoardAndCategoryParams{
 		BoardID:  boardID,
 		Category: "DONE",
 	})
 	if err != nil {
-		return false, fmt.Errorf("find DONE column: %w", err)
+		return CompleteMyTaskResult{}, fmt.Errorf("find DONE column: %w", err)
+	}
+	// Fetch the card up front so we can return the title on success; cheap
+	// because cards.id is the primary key. Skip it if the assignee gate
+	// would reject — but we need the row to know the title either way.
+	card, err := s.queries.GetCard(ctx, cardID)
+	if err != nil {
+		return CompleteMyTaskResult{}, fmt.Errorf("load card: %w", err)
 	}
 	rows, err := s.queries.CompleteCardAsAssignee(ctx, db.CompleteCardAsAssigneeParams{
 		ID:         cardID,
@@ -386,9 +404,13 @@ func (s *BoardService) CompleteMyTask(ctx context.Context, cardID, userID string
 		AssigneeID: &userID,
 	})
 	if err != nil {
-		return false, fmt.Errorf("complete card: %w", err)
+		return CompleteMyTaskResult{}, fmt.Errorf("complete card: %w", err)
 	}
-	return rows > 0, nil
+	return CompleteMyTaskResult{
+		OK:        rows > 0,
+		BoardID:   boardID,
+		CardTitle: card.Title,
+	}, nil
 }
 
 func (s *BoardService) HardDeleteBoard(ctx context.Context, id string) error {
