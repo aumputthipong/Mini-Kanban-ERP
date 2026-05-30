@@ -129,17 +129,24 @@ handler/  → service/  → db/ (sqlc-generated)
 
 ---
 
-## Personal Workspace pattern (Today + My Work)
+## Personal Workspace pattern (My Work)
 
-Cross-board personal views live under `(project)/today` and `(project)/my-work`. They share data + components, and both consume the same backend endpoint.
+The cross-board personal inbox lives at `(project)/my-work`, rendered as a **single-viewport dashboard** (no page scroll on ≥lg; each panel scrolls internally). Today was folded in. The visual hierarchy is **Today-first**: a compact hero (date + greeting + 3 KPI stat cards — วันนี้ primary/blue, สัปดาห์นี้ neutral, เลยกำหนด muted) leads, then filter chips + search, then a two-column grid:
 
-- **Single endpoint, shared envelope.** `GET /api/my-tasks` returns `{cards, counts}` — `cards` is filtered per `?filter=`, but `counts` always covers the full inbox so filter chips render totals from one request. Don't add a second list endpoint for Today; it consumes the same payload and slices client-side (Overdue + Today only).
+- **Left (primary):** the **"วันนี้ต้องทำ"** hero panel (`HeroTodayPanel`, tasks due today + a session daily-progress meter) — the dominant element — with the **overdue** group below it as a **collapsed, muted strip** (`OverdueStrip`, expand-on-click; red reduced to a small badge + icon, never a full alarm section).
+- **Right rail:** "กำหนดส่งที่จะถึง" (this-week/later, or "ไม่มีคิว" rows when empty) + "ไม่มีวันที่".
+
+`(project)/today` no longer exists — `/today` redirects to `/my-work` (`next.config.ts`). The dashboard grid is the **`filter=all`** view; any other chip (`today` / `this_week` / `no_date` / `overdue`) collapses to a single focused panel of that group. Below `lg` the grid stacks to one column and the page scrolls.
+
+> The hero shows tasks **due today** only. The design also surfaces overdue items *into* Today ("ยกมาจากเลย N วัน"), which needs a plan/pin-for-today field the backend doesn't have yet — add that column + endpoint before implementing roll-over.
+
+- **Single endpoint, shared envelope.** `GET /api/my-tasks` returns `{cards, counts}` — `cards` is filtered per `?filter=`, but `counts` always covers the full inbox so filter chips + the stat hero render totals from one request. The hero stays stable across filter changes because the page keeps the last `counts` while only the list re-fetches.
 - **Group is server-computed.** Each card carries a `group` label (`overdue` | `today` | `this_week` | `later` | `no_date`) computed in SQL against a `today` pivot. The handler injects today in the caller's timezone (read from `user_settings.timezone`, default Asia/Bangkok). Frontend reads the label — don't recompute date math on the client.
 - **Settings is the source of truth for inbox shape.** `show_all_cards` (unassigned-on-my-boards) and `timezone` come from `user_settings`; the `?include_unassigned=` query param is intentionally ignored. To change behavior, PATCH `/api/me/settings`.
 - **First read materializes defaults.** `UserSettingsService.Get` upserts a default row on first read, so the API never branches on "missing settings". Defaults match the column defaults (`today` / `false` / `Asia/Bangkok`).
-- **Reuse, don't fork components.** Both pages share `WorkCardRow`, `WorkGroupSection`, `SnoozeMenu`, and `MyWorkSkeleton`. The Today page only changes which sections it renders + the greeting/stat header. Don't duplicate row UI.
+- **Reuse, don't fork components.** The page composes `MyWorkGreeting`, `MyWorkStatCards`, `FilterChipBar`, `DashboardGrid`, and `MyWorkSkeleton`. `DashboardGrid` arranges `HeroTodayPanel` + `OverdueStrip` (left) and `DashboardPanel`s (right rail), all rendering `CompactRow` (→ `SnoozeMenu`). `CompactRow` is the dense list row: 3px priority left bar (no priority pill), checkbox (Check icon), title + project color-dot (hashed from `board_id`) + status dot/column name, then aligned due/estimate columns; `slim` drops due/est, `hero` makes it taller for the Today panel. Due labels are Thai (`วันนี้` / `เลย N วัน`); today = blue chip, overdue = red chip. Snooze is a hover-revealed action. Don't duplicate row UI.
 - **Mark-done + snooze are different paths.** Complete uses the dedicated `POST /api/my-tasks/:id/complete` (handler records a `card.done_toggled` activity with `via=my_work`). Snooze uses the existing `PATCH /api/cards/:id { due_date }` — the card handler's inline permission gate already lets the assignee edit their own card, so no new endpoint or guard was added.
-- **Default landing redirect lives in `(landing)/page.tsx`.** Authenticated visitors to `/` are bounced server-side based on `user_settings.default_landing` (`today` → `/today`, `my_work` → `/my-work`, `all_boards` → `/dashboard`). The mapping is in `types/userSettings.ts → LANDING_PATH`.
+- **Default landing redirect lives in `(landing)/page.tsx`.** Authenticated visitors to `/` are bounced server-side based on `user_settings.default_landing`. After the merge both `today` and `my_work` map to `/my-work`; `all_boards` → `/dashboard`. The `today` value is kept on the backend to avoid churn but routes to `/my-work`. The mapping is in `types/userSettings.ts → LANDING_PATH`.
 - **`/my-tasks` is permanently redirected to `/my-work`** via `next.config.ts`. The old route name is retained on the API (`/api/my-tasks`) to avoid churn but the user-facing word is "My Work".
 
 When extending the inbox (new group, new filter, new card action): touch SQL `work_group` CASE + `dto.MyWorkCounts` + frontend `MyWorkGroup` type together — they're a tight contract.

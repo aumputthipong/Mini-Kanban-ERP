@@ -18,8 +18,10 @@ export function isDefaultLanding(value: string): value is DefaultLanding {
   return value === "today" || value === "my_work" || value === "all_boards";
 }
 
+// "today" was merged into My Work, so both the today and my_work preferences
+// now land on /my-work (which leads with the Today greeting + stats hero).
 export const LANDING_PATH: Record<DefaultLanding, string> = {
-  today: "/today",
+  today: "/my-work",
   my_work: "/my-work",
   all_boards: "/dashboard",
 };
