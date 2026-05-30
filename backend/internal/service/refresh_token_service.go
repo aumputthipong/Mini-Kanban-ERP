@@ -50,7 +50,7 @@ func (s *AuthService) IssueRefreshToken(ctx context.Context, userID, userAgent, 
 	_, err = s.queries.InsertRefreshToken(ctx, db.InsertRefreshTokenParams{
 		UserID:    userID,
 		TokenHash: token.HashRefreshToken(raw),
-		ExpiresAt: time.Now().Add(token.RefreshTokenDuration),
+		ExpiresAt: time.Now().Add(token.RefreshTokenDuration()),
 		UserAgent: util.StringToPtr(userAgent),
 		Ip:        util.StringToPtr(ip),
 	})
@@ -110,7 +110,7 @@ func (s *AuthService) RotateRefreshToken(ctx context.Context, rawToken, userAgen
 	newID, err := s.queries.InsertRefreshToken(ctx, db.InsertRefreshTokenParams{
 		UserID:    row.UserID,
 		TokenHash: token.HashRefreshToken(newRaw),
-		ExpiresAt: time.Now().Add(token.RefreshTokenDuration),
+		ExpiresAt: time.Now().Add(token.RefreshTokenDuration()),
 		UserAgent: util.StringToPtr(userAgent),
 		Ip:        util.StringToPtr(ip),
 	})

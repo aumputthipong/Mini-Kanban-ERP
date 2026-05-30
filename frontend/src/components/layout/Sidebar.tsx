@@ -7,7 +7,6 @@ import {
   Plus,
   Trash2,
   Inbox,
-  Sun,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -93,7 +92,6 @@ export function Sidebar({ boards }: SidebarProps) {
       {/* nav */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-4">
         <div className="space-y-0.5">
-          {navItem("/today", <Sun size={16} />, "Today", true)}
           {navItem("/my-work", <Inbox size={16} />, "My Work", true)}
           {navItem("/dashboard", <LayoutDashboard size={16} />, "All Boards", true)}
         </div>

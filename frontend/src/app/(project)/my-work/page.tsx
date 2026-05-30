@@ -1,22 +1,27 @@
 "use client";
 
-import { Inbox, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FilterChipBar } from "@/components/my-work/FilterChipBar";
-import { WorkGroupSection } from "@/components/my-work/WorkGroupSection";
-import { MyWorkEmptyState } from "@/components/my-work/MyWorkEmptyState";
+import { MyWorkGreeting } from "@/components/my-work/MyWorkGreeting";
+import { MyWorkStatCards } from "@/components/my-work/MyWorkStatCards";
+import { DashboardGrid } from "@/components/my-work/DashboardGrid";
 import { MyWorkSkeleton } from "@/components/my-work/MyWorkSkeleton";
+import { apiClient } from "@/lib/apiClient";
 import { completeMyTask, fetchMyWork, snoozeCardDueDate } from "@/lib/myWorkApi";
 import {
   isMyWorkFilter,
-  type MyWorkCard,
+  type MyWorkCounts,
   type MyWorkFilter,
-  type MyWorkGroup,
   type MyWorkResponse,
 } from "@/types/myWork";
 
-const EMPTY_COUNTS = {
+interface MeResponse {
+  full_name?: string;
+}
+
+const EMPTY_COUNTS: MyWorkCounts = {
   overdue: 0,
   today: 0,
   this_week: 0,
@@ -25,18 +30,9 @@ const EMPTY_COUNTS = {
   total: 0,
 };
 
-const GROUP_ORDER_BY_FILTER: Record<MyWorkFilter, MyWorkGroup[]> = {
-  all: ["overdue", "today", "this_week", "later", "no_date"],
-  overdue: ["overdue"],
-  today: ["today"],
-  this_week: ["this_week"],
-  no_date: ["no_date"],
-};
-
 // useSearchParams() in a client component forces Next.js 16 to bail out of
-// static prerender unless we wrap the consumer in <Suspense>. The outer
-// export is a thin boundary; the real page logic lives in MyWorkPageInner
-// so the prerender pass can stop at the fallback.
+// static prerender unless we wrap the consumer in <Suspense>. The real page
+// logic lives in MyWorkPageInner so the prerender pass stops at the fallback.
 export default function MyWorkPage() {
   return (
     <Suspense fallback={<MyWorkFallback />}>
@@ -45,13 +41,25 @@ export default function MyWorkPage() {
   );
 }
 
+function PageShell({ children }: { children: React.ReactNode }) {
+  // Below lg the dashboard stacks to one column and the page scrolls
+  // (min-h-full → grows with content). At lg it becomes a fixed-height
+  // single viewport (h-full + outer overflow-hidden) so each panel scrolls
+  // internally instead of the page.
+  return (
+    <div className="h-full overflow-y-auto lg:overflow-hidden">
+      <div className="mx-auto max-w-[1320px] min-h-full lg:h-full flex flex-col px-6 py-5 lg:px-8 gap-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function MyWorkFallback() {
   return (
-    <div className="h-full overflow-y-auto">
-      <main className="p-6 md:p-8 max-w-5xl mx-auto">
-        <MyWorkSkeleton />
-      </main>
-    </div>
+    <PageShell>
+      <MyWorkSkeleton />
+    </PageShell>
   );
 }
 
@@ -64,25 +72,50 @@ function MyWorkPageInner() {
   const query = (searchParams.get("q") ?? "").trim();
 
   const [data, setData] = useState<MyWorkResponse | null>(null);
+  // Counts cover the full inbox regardless of the active filter, so we keep
+  // them across filter switches — the greeting + stat cards stay stable while
+  // only the panels below re-fetch.
+  const [counts, setCounts] = useState<MyWorkCounts | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tasks the user ticked off today, this session — drives the hero progress
+  // meter + greeting. The API doesn't report "done today", so this is a
+  // session-local count that resets on reload.
+  const [doneToday, setDoneToday] = useState(0);
 
-  // setState-during-render pattern (per AGENTS.md): when the filter URL
-  // param changes, clear the cached payload so isLoading flips back to true
-  // before the effect fires. Doing this synchronously inside useEffect would
-  // trip react-hooks/set-state-in-effect.
+  // setState-during-render pattern (per AGENTS.md): when the filter URL param
+  // changes, drop the cached card list so the body flips to a skeleton before
+  // the effect fires. Counts are intentionally preserved.
   const [lastFilter, setLastFilter] = useState(filter);
   if (lastFilter !== filter) {
     setLastFilter(filter);
     setData(null);
+    setDoneToday(0);
   }
-  const isLoading = data === null && error === null;
+  const initialLoading = counts === null && error === null;
+  const bodyLoading = data === null && error === null;
+
+  // Greeting name — fetched once, independent of the filter.
+  useEffect(() => {
+    const controller = new AbortController();
+    apiClient<MeResponse>("/auth/me", { signal: controller.signal })
+      .then((me) => {
+        if (me?.full_name) setFullName(me.full_name);
+      })
+      .catch(() => {
+        /* greeting falls back to "คุณ" — non-critical */
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
     fetchMyWork({ filter, signal: controller.signal })
       .then((res) => {
-        if (!cancelled) setData(res);
+        if (cancelled) return;
+        setData(res);
+        setCounts(res.counts);
       })
       .catch((err: unknown) => {
         if (cancelled || controller.signal.aborted) return;
@@ -121,33 +154,34 @@ function MyWorkPageInner() {
     async (cardId: string) => {
       if (!data) return;
       const prev = data;
-      setData({
-        ...prev,
-        cards: prev.cards.filter((c) => c.id !== cardId),
-      });
+      const wasToday = prev.cards.find((c) => c.id === cardId)?.group === "today";
+      setData({ ...prev, cards: prev.cards.filter((c) => c.id !== cardId) });
       try {
         await completeMyTask(cardId);
+        if (wasToday) setDoneToday((n) => n + 1);
+        const refreshed = await fetchMyWork({ filter });
+        setData(refreshed);
+        setCounts(refreshed.counts);
       } catch (err) {
         setData(prev);
         setError(err instanceof Error ? err.message : "ทำเครื่องหมายเสร็จไม่สำเร็จ");
       }
     },
-    [data],
+    [data, filter],
   );
 
   const handleSnooze = useCallback(
     async (cardId: string, dueDate: string) => {
       if (!data) return;
       const prev = data;
-      // Optimistic: drop the card from the current filtered view; on next
-      // refetch it'll reappear in its new bucket. Refetch immediately so the
-      // group sections + counters reflect the move without forcing the user
-      // to navigate away.
+      // Optimistic: drop the card; refetch repopulates it into its new bucket
+      // and refreshes the counts so the hero + panels stay in sync.
       setData({ ...prev, cards: prev.cards.filter((c) => c.id !== cardId) });
       try {
         await snoozeCardDueDate(cardId, dueDate);
         const refreshed = await fetchMyWork({ filter });
         setData(refreshed);
+        setCounts(refreshed.counts);
       } catch (err) {
         setData(prev);
         setError(err instanceof Error ? err.message : "เลื่อนวันไม่สำเร็จ");
@@ -167,61 +201,69 @@ function MyWorkPageInner() {
     );
   }, [data?.cards, query]);
 
-  const cardsByGroup = useMemo(() => groupCards(filteredCards), [filteredCards]);
-  const counts = data?.counts ?? EMPTY_COUNTS;
-  const orderedGroups = GROUP_ORDER_BY_FILTER[filter];
+  const chipCounts = counts ?? EMPTY_COUNTS;
+
+  if (initialLoading) {
+    return (
+      <PageShell>
+        <MyWorkSkeleton />
+      </PageShell>
+    );
+  }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <main className="p-6 md:p-8 max-w-5xl mx-auto">
-        <header className="flex items-start gap-3 mb-5">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-            <Inbox size={18} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">My Work</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              งานของคุณข้ามทุก board · {counts.total} งานทั้งหมด · เรียงตาม due date
-            </p>
-          </div>
-        </header>
+    <PageShell>
+      <div className="flex items-end justify-between gap-7 flex-none dash-reveal d1">
+        <MyWorkGreeting
+          fullName={fullName}
+          todayCount={chipCounts.today}
+          overdueCount={chipCounts.overdue}
+          doneToday={doneToday}
+        />
+        {counts && (
+          <MyWorkStatCards
+            overdue={counts.overdue}
+            today={counts.today}
+            thisWeek={counts.this_week}
+          />
+        )}
+      </div>
 
-        <div className="mb-5 flex items-center justify-between gap-3 flex-wrap">
-          <FilterChipBar active={filter} counts={counts} onChange={setFilter} />
-          <SearchInput value={query} onChange={setQuery} />
+      <div className="flex items-center justify-between gap-4 flex-none flex-wrap dash-reveal d2">
+        <FilterChipBar active={filter} counts={chipCounts} onChange={setFilter} />
+        <SearchInput value={query} onChange={setQuery} />
+      </div>
+
+      {error && (
+        <div className="flex-none px-3 py-2 rounded-md border border-rose-200 bg-rose-50 text-xs text-rose-700">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-4 px-3 py-2 rounded-md border border-rose-200 bg-rose-50 text-xs text-rose-700">
-            {error}
-          </div>
-        )}
+      {bodyLoading ? (
+        <DashboardLoading />
+      ) : (
+        <DashboardGrid
+          filter={filter}
+          cards={filteredCards}
+          counts={chipCounts}
+          doneToday={doneToday}
+          onComplete={handleComplete}
+          onSnooze={handleSnooze}
+        />
+      )}
+    </PageShell>
+  );
+}
 
-        {isLoading ? (
-          <MyWorkSkeleton />
-        ) : filteredCards.length === 0 ? (
-          query ? (
-            <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-white">
-              <p className="text-sm font-semibold text-slate-700">
-                {`ไม่พบงานที่ตรงกับ "${query}"`}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">ลองคำค้นอื่น หรือล้างกล่องค้นหา</p>
-            </div>
-          ) : (
-            <MyWorkEmptyState filter={filter} />
-          )
-        ) : (
-          orderedGroups.map((g) => (
-            <WorkGroupSection
-              key={g}
-              group={g}
-              cards={cardsByGroup[g]}
-              onComplete={handleComplete}
-              onSnooze={handleSnooze}
-            />
-          ))
-        )}
-      </main>
+function DashboardLoading() {
+  return (
+    <div className="grid gap-[18px] min-h-0 lg:flex-1 grid-cols-1 lg:[grid-template-columns:minmax(0,1.9fr)_minmax(300px,1fr)]">
+      <div className="border border-slate-200 rounded-xl bg-white shadow-sm animate-pulse min-h-40" />
+      <div className="grid gap-[18px] lg:[grid-template-rows:auto_minmax(0,1fr)]">
+        <div className="border border-slate-200 rounded-xl bg-white shadow-sm animate-pulse min-h-24" />
+        <div className="border border-slate-200 rounded-xl bg-white shadow-sm animate-pulse min-h-40" />
+      </div>
     </div>
   );
 }
@@ -245,27 +287,15 @@ function SearchInput({
     return () => window.clearTimeout(handle);
   }, [local, value, onChange]);
   return (
-    <label className="relative flex items-center text-xs">
-      <Search size={12} className="absolute left-2 text-slate-400" />
+    <label className="relative flex items-center">
+      <Search size={14} className="absolute left-3 text-slate-400" />
       <input
         type="search"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder="ค้นหางาน..."
-        className="pl-7 pr-3 py-1.5 border border-slate-200 rounded-md bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 w-56"
+        className="h-[35px] pl-9 pr-3 border border-slate-200 rounded-md bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-blue-300 focus:ring-3 focus:ring-blue-50 w-60"
       />
     </label>
   );
-}
-
-function groupCards(cards: MyWorkCard[]): Record<MyWorkGroup, MyWorkCard[]> {
-  const buckets: Record<MyWorkGroup, MyWorkCard[]> = {
-    overdue: [],
-    today: [],
-    this_week: [],
-    later: [],
-    no_date: [],
-  };
-  for (const c of cards) buckets[c.group].push(c);
-  return buckets;
 }

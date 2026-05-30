@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
       // /my-tasks was renamed to /my-work in S.1. Permanent redirect so
       // existing bookmarks and the old sidebar entry land on the new page.
       { source: "/my-tasks", destination: "/my-work", permanent: true },
+      // Today was folded into My Work — the greeting + stat hero now lead the
+      // My Work page, so the standalone /today route redirects there.
+      { source: "/today", destination: "/my-work", permanent: true },
     ];
   },
 };

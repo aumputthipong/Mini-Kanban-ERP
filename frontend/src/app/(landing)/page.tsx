@@ -178,7 +178,7 @@ async function resolveAuthedRedirect(): Promise<string | null> {
       cache: "no-store",
       headers: { Cookie: store.toString() },
     });
-    return LANDING_PATH[settings.default_landing] ?? "/today";
+    return LANDING_PATH[settings.default_landing] ?? "/my-work";
   } catch {
     return null;
   }
