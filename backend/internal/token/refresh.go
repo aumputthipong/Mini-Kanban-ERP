@@ -6,13 +6,31 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
+	"sync"
 	"time"
 )
 
-// RefreshTokenDuration is the lifetime of a refresh token. A new value is
-// minted on every rotation, so as long as the user is active the effective
-// session is sliding; idle sessions expire after this window.
-const RefreshTokenDuration = 7 * 24 * time.Hour
+// defaultRefreshTTL is the refresh-token lifetime when REFRESH_TOKEN_TTL is not
+// set. A new value is minted on every rotation, so an active user's session
+// slides forward indefinitely; only an idle session expires after this window.
+// 30d is the real "stay logged in" knob and is safe to keep long because the
+// token is opaque, hashed at rest, and revocable server-side.
+const defaultRefreshTTL = 30 * 24 * time.Hour
+
+var (
+	refreshTTLOnce sync.Once
+	refreshTTL     time.Duration
+)
+
+// RefreshTokenDuration returns the refresh-token lifetime, read once from
+// REFRESH_TOKEN_TTL (a Go duration string such as "720h"). Both the DB
+// expires_at and the cookie MaxAge use this value.
+func RefreshTokenDuration() time.Duration {
+	refreshTTLOnce.Do(func() {
+		refreshTTL = parseDurationEnv("REFRESH_TOKEN_TTL", defaultRefreshTTL)
+	})
+	return refreshTTL
+}
 
 // RefreshCookieName is the cookie that carries the opaque refresh token.
 const RefreshCookieName = "refresh_token"
@@ -57,7 +75,7 @@ func SetRefreshCookie(w http.ResponseWriter, raw string, production bool) {
 		HttpOnly: true,
 		Secure:   production,
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(RefreshTokenDuration.Seconds()),
+		MaxAge:   int(RefreshTokenDuration().Seconds()),
 	})
 }
 

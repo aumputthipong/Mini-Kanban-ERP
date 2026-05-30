@@ -14,11 +14,45 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// TokenDuration is how long an issued access token remains valid. Short by
-// design — a leaked access token is unusable past this window. Longer-lived
-// session is provided by the refresh token (see internal/token/refresh.go),
-// which can be revoked server-side. Cookie MaxAge mirrors this value.
-const TokenDuration = 15 * time.Minute
+// defaultAccessTTL is how long an issued access token stays valid when
+// ACCESS_TOKEN_TTL is not set. A leaked access JWT cannot be revoked, so this
+// is the exposure window — but it is also the window after which a plain page
+// reload (Next middleware reads the auth_token cookie) bounces an idle user to
+// /login, because the refresh token is scoped to the refresh endpoint and is
+// not visible to server-side navigation. 8h keeps a normal work session alive
+// without a relogin while still expiring same-day. Tighten in production via
+// ACCESS_TOKEN_TTL and lean on the rotating refresh token for renewal.
+const defaultAccessTTL = 8 * time.Hour
+
+var (
+	accessTTLOnce sync.Once
+	accessTTL     time.Duration
+)
+
+// AccessTokenDuration returns the access-token lifetime, read once from
+// ACCESS_TOKEN_TTL (a Go duration string such as "15m", "8h"). The cookie
+// MaxAge mirrors this value.
+func AccessTokenDuration() time.Duration {
+	accessTTLOnce.Do(func() {
+		accessTTL = parseDurationEnv("ACCESS_TOKEN_TTL", defaultAccessTTL)
+	})
+	return accessTTL
+}
+
+// parseDurationEnv reads a Go-duration env var, falling back to def when unset,
+// unparseable, or non-positive. Shared by the access + refresh TTL loaders.
+func parseDurationEnv(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		log.Printf("token: invalid %s=%q, using default %s", key, v, def)
+		return def
+	}
+	return d
+}
 
 // Claims is the JWT body for an authenticated user. UserID is the canonical
 // reference; Email is included for ergonomics in logs and is not authoritative
@@ -55,7 +89,7 @@ func Generate(userID, email string) (string, error) {
 		UserID: userID,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration())),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -96,6 +130,6 @@ func SetAuthCookie(w http.ResponseWriter, tokenStr string, production bool) {
 		HttpOnly: true,
 		Secure:   production,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(TokenDuration.Seconds()),
+		MaxAge:   int(AccessTokenDuration().Seconds()),
 	})
 }

@@ -67,8 +67,8 @@ func TestSetRefreshCookieScopedAndStrict(t *testing.T) {
 	if c.SameSite != http.SameSiteStrictMode {
 		t.Errorf("SameSite = %v want Strict", c.SameSite)
 	}
-	if c.MaxAge != int(RefreshTokenDuration.Seconds()) {
-		t.Errorf("MaxAge = %d want %d", c.MaxAge, int(RefreshTokenDuration.Seconds()))
+	if c.MaxAge != int(RefreshTokenDuration().Seconds()) {
+		t.Errorf("MaxAge = %d want %d", c.MaxAge, int(RefreshTokenDuration().Seconds()))
 	}
 }
 
