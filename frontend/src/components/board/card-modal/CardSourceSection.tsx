@@ -5,6 +5,7 @@
 // Hidden during load + when the card has no source so the modal layout
 // doesn't shift; a small Skeleton appears only while we wait, which
 // matches the convention used elsewhere (no spinners, no "Loading…").
+import { memo } from "react";
 import Link from "next/link";
 import { ArrowUpRight, HelpCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -20,7 +21,7 @@ interface Props {
   boardId: string;
 }
 
-export function CardSourceSection({ cardId, boardId }: Props) {
+function CardSourceSectionImpl({ cardId, boardId }: Props) {
   const { source, isLoading } = useCardSource(cardId);
 
   if (isLoading && source === undefined) {
@@ -93,3 +94,5 @@ export function CardSourceSection({ cardId, boardId }: Props) {
     </section>
   );
 }
+
+export const CardSourceSection = memo(CardSourceSectionImpl);

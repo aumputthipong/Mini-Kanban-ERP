@@ -1,5 +1,5 @@
 // components/kanban/card-modal/useCardForm.ts
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Card, BoardMember, Tag } from "@/types/board";
 import { API_URL } from "@/lib/constants";
 import { FormState } from "../components/board/card-modal/CardDetailModal"; // หรือย้าย type FormState มาไว้ที่นี่
@@ -56,12 +56,24 @@ export function useCardForm(card: Card, boardId: string, isOpen: boolean) {
     form.acceptance_criteria !== (card.acceptance_criteria ?? "") ||
     form.implementation_note !== (card.implementation_note ?? "");
 
-  // Helper สำหรับ Update State (text/select inputs)
-  const handleChange = (field: keyof FormState) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
+  // Helper สำหรับ Update State (text/select inputs).
+  //
+  // Each field's handler is cached so its identity is STABLE across renders.
+  // Without this, `handleChange("title")` returns a fresh closure every render,
+  // which defeats React.memo on every child receiving an onChange — the whole
+  // modal then re-renders on every keystroke.
+  type ChangeHandler = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => void;
+  const handlersRef = useRef<Partial<Record<keyof FormState, ChangeHandler>>>({});
+  const handleChange = useCallback((field: keyof FormState): ChangeHandler => {
+    const cached = handlersRef.current[field];
+    if (cached) return cached;
+    const handler: ChangeHandler = (e) =>
+      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    handlersRef.current[field] = handler;
+    return handler;
+  }, []);
 
   // Setter สำหรับ tags (ไม่ผ่าน ChangeEvent เพราะเป็น array)
   const setTags = useCallback((tags: Tag[]) => {

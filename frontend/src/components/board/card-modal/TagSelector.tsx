@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Plus } from "lucide-react";
 import type { Tag } from "@/types/board";
@@ -24,7 +24,7 @@ interface TagSelectorProps {
   canEdit: boolean;
 }
 
-export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelectorProps) {
+function TagSelectorImpl({ boardId, selected, onChange, canEdit }: TagSelectorProps) {
   const [boardTags, setBoardTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(true);
   const [loadedBoardId, setLoadedBoardId] = useState(boardId);
@@ -251,3 +251,5 @@ export function TagSelector({ boardId, selected, onChange, canEdit }: TagSelecto
     </div>
   );
 }
+
+export const TagSelector = memo(TagSelectorImpl);
