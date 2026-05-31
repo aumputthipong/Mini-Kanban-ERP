@@ -1,21 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  AlarmClock,
-  CalendarClock,
-  CalendarDays,
-  CalendarRange,
-  Plus,
-  Sparkles,
-  User,
-} from "lucide-react";
+import { Plus, Sparkles, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Card } from "@/types/board";
 import { useBoardStore } from "@/store/useBoardStore";
-import { UrgentTaskRow } from "./UrgentTaskRow";
+import {
+  CriticalHero,
+  RankedRow,
+  UpcomingRow,
+  CollapsedEmpty,
+} from "./TaskTriageRows";
 
-type Bucket = "overdue" | "today" | "tomorrow" | "thisWeek";
+type UpcomingBucket = "today" | "tomorrow" | "thisWeek";
 
 interface TasksTabContentProps {
   boardId: string;
@@ -26,35 +23,25 @@ interface TasksTabContentProps {
   onSelectCard: (card: Card) => void;
 }
 
-const BUCKET_META: Record<
-  Bucket,
-  { label: string; icon: React.ReactNode; dot: string; emptyHint: string }
-> = {
-  overdue: {
-    label: "Overdue",
-    icon: <AlarmClock size={13} />,
-    dot: "bg-rose-500",
-    emptyHint: "No overdue tasks",
-  },
-  today: {
-    label: "Today",
-    icon: <CalendarClock size={13} />,
-    dot: "bg-orange-500",
-    emptyHint: "Nothing due today",
-  },
-  tomorrow: {
-    label: "Tomorrow",
-    icon: <CalendarDays size={13} />,
-    dot: "bg-amber-500",
-    emptyHint: "Nothing due tomorrow",
-  },
-  thisWeek: {
-    label: "This week",
-    icon: <CalendarRange size={13} />,
-    dot: "bg-slate-400",
-    emptyHint: "Nothing else due this week",
-  },
+const UPCOMING_TH: Record<UpcomingBucket, string> = {
+  today: "วันนี้",
+  tomorrow: "พรุ่งนี้",
+  thisWeek: "สัปดาห์นี้",
 };
+
+function upcomingLabel(bucket: UpcomingBucket, card: Card): string {
+  if (bucket !== "thisWeek") return UPCOMING_TH[bucket];
+  if (card.due_date)
+    return new Date(card.due_date).toLocaleDateString("th-TH", { weekday: "short" });
+  return "สัปดาห์นี้";
+}
+
+const sortByDate = (list: Card[]) =>
+  [...list].sort((a, b) => {
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+  });
 
 export function TasksTabContent({
   boardId,
@@ -66,17 +53,6 @@ export function TasksTabContent({
 }: TasksTabContentProps) {
   const router = useRouter();
   const { columns, currentUserId } = useBoardStore();
-
-  const hasMine = useMemo(() => {
-    const all = [
-      ...overdueCards,
-      ...todayCards,
-      ...tomorrowCards,
-      ...thisWeekCards,
-    ];
-    return all.some((c) => c.assignee_id === currentUserId);
-  }, [overdueCards, todayCards, tomorrowCards, thisWeekCards, currentUserId]);
-
   const [mineOnly, setMineOnly] = useState(false);
 
   const columnTitleById = useMemo(() => {
@@ -85,56 +61,60 @@ export function TasksTabContent({
     return map;
   }, [columns]);
 
-  const filterMine = (list: Card[]) =>
-    mineOnly && currentUserId
-      ? list.filter((c) => c.assignee_id === currentUserId)
-      : list;
+  const hasMine = useMemo(
+    () =>
+      [...overdueCards, ...todayCards, ...tomorrowCards, ...thisWeekCards].some(
+        (c) => c.assignee_id === currentUserId,
+      ),
+    [overdueCards, todayCards, tomorrowCards, thisWeekCards, currentUserId],
+  );
 
-  const sortByDate = (list: Card[]) =>
-    [...list].sort((a, b) => {
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-    });
-
-  const buckets = useMemo(
-    () => ({
+  const buckets = useMemo(() => {
+    const filterMine = (list: Card[]) =>
+      mineOnly && currentUserId
+        ? list.filter((c) => c.assignee_id === currentUserId)
+        : list;
+    return {
       overdue: sortByDate(filterMine(overdueCards)),
       today: sortByDate(filterMine(todayCards)),
       tomorrow: sortByDate(filterMine(tomorrowCards)),
       thisWeek: sortByDate(filterMine(thisWeekCards)),
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [overdueCards, todayCards, tomorrowCards, thisWeekCards, mineOnly, currentUserId],
-  );
+    };
+  }, [overdueCards, todayCards, tomorrowCards, thisWeekCards, mineOnly, currentUserId]);
 
-  const totalUrgent =
-    buckets.overdue.length +
-    buckets.today.length +
-    buckets.tomorrow.length +
-    buckets.thisWeek.length;
+  const upcomingTotal =
+    buckets.today.length + buckets.tomorrow.length + buckets.thisWeek.length;
+  const totalUrgent = buckets.overdue.length + upcomingTotal;
+
+  const [hero, ...restOverdue] = buckets.overdue;
+  const upcomingOrder: UpcomingBucket[] = ["today", "tomorrow", "thisWeek"];
+  const emptyUpcoming = upcomingOrder.filter((b) => buckets[b].length === 0);
+
+  const colTitle = (card: Card) => columnTitleById.get(card.column_id) ?? "";
 
   return (
     <div>
-      {/* Title row — matches /my-tasks page header hierarchy */}
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
-        <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-          <CalendarClock size={18} />
-        </div>
+      {/* Header — title + urgency summary + actions */}
+      <div className="flex items-end gap-4 mb-5">
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-slate-800 leading-tight">
-            Up Next
+          <h2 className="text-2xl font-bold text-slate-900 leading-tight tracking-tight">
+            Tasks
           </h2>
-          <p className="text-xs text-slate-500">
-            งานที่ใกล้กำหนดและเลยกำหนดในบอร์ดนี้
-          </p>
+          <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 flex-wrap">
+            <span className="font-bold text-rose-600">
+              {buckets.overdue.length} เลยกำหนด
+            </span>
+            <span aria-hidden className="w-0.5 h-0.5 rounded-full bg-slate-300" />
+            <span>{upcomingTotal} ภายในสัปดาห์นี้</span>
+            <span aria-hidden className="w-0.5 h-0.5 rounded-full bg-slate-300" />
+            <span>เรียงตามความเร่งด่วน</span>
+          </div>
         </div>
-
         {hasMine && (
           <button
             type="button"
             onClick={() => setMineOnly((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors shrink-0 ${
               mineOnly
                 ? "bg-blue-50 border-blue-200 text-blue-700"
                 : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
@@ -144,39 +124,15 @@ export function TasksTabContent({
             Just mine
           </button>
         )}
-
         <button
           onClick={() => router.push(`/board/${boardId}/tasks`)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors shadow-sm shrink-0"
         >
           <Plus size={13} />
           New Task
         </button>
       </div>
 
-      {/* Summary strip — single subtle line under header (matches /my-tasks) */}
-      {totalUrgent > 0 && (
-        <div className="flex items-center gap-3 pb-4 mb-5 border-b border-slate-200 text-xs flex-wrap text-slate-500">
-          {(["overdue", "today", "tomorrow", "thisWeek"] as Bucket[]).map(
-            (b) => {
-              const count = buckets[b].length;
-              if (count === 0) return null;
-              const meta = BUCKET_META[b];
-              return (
-                <span key={b} className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-                  <span className="font-semibold tabular-nums text-slate-700">
-                    {count}
-                  </span>
-                  <span>{meta.label.toLowerCase()}</span>
-                </span>
-              );
-            },
-          )}
-        </div>
-      )}
-
-      {/* Body */}
       {totalUrgent === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 mb-2">
@@ -192,80 +148,72 @@ export function TasksTabContent({
           </p>
         </div>
       ) : (
-        (["overdue", "today", "tomorrow", "thisWeek"] as Bucket[]).map(
-          (b, idx) => (
-            <BucketSection
-              key={b}
-              bucket={b}
-              cards={buckets[b]}
-              columnTitleById={columnTitleById}
-              onSelect={onSelectCard}
-              isLast={idx === 3}
-            />
-          ),
-        )
+        <>
+          {hero && (
+            <CriticalHero card={hero} columnTitle={colTitle(hero)} onSelect={onSelectCard} />
+          )}
+
+          {restOverdue.length > 0 && (
+            <section className="mb-6">
+              <GroupLabel
+                label={`เลยกำหนด · อีก ${restOverdue.length} งาน`}
+                count={restOverdue.length}
+              />
+              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                {restOverdue.map((card) => (
+                  <RankedRow
+                    key={card.id}
+                    card={card}
+                    columnTitle={colTitle(card)}
+                    onSelect={onSelectCard}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ถัดไป — upcoming buckets: empties collapse, the rest list as rows */}
+          <section>
+            <GroupLabel label="ถัดไป" />
+            {emptyUpcoming.length > 0 && (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mb-2.5">
+                {emptyUpcoming.map((b) => (
+                  <CollapsedEmpty key={b} label={UPCOMING_TH[b]} />
+                ))}
+              </div>
+            )}
+            {upcomingTotal > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                {upcomingOrder.flatMap((b) =>
+                  buckets[b].map((card) => (
+                    <UpcomingRow
+                      key={card.id}
+                      card={card}
+                      columnTitle={colTitle(card)}
+                      whenLabel={upcomingLabel(b, card)}
+                      onSelect={onSelectCard}
+                    />
+                  )),
+                )}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );
 }
 
-function BucketSection({
-  bucket,
-  cards,
-  columnTitleById,
-  onSelect,
-  isLast,
-}: {
-  bucket: Bucket;
-  cards: Card[];
-  columnTitleById: Map<string, string>;
-  onSelect: (card: Card) => void;
-  isLast: boolean;
-}) {
-  const meta = BUCKET_META[bucket];
-  const isEmpty = cards.length === 0;
-
+function GroupLabel({ label, count }: { label: string; count?: number }) {
   return (
-    <section className={isLast ? "" : "mb-3"}>
-      {/* Prominent header bar — matches ProjectGroup style on /my-tasks */}
-      <div
-        className={`flex items-center gap-3 px-4 py-3 ${
-          isEmpty ? "rounded-lg" : "rounded-t-lg"
-        } bg-linear-to-r from-slate-100 via-slate-50 to-transparent border border-slate-200 ${
-          isEmpty ? "" : "border-b-0"
-        }`}
-      >
-        <span
-          aria-hidden
-          className={`w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-white shadow-sm ${meta.dot}`}
-        />
-        <span className="inline-flex items-center gap-1.5 text-base font-bold text-slate-900 tracking-tight">
-          <span className="text-slate-500">{meta.icon}</span>
-          {meta.label}
+    <div className="flex items-center gap-2.5 mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span>{label}</span>
+      {count != null && (
+        <span className="inline-flex items-center justify-center min-w-5 h-[19px] px-1.5 rounded text-[11px] font-bold text-slate-600 bg-slate-100">
+          {count}
         </span>
-        <span className="text-[11px] font-bold tabular-nums text-slate-700 px-2 py-0.5 rounded-md bg-white border border-slate-200 shadow-xs shrink-0">
-          {cards.length}
-        </span>
-        {isEmpty && (
-          <span className="ml-auto text-[11px] text-slate-400 italic">
-            ✓ {meta.emptyHint}
-          </span>
-        )}
-      </div>
-
-      {!isEmpty && (
-        <div className="border border-slate-200 border-t-slate-100 rounded-b-lg bg-white overflow-hidden">
-          {cards.map((card) => (
-            <UrgentTaskRow
-              key={card.id}
-              card={card}
-              bucket={bucket}
-              columnTitle={columnTitleById.get(card.column_id) ?? ""}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
       )}
-    </section>
+      <span aria-hidden className="flex-1 h-px bg-slate-200" />
+    </div>
   );
 }
