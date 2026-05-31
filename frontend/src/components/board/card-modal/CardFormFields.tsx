@@ -26,7 +26,8 @@ export function CardFormFields({ form, members, assigneeName, boardId, onChange,
   const [showQuickHours, setShowQuickHours] = useState(false);
 
   return (
-    <div className="flex flex-col gap-5">
+    // PropRow rhythm: each group separated by a hairline divider (design A right rail)
+    <div className="flex flex-col [&>div]:pt-4 [&>div]:mt-4 [&>div]:border-t [&>div]:border-slate-100 [&>div:first-child]:pt-0 [&>div:first-child]:mt-0 [&>div:first-child]:border-t-0">
       {/* Assignee */}
       <div>
         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-2">
@@ -67,29 +68,45 @@ export function CardFormFields({ form, members, assigneeName, boardId, onChange,
           Priority
         </label>
         {canEdit ? (
-          <div className="flex gap-1.5">
-            {(["low", "medium", "high"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() =>
-                  onChange("priority")({
-                    target: { value: p },
-                  } as React.ChangeEvent<HTMLInputElement>)
-                }
-                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md border capitalize transition-colors ${
-                  form.priority === p
-                    ? p === "high"
-                      ? "bg-red-50 text-red-700 border-red-300"
-                      : p === "medium"
-                        ? "bg-amber-50 text-amber-700 border-amber-300"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+          // Segmented control (design A): pill track, active = white chip with a
+          // colored 3px priority bar + colored label. Priority colour stays on
+          // the bar/label of the selected segment only.
+          <div className="flex gap-0.5 p-0.5 bg-slate-50 border border-slate-200 rounded-md">
+            {(["low", "medium", "high"] as const).map((p) => {
+              const active = form.priority === p;
+              const text =
+                p === "high"
+                  ? "text-red-600"
+                  : p === "medium"
+                    ? "text-amber-600"
+                    : "text-emerald-600";
+              const bar =
+                p === "high"
+                  ? "bg-red-600"
+                  : p === "medium"
+                    ? "bg-amber-500"
+                    : "bg-emerald-500";
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() =>
+                    onChange("priority")({
+                      target: { value: p },
+                    } as React.ChangeEvent<HTMLInputElement>)
+                  }
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1 rounded text-xs font-medium capitalize transition-colors ${
+                    active ? `bg-white shadow-sm ${text}` : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    className={`w-[3px] h-3 rounded-sm ${active ? bar : "bg-slate-300"}`}
+                  />
+                  {p}
+                </button>
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-slate-600 px-1">

@@ -27,7 +27,11 @@ import {
  *      64k-gap strategy described in `docs/DATABASE.md` so reorders stay cheap.
  */
 export function useDragActions() {
-  const { moveCard } = useBoardStore();
+  // Select the action only — Zustand actions are stable, so this avoids
+  // subscribing to board state. Consumers (useBoardActions) would otherwise
+  // re-render on EVERY store mutation (subtask toggle, WS activity, drag),
+  // which re-rendered the whole card modal on each interaction.
+  const moveCard = useBoardStore((s) => s.moveCard);
   const { sendMessage } = useBoardWebSocket();
 
   // Tracks the column we most recently moved the card into during a drag.

@@ -162,6 +162,7 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
             columnStats={stats.columnStats}
             insights={stats.insights}
             allCards={allCards}
+            onOpenTab={setActiveTab}
           />
         )}
 

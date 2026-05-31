@@ -1,12 +1,14 @@
 "use client";
 
+import { memo } from "react";
+
 interface CardDescriptionFieldProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   canEdit: boolean;
 }
 
-export function CardDescriptionField({
+function CardDescriptionFieldImpl({
   value,
   onChange,
   canEdit,
@@ -21,7 +23,7 @@ export function CardDescriptionField({
           rows={4}
           value={value}
           onChange={onChange}
-          placeholder="Add a description..."
+          placeholder="เพิ่มรายละเอียดงาน…"
           className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
         />
       ) : (
@@ -34,3 +36,5 @@ export function CardDescriptionField({
     </div>
   );
 }
+
+export const CardDescriptionField = memo(CardDescriptionFieldImpl);

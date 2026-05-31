@@ -7,9 +7,8 @@ import type { Card, Tag } from "@/types/board";
 import { useCardForm } from "../../../hooks/useCardForm";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useBoardActions } from "@/hooks/useBoardActions";
-import { CardAcceptanceCriteria } from "./CardAcceptanceCriteria";
+import { CardDevFields } from "./CardDevFields";
 import { CardFormFields } from "./CardFormFields";
-import { CardImplementationNote } from "./CardImplementationNote";
 import { CardModalHeader } from "./CardModalHeader";
 import { CardDescriptionField } from "./CardDescriptionField";
 import { CardSourceSection } from "./CardSourceSection";
@@ -81,8 +80,11 @@ export function CardDetailModal({
 
   return createPortal(
     <>
+      {/* Solid scrim (no backdrop-blur): blurring the whole board behind the
+          modal is a per-frame GPU composite cost that makes interaction feel
+          janky even when JS/INP is fast. A plain scrim separates layers for free. */}
       <div
-        className="fixed inset-0 z-9998 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-9998 bg-slate-900/45"
         onClick={onClose}
       />
 
@@ -102,21 +104,11 @@ export function CardDetailModal({
           />
 
           <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
-            <div className="flex-1 min-w-0 px-6 py-5 flex flex-col gap-6 overflow-y-auto border-r border-slate-100">
+            <div className="flex-1 min-w-0 px-6 py-5 flex flex-col gap-6 overflow-y-auto overscroll-contain border-r border-slate-100">
               <CardSourceSection cardId={card.id} boardId={boardId} />
               <CardDescriptionField
                 value={form.description}
                 onChange={handleChange("description")}
-                canEdit={canEdit}
-              />
-              <CardAcceptanceCriteria
-                value={form.acceptance_criteria}
-                onChange={handleChange("acceptance_criteria")}
-                canEdit={canEdit}
-              />
-              <CardImplementationNote
-                value={form.implementation_note}
-                onChange={handleChange("implementation_note")}
                 canEdit={canEdit}
               />
               <CardSubtaskSection
@@ -126,9 +118,17 @@ export function CardDetailModal({
                 canEdit={canEdit}
                 onAddSubtask={onAddSubtask}
               />
+              {/* Optional dev fields — collapsed behind "+ Add" by default */}
+              <CardDevFields
+                acceptanceValue={form.acceptance_criteria}
+                onAcceptanceChange={handleChange("acceptance_criteria")}
+                noteValue={form.implementation_note}
+                onNoteChange={handleChange("implementation_note")}
+                canEdit={canEdit}
+              />
             </div>
 
-            <div className="w-56 shrink-0 px-5 py-5 bg-slate-50/50 overflow-y-auto">
+            <div className="w-56 shrink-0 px-5 py-5 bg-slate-50 overflow-y-auto overscroll-contain">
               <CardFormFields
                 form={form}
                 members={members}

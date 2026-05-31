@@ -53,7 +53,7 @@ export function CardModalFooter({
             <button
               onClick={onSave}
               disabled={isSaving || !isDirty}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-blue-800 text-white font-semibold hover:bg-blue-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               {isSaving && <Loader2 size={14} className="animate-spin" />}
               Save changes

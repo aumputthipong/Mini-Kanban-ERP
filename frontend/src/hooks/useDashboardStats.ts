@@ -83,6 +83,9 @@ export function useDashboardStats() {
         active: number;
         done: number;
         count: number;
+        // Summed estimated_hours of this person's *active* (not-done) cards.
+        // Feeds the Team capacity dashboard's hours-vs-cap workload bar.
+        activeHours: number;
         byColumn: Record<string, { title: string; category: "TODO" | "DONE"; position: number; count: number }>;
       }
     > = {};
@@ -103,13 +106,17 @@ export function useDashboardStats() {
             active: 0,
             done: 0,
             count: 0,
+            activeHours: 0,
             byColumn: {},
           };
         }
         const entry = assigneeCount[card.assignee_id];
         entry.count++;
         if (isDone) entry.done++;
-        else entry.active++;
+        else {
+          entry.active++;
+          entry.activeHours += card.estimated_hours ?? 0;
+        }
 
         if (meta) {
           if (!entry.byColumn[card.column_id]) {
@@ -203,6 +210,7 @@ export function useDashboardStats() {
           count: u.count,
           active: u.active,
           done: u.done,
+          activeHours: u.activeHours,
           byColumn: Object.values(u.byColumn).sort((a, b) => a.position - b.position),
         }))
         .sort((a, b) => b.active - a.active || b.count - a.count),

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Folder, Pencil, X } from "lucide-react";
 import { StatusDropdown } from "./StatusDropdown";
 import { useBoardStore } from "@/store/useBoardStore";
@@ -15,7 +16,7 @@ interface CardModalHeaderProps {
   onClose: () => void;
 }
 
-export function CardModalHeader({
+function CardModalHeaderImpl({
   cardId,
   columnId,
   boardId,
@@ -28,9 +29,9 @@ export function CardModalHeader({
   const { handleChangeColumn } = useBoardActions(boardId);
 
   return (
-    <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-slate-100 group shrink-0">
-      <div className="text-slate-400 shrink-0">
-        <Folder size={20} />
+    <div className="flex items-center gap-3.5 px-6 pt-5 pb-4 group shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-indigo-50 grid place-items-center text-blue-800 shrink-0">
+        <Folder size={17} />
       </div>
       <div className="flex-1 relative min-w-0">
         {canEdit ? (
@@ -40,14 +41,14 @@ export function CardModalHeader({
               value={title}
               onChange={onTitleChange}
               placeholder="Enter card title..."
-              className="w-full text-xl font-extrabold text-slate-800 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-all cursor-text placeholder:text-slate-300 pr-10"
+              className="w-full text-lg font-semibold tracking-tight text-slate-900 bg-transparent border border-transparent rounded-lg px-3 py-0.5 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 hover:bg-slate-100 hover:border-slate-200 transition-colors cursor-text placeholder:text-slate-300 pr-10"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
               <Pencil size={16} />
             </div>
           </>
         ) : (
-          <p className="text-xl font-extrabold text-slate-800 px-3 py-0.5">
+          <p className="text-lg font-semibold tracking-tight text-slate-900 px-3 py-0.5">
             {title}
           </p>
         )}
@@ -67,3 +68,5 @@ export function CardModalHeader({
     </div>
   );
 }
+
+export const CardModalHeader = memo(CardModalHeaderImpl);

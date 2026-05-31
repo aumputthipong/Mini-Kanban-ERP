@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { CheckSquare, Plus } from "lucide-react";
 import type { Subtask } from "@/types/board";
 import { SubtaskItem } from "../task-board/subtask/SubtaskItem";
@@ -14,7 +14,7 @@ interface CardSubtaskSectionProps {
   onAddSubtask?: (cardId: string, title: string) => void;
 }
 
-export function CardSubtaskSection({
+function CardSubtaskSectionImpl({
   cardId,
   boardId,
   subtasks,
@@ -100,3 +100,5 @@ export function CardSubtaskSection({
     </div>
   );
 }
+
+export const CardSubtaskSection = memo(CardSubtaskSectionImpl);
