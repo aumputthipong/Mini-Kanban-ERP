@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity as ActivityIcon } from "lucide-react";
+import { Activity as ActivityIcon, Check } from "lucide-react";
 import { avatarColor, initials } from "./activityFormat";
 
 // Weekly capacity baseline (hours). The workload bar reads summed est-hours of
@@ -119,22 +119,22 @@ export function TeamCapacityList({
         </div>
       )}
 
+      {/* Idle members get full rows too — the capacity view is only complete
+          when the whole team is visible (empty bar = free capacity). */}
       {idle.length > 0 && (
-        <div className="flex items-center gap-3 mt-3.5 px-4 py-3 rounded-lg border border-dashed border-slate-200 bg-slate-50">
-          <div className="flex">
-            {idle.slice(0, 4).map((u, i) => (
-              <div
-                key={u.name}
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ring-2 ring-slate-50 ${avatarColor(u.name)} ${i === 0 ? "" : "-ml-1.5"}`}
-              >
-                {initials(u.name)}
-              </div>
+        <div className={active.length > 0 ? "mt-4 pt-4 border-t border-slate-100" : "mt-1"}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Check size={14} className="text-emerald-500" />
+              ว่าง รับงานได้
+            </span>
+            <span className="text-[11px] text-slate-400 font-semibold">{idle.length} คน</span>
+          </div>
+          <div className="flex flex-col">
+            {idle.map((u) => (
+              <CapacityRow key={u.name} user={u} role={roleByName.get(u.name)} />
             ))}
           </div>
-          <span className="text-xs font-semibold text-slate-600">
-            <b className="text-slate-900">{idle.length} คนว่าง</b> ·{" "}
-            {idle.map((u) => u.name).join(", ")} — ยังไม่มีงานที่รับผิดชอบ
-          </span>
         </div>
       )}
     </div>

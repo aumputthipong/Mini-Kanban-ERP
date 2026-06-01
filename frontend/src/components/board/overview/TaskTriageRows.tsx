@@ -1,6 +1,6 @@
 "use client";
 
-import { AlarmClock } from "lucide-react";
+import { AlarmClock, Calendar } from "lucide-react";
 import type { Card } from "@/types/board";
 import { getAvatarColor } from "@/utils/avatar";
 
@@ -91,17 +91,20 @@ export function CriticalHero({
     <button
       type="button"
       onClick={() => onSelect(card)}
-      className="group relative w-full flex items-center gap-4 mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-left overflow-hidden hover:bg-rose-100/60 transition-colors"
+      className="group relative w-full flex items-center gap-4 mb-6 rounded-xl border border-slate-200 bg-white p-4 text-left overflow-hidden shadow-sm hover:bg-slate-50 transition-colors"
     >
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-rose-600" />
-      <span className="w-10 h-10 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-rose-500" />
+      <span className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
         <AlarmClock size={20} />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-600">
-          เร่งด่วนที่สุด · จัดการก่อน
-        </p>
-        <p className="text-base font-bold text-slate-900 truncate mt-0.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+            เร่งด่วนที่สุด
+          </span>
+          <span className="text-[11px] font-medium text-slate-400">จัดการก่อน</span>
+        </div>
+        <p className="text-base font-bold text-slate-900 truncate mt-1">
           {card.title}
         </p>
         <div className="flex items-center gap-3.5 mt-1.5 text-xs text-slate-600 flex-wrap">
@@ -130,11 +133,11 @@ export function CriticalHero({
         </div>
       </div>
       <div className="flex flex-col items-end gap-2 shrink-0">
-        <div className="text-right leading-none">
-          <span className="text-2xl font-bold text-rose-600 tabular-nums">{days}</span>
-          <span className="text-xs font-semibold text-rose-700 ml-1">วัน</span>
-        </div>
-        <span className="inline-flex items-center gap-1 px-3 h-8 rounded bg-slate-600 text-white text-xs font-semibold group-hover:bg-slate-700 transition-colors">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums">
+          <Calendar size={12} />
+          เลย {days} วัน
+        </span>
+        <span className="inline-flex items-center gap-1 px-3 h-8 rounded bg-blue-700 text-white text-xs font-semibold group-hover:bg-blue-800 transition-colors">
           เปิดงาน →
         </span>
       </div>

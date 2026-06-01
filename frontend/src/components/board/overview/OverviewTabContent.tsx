@@ -109,21 +109,23 @@ export function OverviewTabContent({
           </div>
         </div>
 
-        {/* Overdue — the most urgent number, promoted and actionable */}
+        {/* Overdue — the most urgent number, promoted and actionable. Surface
+            stays neutral like its siblings; the rose signal is confined to the
+            small icon tile + the count (a badge-scale element). */}
         {overdueCount > 0 ? (
           <button
             type="button"
             onClick={() => onOpenTab?.("Tasks")}
-            className="text-left bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex items-center gap-4 hover:bg-rose-100/70 transition-colors group"
+            className="text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 hover:bg-slate-50 transition-colors group"
           >
-            <div className="p-2.5 bg-rose-600 rounded-lg text-white">
+            <div className="p-2.5 bg-rose-50 rounded-lg text-rose-600">
               <AlarmClock size={18} />
             </div>
             <div>
               <p className="text-2xl font-extrabold text-rose-600">{overdueCount}</p>
-              <p className="text-xs text-rose-700/80 font-medium">เลยกำหนด — ต้องจัดการ</p>
+              <p className="text-xs text-slate-400 font-medium">เลยกำหนด — ต้องจัดการ</p>
             </div>
-            <span className="ml-auto text-xs font-semibold text-rose-600 group-hover:translate-x-0.5 transition-transform">
+            <span className="ml-auto text-xs font-semibold text-slate-400 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all">
               ดู →
             </span>
           </button>
@@ -150,8 +152,8 @@ export function OverviewTabContent({
       {insights.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Zap size={15} className="text-indigo-600 fill-indigo-500" />
-            <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wide">
+            <Zap size={15} className="text-slate-400" />
+            <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide">
               Insights · ทำอะไรต่อ
             </h3>
           </div>
@@ -162,13 +164,11 @@ export function OverviewTabContent({
               return (
                 <div
                   key={i}
-                  className={`flex items-start gap-3 p-3.5 rounded-lg border ${
-                    isRisk ? "bg-rose-50 border-rose-200" : "bg-blue-50 border-blue-200"
-                  }`}
+                  className="flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 bg-white"
                 >
                   <span
-                    className={`w-[26px] h-[26px] rounded-lg flex items-center justify-center text-white shrink-0 ${
-                      isRisk ? "bg-rose-600" : "bg-blue-700"
+                    className={`w-[26px] h-[26px] rounded-lg flex items-center justify-center shrink-0 ${
+                      isRisk ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"
                     }`}
                   >
                     {isRisk ? <AlertTriangle size={14} /> : <Users size={14} />}
@@ -181,9 +181,7 @@ export function OverviewTabContent({
                       <button
                         type="button"
                         onClick={() => onOpenTab(cta.tab)}
-                        className={`mt-1 text-xs font-bold ${
-                          isRisk ? "text-rose-600" : "text-blue-700"
-                        } hover:underline`}
+                        className="mt-1 text-xs font-bold text-slate-600 hover:text-slate-900 hover:underline"
                       >
                         {cta.label}
                       </button>
