@@ -71,7 +71,7 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
   const headline =
     health.overloaded > 0 ? (
       <>
-        <span className="text-rose-200 font-bold">{health.overloaded} คนงานล้น</span> —
+        <span className="text-rose-600 font-bold">{health.overloaded} คนงานล้น</span> —
         ควรกระจายงานให้คนที่ว่าง
       </>
     ) : health.free === fullWorkload.length ? (
@@ -92,16 +92,16 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
 
       {/* Health header — answers "is the team healthy?" first */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3.5">
-        <div className="flex items-center gap-5 rounded-xl bg-blue-800 text-white px-6 py-5">
+        <div className="flex items-center gap-5 rounded-xl bg-white border border-slate-200 shadow-sm px-6 py-5">
           <div className="relative w-[78px] h-[78px] shrink-0">
             <svg width="78" height="78" className="-rotate-90">
-              <circle cx="39" cy="39" r="32" fill="none" stroke="rgba(255,255,255,.22)" strokeWidth="8" />
+              <circle cx="39" cy="39" r="32" fill="none" stroke="#E2E8F0" strokeWidth="8" />
               <circle
                 cx="39"
                 cy="39"
                 r="32"
                 fill="none"
-                stroke="#fff"
+                stroke="#1D4ED8"
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={RING}
@@ -109,17 +109,17 @@ export function TeamTabContent({ workload, boardId, boardMembers }: TeamTabConte
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-xl font-bold leading-none tabular-nums">{health.loadPct}%</span>
-              <span className="text-[8.5px] font-semibold uppercase tracking-wider opacity-80 mt-0.5">
+              <span className="text-xl font-bold leading-none tabular-nums text-slate-900">{health.loadPct}%</span>
+              <span className="text-[8.5px] font-semibold uppercase tracking-wider text-slate-400 mt-0.5">
                 โหลดทีม
               </span>
             </div>
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               สถานะทีม
             </p>
-            <p className="text-lg font-bold leading-snug mt-1">{headline}</p>
+            <p className="text-lg font-bold leading-snug mt-1 text-slate-900">{headline}</p>
           </div>
         </div>
 

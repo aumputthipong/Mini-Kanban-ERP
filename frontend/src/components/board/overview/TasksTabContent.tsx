@@ -101,9 +101,13 @@ export function TasksTabContent({
             Tasks
           </h2>
           <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 flex-wrap">
-            <span className="font-bold text-rose-600">
-              {buckets.overdue.length} เลยกำหนด
-            </span>
+            {buckets.overdue.length > 0 ? (
+              <span className="inline-flex items-center rounded bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 text-[11px] font-semibold">
+                {buckets.overdue.length} เลยกำหนด
+              </span>
+            ) : (
+              <span className="font-semibold text-slate-600">ไม่มีงานเลยกำหนด</span>
+            )}
             <span aria-hidden className="w-0.5 h-0.5 rounded-full bg-slate-300" />
             <span>{upcomingTotal} ภายในสัปดาห์นี้</span>
             <span aria-hidden className="w-0.5 h-0.5 rounded-full bg-slate-300" />
