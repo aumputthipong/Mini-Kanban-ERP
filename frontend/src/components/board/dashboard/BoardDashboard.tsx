@@ -177,7 +177,9 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
           />
         )}
 
-        {activeTab === "Team" && <TeamTabContent boardId={boardId} />}
+        {activeTab === "Team" && (
+          <TeamTabContent boardId={boardId} onSelectCard={setSelectedCard} />
+        )}
       </div>
     </>
   );

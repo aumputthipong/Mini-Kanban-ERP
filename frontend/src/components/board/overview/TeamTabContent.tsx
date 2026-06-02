@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import type { Card } from "@/types/board";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import { useBoardStore } from "@/store/useBoardStore";
 import { TeamActivityPanel } from "./TeamActivityPanel";
@@ -8,9 +9,10 @@ import { TeamOwnershipList } from "./TeamOwnershipList";
 
 interface TeamTabContentProps {
   boardId: string;
+  onSelectCard: (card: Card) => void;
 }
 
-export function TeamTabContent({ boardId }: TeamTabContentProps) {
+export function TeamTabContent({ boardId, onSelectCard }: TeamTabContentProps) {
   const { activities, loading, error } = useActivityFeed(boardId);
   const columns = useBoardStore((s) => s.columns);
 
@@ -32,7 +34,7 @@ export function TeamTabContent({ boardId }: TeamTabContentProps) {
 
       {/* Ownership (left) + activity (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-5">
-        <TeamOwnershipList />
+        <TeamOwnershipList onSelectCard={onSelectCard} />
         <TeamActivityPanel
           activities={activities}
           loading={loading}

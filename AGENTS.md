@@ -153,6 +153,19 @@ When extending the inbox (new group, new filter, new card action): touch SQL `wo
 
 ---
 
+## Ownership View Pattern (Team tab)
+
+The **Team** tab (`overview/TeamTabContent` → `TeamOwnershipList`) answers **"ใครถือ card อะไรอยู่ตอนนี้"** — a per-member count of active cards, broken down by status column, expandable to the actual card list. It replaced an `estimated_hours`-vs-40h-cap "workload bar" that read empty because teams don't fill estimates; ownership is **ground truth** (assignment + column), not a capacity guess.
+
+- **Frontend-only, derived from the store.** `useBoardOwnership` (`hooks/`) computes everything from `useBoardStore` (`columns` + `boardMembers`) inside a `useMemo` — the *same* source the kanban renders. No endpoint, no sqlc query, no new table. It updates for free via optimistic mutations + WS broadcasts (the store mutates → memo recomputes). **Don't** add a `/ownership` REST endpoint to duplicate this — the full board is already on the client.
+- **"Held" = `assignee_id != null` AND `!is_done`.** There is no card archive (`cards.archived_at` doesn't exist) and no `columns.is_done_column` — done is the denormalized `cards.is_done` (set on move into a `category = 'DONE'` column). Count cards **only within non-DONE columns** so `totalHeld` equals the sum of the per-column cells. Unassigned cards belong to no one (a future "Unassigned" group, not a member row).
+- **Headers are dynamic.** Status columns come from the board's own non-DONE columns ordered by `position` — never hardcode "Todo/Doing/Review". DONE columns are hidden. Idle members stay listed with a neutral "ว่าง" badge (emerald, **not** a red cap warning — this view never judges over/under-load).
+- **Reuse, don't fork.** Avatars use `avatarColor`/`initials` from `overview/activityFormat`; due/overdue uses `daysOverdue` from `TaskTriageRows`; opening a card threads `onSelectCard` from `BoardDashboard` (which owns the `CardDetailModal`) down through the tab.
+
+**Use this pattern** for "who has what right now" questions answerable from the loaded board (ownership, assignment load by count). **Avoid it** for anything needing history or cross-board aggregation (e.g. "completed last week", workspace-wide totals) — those need a real query/endpoint, not the board store. Capacity/hours framing is intentionally gone; don't reintroduce a cap constant.
+
+---
+
 ## Testing & verification
 
 ก่อนรายงานว่างานเสร็จ:

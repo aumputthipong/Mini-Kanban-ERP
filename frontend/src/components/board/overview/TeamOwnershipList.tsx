@@ -1,10 +1,15 @@
 "use client";
 
 import { Users } from "lucide-react";
+import type { Card } from "@/types/board";
 import { useBoardOwnership } from "@/hooks/useBoardOwnership";
 import { MemberOwnershipRow } from "./MemberOwnershipRow";
 
-export function TeamOwnershipList() {
+interface TeamOwnershipListProps {
+  onSelectCard: (card: Card) => void;
+}
+
+export function TeamOwnershipList({ onSelectCard }: TeamOwnershipListProps) {
   const { columns, members } = useBoardOwnership();
 
   return (
@@ -46,6 +51,7 @@ export function TeamOwnershipList() {
                   key={member.userId}
                   member={member}
                   columns={columns}
+                  onSelectCard={onSelectCard}
                 />
               ))}
             </tbody>
