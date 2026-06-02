@@ -177,13 +177,7 @@ export function BoardDashboard({ boardId }: BoardDashboardProps) {
           />
         )}
 
-        {activeTab === "Team" && (
-          <TeamTabContent
-            workload={stats.workload}
-            boardId={boardId}
-            boardMembers={boardMembers}
-          />
-        )}
+        {activeTab === "Team" && <TeamTabContent boardId={boardId} />}
       </div>
     </>
   );
